@@ -3,6 +3,12 @@ import time
 import threading
 import pygame
 import sys
+import heapq
+
+
+pygame.init()
+pygame.font.init()
+simulation = pygame.sprite.Group()
 
 # Default values of signal timers
 defaultGreen = {0:10, 1:10, 2:10, 3:10}
@@ -25,6 +31,17 @@ vehicles = {'right': {0:[], 1:[], 2:[], 'crossed':0}, 'down': {0:[], 1:[], 2:[],
 vehicleTypes = {0:'car', 1:'bus', 2:'truck', 3:'bike'}
 directionNumbers = {0:'right', 1:'down', 2:'left', 3:'up'}
 
+# for keeping vehicle count before cycle starts
+vehicle_counts = {'right': 0, 'down': 0, 'left': 0, 'up': 0}
+
+# Define position to show vehicle count text for each signal
+vehicleCountCoods = [(500, 180), (780, 180), (780, 520), (500, 520)]
+
+# Font (reuse or redefine if needed)
+font = pygame.font.Font(None, 28)
+vehicleCountTexts = ["", "", "", ""]
+
+
 # Coordinates of signal image, timer, and vehicle count
 signalCoods = [(530,230),(810,230),(810,570),(530,570)]
 signalTimerCoods = [(530,210),(810,210),(810,550),(530,550)]
@@ -37,10 +54,6 @@ defaultStop = {'right': 580, 'down': 320, 'left': 810, 'up': 545}
 # Gap between vehicles
 stoppingGap = 15    # stopping gap
 movingGap = 15   # moving gap
-
-pygame.init()
-simulation = pygame.sprite.Group()
-
 class TrafficSignal:
     def __init__(self, red, yellow, green):
         self.red = red
@@ -129,30 +142,64 @@ def initialize():
     signals.append(ts4)
     repeat()
 
+# Helper function to count uncrossed vehicles for each direction
+# def get_vehicle_counts():
+#     counts = {}
+#     for dir_name in directionNumbers.values():
+#         count = 0
+#         for lane in range(3):
+#             count += sum(1 for vehicle in vehicles[dir_name][lane] if vehicle.crossed == 0)
+#         counts[dir_name] = count
+#     return counts
+
+def get_vehicle_counts():
+    counts = {}
+    for i in range(4):  # 0:right, 1:down, 2:left, 3:up
+        direction = directionNumbers[i]
+        count = sum(1 for lane in range(3) for v in vehicles[direction][lane] if not v.crossed)
+        counts[direction] = count
+    return counts
+
+# Dynamic queue generation based on vehicle count
+def generate_signal_queue():
+    vehicle_counts = get_vehicle_counts()
+    sorted_gates = sorted(vehicle_counts.items(), key=lambda x: x[1], reverse=True)
+    return [list(directionNumbers.keys())[list(directionNumbers.values()).index(direction)] for direction, _ in sorted_gates]
+
 def repeat():
-    global currentGreen, currentYellow, nextGreen
-    while(signals[currentGreen].green>0):   # while the timer of current green signal is not zero
-        updateValues()
-        time.sleep(1)
-    currentYellow = 1   # set yellow signal on
-    # reset stop coordinates of lanes and vehicles 
-    for i in range(0,3):
-        for vehicle in vehicles[directionNumbers[currentGreen]][i]:
-            vehicle.stop = defaultStop[directionNumbers[currentGreen]]
-    while(signals[currentGreen].yellow>0):  # while the timer of current yellow signal is not zero
-        updateValues()
-        time.sleep(1)
-    currentYellow = 0   # set yellow signal off
-    
-     # reset all signal times of current signal to default times
-    signals[currentGreen].green = defaultGreen[currentGreen]
-    signals[currentGreen].yellow = defaultYellow
-    signals[currentGreen].red = defaultRed
-       
-    currentGreen = nextGreen # set next signal as green signal
-    nextGreen = (currentGreen+1)%noOfSignals    # set next green signal
-    signals[nextGreen].red = signals[currentGreen].yellow+signals[currentGreen].green    # set the red time of next to next signal as (yellow time + green time) of next signal
-    repeat()  
+    global currentGreen, currentYellow
+
+    while True:
+        vehicle_counts_snapshot = get_vehicle_counts()
+        signalQueue = sorted(vehicle_counts_snapshot.items(), key=lambda x: x[1], reverse=True)
+        signalQueue = [list(directionNumbers.keys())[list(directionNumbers.values()).index(direction)] for direction, _ in signalQueue]
+
+        for currentGreen in signalQueue:
+            vehicle_count = get_vehicle_counts()[directionNumbers[currentGreen]]
+            green_time = min(vehicle_count * 0.5, 90)
+
+            signals[currentGreen].green = int(green_time)
+            while signals[currentGreen].green > 0:
+                updateValues()
+                time.sleep(1)
+
+            currentYellow = 1
+            for i in range(3):
+                for vehicle in vehicles[directionNumbers[currentGreen]][i]:
+                    vehicle.stop = defaultStop[directionNumbers[currentGreen]]
+            while signals[currentGreen].yellow > 0:
+                updateValues()
+                time.sleep(1)
+            currentYellow = 0
+
+            signals[currentGreen].green = defaultGreen[currentGreen]
+            signals[currentGreen].yellow = defaultYellow
+            signals[currentGreen].red = defaultRed
+
+        repeat()  # Start the next cycle after queue is emptied
+
+# This adjusted `repeat` method now dynamically assigns green times based on real-time vehicle counts,
+# serves directions based on demand using FIFO logic, and resets every full cycle.
 
 # Update values of the signal timers after every second
 def updateValues():
@@ -245,6 +292,12 @@ class Main:
         for vehicle in simulation:  
             screen.blit(vehicle.image, [vehicle.x, vehicle.y])
             vehicle.move()
+        vehicle_counts = get_vehicle_counts()
+        vehicleCountTexts = ["", "", "", ""]
+        for i in range(noOfSignals):
+            direction = directionNumbers[i]
+            vehicleCountTexts[i] = font.render(f"Count: {vehicle_counts[direction]}", True, white, black)
+            screen.blit(vehicleCountTexts[i], vehicleCountCoods[i])
         pygame.display.update()
 
 
