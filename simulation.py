@@ -21,24 +21,26 @@ currentGreen = 0   # Indicates which signal is green currently
 nextGreen = (currentGreen+1)%noOfSignals    # Indicates which signal will turn green next
 currentYellow = 0   # Indicates whether yellow signal is on or off 
 
-# speeds = {'car':2.25, 'bus':1.8, 'truck':1.8, 'bike':2.5}  # average speeds of vehicles
-speeds = {'car':0.65, 'bus':0.4, 'truck':0.4, 'bike':.75}  # average speeds of vehicles
+speeds = {'car':1, 'bus':.5, 'truck':.5, 'bike':1}  # average speeds of vehicles
+# speeds = {'car':2, 'bus':1, 'truck':1, 'bike':2}  # average speeds of vehicles
+# speeds = {'car':0.65, 'bus':0.4, 'truck':0.4, 'bike':.75}  # average speeds of vehicles
 # Coordinates of vehicles' start
 x = {
-    'right':[0, 0, 0], 
-    'down':[710, 660, 610], 
-    'left':[1500, 1500, 1500], 
-    'up':[300, 350, 400]
+    'right':[0, 0, 0, 0], 
+    'down':[660, 610, 560, 560], 
+    'left':[1500, 1500, 1500, 1500], 
+    'up':[350, 400, 450, 450]
 }
 y = {
-    'right':[310, 360, 410], 
-    'down':[0, 0, 0], 
-    'left':[610, 560, 510], 
-    'up':[1400, 1400, 1400]
+    'right':[310, 360, 410, 416], 
+    'down':[0, 0, 0, 0], 
+    'left':[610, 560, 510, 560], 
+    'up':[1400, 1400, 1400, 1400]
 }
 
 
-vehicles = {'right': {0:[], 1:[], 2:[], 'crossed':0}, 'down': {0:[], 1:[], 2:[], 'crossed':0}, 'left': {0:[], 1:[], 2:[], 'crossed':0}, 'up': {0:[], 1:[], 2:[], 'crossed':0}}
+# vehicles = {'right': {0:[], 1:[], 2:[], 'crossed':0}, 'down': {0:[], 1:[], 2:[], 'crossed':0}, 'left': {0:[], 1:[], 2:[], 'crossed':0}, 'up': {0:[], 1:[], 2:[], 'crossed':0}}
+vehicles = {'right': {0:[], 1:[], 2:[], 3:[], 'crossed':0}, 'down': {0:[], 1:[], 2:[], 3:[], 'crossed':0}, 'left': {0:[], 1:[], 2:[], 3:[], 'crossed':0}, 'up': {0:[], 1:[], 2:[], 3:[], 'crossed':0}}
 vehicleTypes = {0:'car', 1:'bus', 2:'truck', 3:'bike'}
 directionNumbers = {0:'right', 1:'down', 2:'left', 3:'up'}
 
@@ -240,7 +242,6 @@ def updateValues():
 def generateVehicles():
     while(True):
         vehicle_type = random.randint(0,3)
-        lane_number = random.randint(1,2)
         temp = random.randint(0,99)
         direction_number = 0
         dist = [25,50,75,100]
@@ -252,6 +253,13 @@ def generateVehicles():
             direction_number = 2
         elif(temp<dist[3]):
             direction_number = 3
+        
+        #  Decide the number of lanes
+        max_lane_number = 3
+        # if(direction_number%2):
+        #     max_lane_number = 4
+        lane_number = random.randint(0,max_lane_number-1)
+        
         Vehicle(lane_number, vehicleTypes[vehicle_type], direction_number, directionNumbers[direction_number])
         time.sleep(1)
 
