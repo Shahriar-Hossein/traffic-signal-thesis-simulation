@@ -1,15 +1,7 @@
+# utils.py
+
 from vehicle import vehicles
 from config import directionNumbers
-
-# Helper function to count uncrossed vehicles for each direction
-# def get_vehicle_counts():
-#     counts = {}
-#     for dir_name in directionNumbers.values():
-#         count = 0
-#         for lane in range(3):
-#             count += sum(1 for vehicle in vehicles[dir_name][lane] if vehicle.crossed == 0)
-#         counts[dir_name] = count
-#     return counts
 
 def get_vehicle_counts():
     counts = {}

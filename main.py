@@ -1,27 +1,23 @@
 # main.py
 
 import pygame
-import threading
 import sys
 
-from simulation import initialize, generateVehicles
 from utils import get_vehicle_counts
 from config import (
     signalCoods, signalTimerCoods, vehicleCountCoods,
-    directionNumbers, noOfSignals, currentYellow, currentGreen,
+    directionNumbers, currentYellow, currentGreen,
     black, white, screenSize
 )
+from draw_utils import draw_traffic_signals, draw_all_vehicles, draw_vehicle_count_texts, draw_inline_counts
 from vehicle import vehicles, simulation
 from traffic_signal import signals
+from simulation import start_simulation_threads
 
 pygame.init()
 pygame.font.init()
-
-
-thread1 = threading.Thread(name="initialization",target=initialize, args=())    # initialization
-thread1.daemon = True
-thread1.start()
-
+clock = pygame.time.Clock()
+start_simulation_threads()
 
 # Setting background image i.e. image of intersection
 background = pygame.image.load('images/city_intersection.png')
@@ -35,11 +31,6 @@ yellowSignal = pygame.image.load('images/signals/yellow.png')
 greenSignal = pygame.image.load('images/signals/green.png')
 font = pygame.font.Font(None, 30)
 
-thread2 = threading.Thread(name="generateVehicles",target=generateVehicles, args=())    # Generating vehicles
-thread2.daemon = True
-thread2.start()
-
-cafBuilding = pygame.image.load('images/buildings/cafe_building.png')
 
 while True:
     for event in pygame.event.get():
@@ -47,40 +38,17 @@ while True:
             sys.exit()
 
     screen.blit(background,(0,0))   # display background in simulation
-    
-    # screen.blit(cafBuilding, (150,150))
 
-    # render traffic signal lights and timers
-    for i in range(0,noOfSignals):  
-        if(i==currentGreen):
-            if(currentYellow==1):
-                signals[i].signalText = signals[i].yellow
-                screen.blit(yellowSignal, signalCoods[i])
-            else:
-                signals[i].signalText = signals[i].green
-                screen.blit(greenSignal, signalCoods[i])
-        else:
-            if(signals[i].red<=10):
-                signals[i].signalText = signals[i].red
-            else:
-                signals[i].signalText = "---"
-            screen.blit(redSignal, signalCoods[i])
-    
-    signalTexts = ["","","",""]
-    # display signal timer
-    for i in range(0,noOfSignals):  
-        signalTexts[i] = font.render(str(signals[i].signalText), True, white, black)
-        screen.blit(signalTexts[i],signalTimerCoods[i])
+    draw_traffic_signals(screen, font, signals, currentGreen, currentYellow, redSignal, 
+        yellowSignal, greenSignal,signalCoods, signalTimerCoods, black, white)
 
-    # display the vehicles
-    for vehicle in simulation:  
-        screen.blit(vehicle.image, [vehicle.x, vehicle.y])
-        vehicle.move()
-    vehicle_counts = get_vehicle_counts()
-    vehicleCountTexts = ["", "", "", ""]
-    for i in range(noOfSignals):
-        direction = directionNumbers[i]
-        vehicleCountTexts[i] = font.render(f"Count: {vehicle_counts[direction]}", True, white, black)
-        screen.blit(vehicleCountTexts[i], vehicleCountCoods[i])
+    draw_all_vehicles(screen, simulation)
+
+    draw_vehicle_count_texts(screen, font, get_vehicle_counts(),
+        directionNumbers, vehicleCountCoods, black, white)
+    
+    draw_inline_counts(screen, font, get_vehicle_counts(), directionNumbers)
+    
     pygame.display.update()
+    clock.tick(60)  # Cap to 60 FPS
 
