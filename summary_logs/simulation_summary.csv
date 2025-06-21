@@ -1,0 +1,3 @@
+mode,total_vehicles,unique_vehicles,time_span_seconds,average_wait_time_sec,average_wait_time_by_direction,average_wait_time_by_type,vehicles_by_type,vehicles_by_direction
+prioity,222,222,399.0,33.81,"{'right': 29.9, 'down': 32.21, 'left': 37.7, 'up': 34.56}","{'car': 32.64, 'bike': 30.59, 'bus': 35.85, 'truck': 36.66}","{'car': 55, 'bike': 61, 'bus': 52, 'truck': 54}","{'right': 45, 'down': 74, 'left': 69, 'up': 34}"
+fixed,227,227,396.0,34.56,"{'right': 34.89, 'down': 29.15, 'left': 38.68, 'up': 35.78}","{'truck': 32.11, 'bus': 36.23, 'bike': 33.6, 'car': 36.28}","{'truck': 60, 'bus': 56, 'bike': 51, 'car': 60}","{'right': 63, 'down': 63, 'left': 68, 'up': 33}"

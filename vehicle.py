@@ -1,9 +1,11 @@
 import pygame
+from logger import log_vehicle
 from config import (
     speeds, x, y, stoppingGap, defaultStop, 
     movingGap, stopLines,
 )
 import state
+from datetime import datetime
 
 vehicles = lambda: state.vehicles
 
@@ -15,6 +17,8 @@ class Vehicle(pygame.sprite.Sprite):
         self.speed = speeds[vehicleClass]
         self.direction_number = direction_number
         self.direction = direction
+
+        self.created_at = datetime.now()
 
         # Set starting coordinates
         self.x = x[direction][lane]
@@ -80,6 +84,7 @@ class Vehicle(pygame.sprite.Sprite):
         if self.direction == 'right':
             if not self.crossed and self.x + width > stopLines[self.direction]:
                 self.crossed = 1
+                log_vehicle(self)
 
             if (self.x + width <= self.stop or self.crossed or green_go):
                 if not prev_vehicle or (self.x + width < prev_vehicle.x - movingGap):
@@ -88,6 +93,7 @@ class Vehicle(pygame.sprite.Sprite):
         elif self.direction == 'down':
             if not self.crossed and self.y + height > stopLines[self.direction]:
                 self.crossed = 1
+                log_vehicle(self)
 
             if (self.y + height <= self.stop or self.crossed or green_go):
                 if not prev_vehicle or (self.y + height < prev_vehicle.y - movingGap):
@@ -96,6 +102,7 @@ class Vehicle(pygame.sprite.Sprite):
         elif self.direction == 'left':
             if not self.crossed and self.x < stopLines[self.direction]:
                 self.crossed = 1
+                log_vehicle(self)
 
             if (self.x >= self.stop or self.crossed or green_go):
                 if not prev_vehicle or (self.x > prev_vehicle.x + prev_vehicle.image.get_rect().width + movingGap):
@@ -104,6 +111,7 @@ class Vehicle(pygame.sprite.Sprite):
         elif self.direction == 'up':
             if not self.crossed and self.y < stopLines[self.direction]:
                 self.crossed = 1
+                log_vehicle(self)
 
             if (self.y >= self.stop or self.crossed or green_go):
                 if not prev_vehicle or (self.y > prev_vehicle.y + prev_vehicle.image.get_rect().height + movingGap):

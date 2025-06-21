@@ -4,6 +4,8 @@ import random
 import time
 import threading
 from typing import List
+from logger import init_logger
+
 
 from config import (
     defaultGreen, defaultRed, defaultYellow,
@@ -26,8 +28,46 @@ def initialize():
     ts4 = TrafficSignal(defaultRed, defaultYellow, defaultGreen[3])
 
     signals.extend([ts1, ts2, ts3, ts4])
+    if state.currentMode == "priority":
+        control_traffic_cycle()
+    else:
+        fixed_traffic_cycle()
 
-    control_traffic_cycle()
+
+def fixed_traffic_cycle():
+    """
+    Fixed traffic signal cycle controller.
+    Rotates signals in a fixed order (right → down → left → up) 
+    with fixed green time, regardless of vehicle count.
+    """
+    fixed_order = [0, 1, 2, 3]  # right, down, left, up
+    fixed_green_time = 10  # You can adjust this for your test (e.g., 10, 15, etc.)
+
+    while state.running:
+        for green_index in fixed_order:
+            state.currentGreen = green_index
+
+            signals[green_index].green = fixed_green_time
+
+            # Green phase
+            for _ in range(fixed_green_time):
+                update_signal_timers(green_index, yellow=False)
+                time.sleep(1)
+
+            # Yellow phase
+            state.currentYellow = 1
+            for i in range(3):
+                for vehicle in state.vehicles[directionNumbers[green_index]][i]:
+                    vehicle.stop = defaultStop[directionNumbers[green_index]]
+            for _ in range(defaultYellow):
+                update_signal_timers(green_index, yellow=True)
+                time.sleep(1)
+            state.currentYellow = 0
+
+            # Reset signal timers
+            signals[green_index].green = defaultGreen[green_index]
+            signals[green_index].yellow = defaultYellow
+            signals[green_index].red = defaultRed
 
 
 def control_traffic_cycle():
@@ -36,7 +76,7 @@ def control_traffic_cycle():
     Prioritizes lanes based on dynamic vehicle queue.
     """
 
-    while True:
+    while state.running:
         # Sort signal priority by current vehicle count
         vehicle_counts_snapshot = get_vehicle_counts()
         signal_queue = sorted(vehicle_counts_snapshot.items(), key=lambda x: x[1], reverse=True)
@@ -49,7 +89,10 @@ def control_traffic_cycle():
             state.currentGreen = green_index
 
             vehicle_count = get_vehicle_counts()[directionNumbers[green_index]]
-            green_time = int(min(vehicle_count * 0.5, 10)) or 2
+            # main formula
+            # green_time = int(min(vehicle_count * 0.5, 10)) or 1
+            # adjustment for the simulation purpose
+            green_time = min(max(3, vehicle_count * 2), 20) 
 
             signals[green_index].green = green_time
 
@@ -90,7 +133,7 @@ def generateVehicles():
     """
     Generate vehicles continuously in random directions and lanes.
     """
-    while True:
+    while state.running:
         vehicle_type_index = random.randint(0, 3)
         spawn_chance = random.randint(0, 99)
 
@@ -115,5 +158,7 @@ def start_simulation_threads():
     """
     Starts initialization and vehicle generation in separate threads.
     """
+    init_logger()
     threading.Thread(target=initialize, name="InitializationThread", daemon=True).start()
     threading.Thread(target=generateVehicles, name="VehicleGeneratorThread", daemon=True).start()
+    

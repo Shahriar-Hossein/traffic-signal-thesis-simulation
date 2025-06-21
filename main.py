@@ -13,13 +13,18 @@ from draw_utils import draw_traffic_signals, draw_all_vehicles, draw_vehicle_cou
 from traffic_signal import signals
 from simulation import start_simulation_threads
 import state
+import time
 
-# vehicle_simulation = lambda: state.vehicle_simulation
 
 pygame.init()
 pygame.font.init()
 clock = pygame.time.Clock()
+# normal approach, fixed timer
+# state.currentMode = "fixed" 
+# Our appraoch, priority based
+state.currentMode = "prioity" 
 start_simulation_threads()
+
 
 # Setting background image i.e. image of intersection
 background = pygame.image.load('images/city_intersection.png')
@@ -34,7 +39,18 @@ greenSignal = pygame.image.load('images/signals/green.png')
 font = pygame.font.Font(None, 30)
 
 
+duration = 120  # e.g., 2 minutes = 120 seconds
+start_time = time.time()
+
 while True:
+    # Check simulation time
+    elapsed_time = time.time() - start_time
+    if elapsed_time >= duration:
+        print("Simulation time complete. Exiting...")
+        state.running = False
+        pygame.quit()
+        sys.exit()
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             sys.exit()

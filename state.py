@@ -16,3 +16,9 @@ vehicle_simulation = pygame.sprite.Group()
 # Current signal states (which one is green / yellow)
 currentGreen = 0
 currentYellow = 0
+
+# priority mode for our approach, fixed for regular approach
+currentMode = "priority"
+
+# for exit logic
+running = True
