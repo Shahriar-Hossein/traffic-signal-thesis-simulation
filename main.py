@@ -6,13 +6,15 @@ import sys
 from utils import get_vehicle_counts
 from config import (
     signalCoods, signalTimerCoods, vehicleCountCoods,
-    directionNumbers, currentYellow, currentGreen,
+    directionNumbers,
     black, white, screenSize
 )
 from draw_utils import draw_traffic_signals, draw_all_vehicles, draw_vehicle_count_texts, draw_inline_counts
-from vehicle import vehicles, simulation
 from traffic_signal import signals
 from simulation import start_simulation_threads
+import state
+
+# vehicle_simulation = lambda: state.vehicle_simulation
 
 pygame.init()
 pygame.font.init()
@@ -39,10 +41,11 @@ while True:
 
     screen.blit(background,(0,0))   # display background in simulation
 
-    draw_traffic_signals(screen, font, signals, currentGreen, currentYellow, redSignal, 
-        yellowSignal, greenSignal,signalCoods, signalTimerCoods, black, white)
+    draw_traffic_signals(screen, font, signals, state.currentGreen, 
+        state.currentYellow, redSignal, yellowSignal, greenSignal,
+        signalCoods, signalTimerCoods, black, white)
 
-    draw_all_vehicles(screen, simulation)
+    draw_all_vehicles(screen, state.vehicle_simulation)
 
     draw_vehicle_count_texts(screen, font, get_vehicle_counts(),
         directionNumbers, vehicleCountCoods, black, white)

@@ -1,12 +1,17 @@
-# utils.py
-
-from vehicle import vehicles
 from config import directionNumbers
+import state
 
 def get_vehicle_counts():
+    """
+    Returns a dictionary with the count of uncrossed vehicles for each direction.
+    """
     counts = {}
-    for i in range(4):  # 0:right, 1:down, 2:left, 3:up
-        direction = directionNumbers[i]
-        count = sum(1 for lane in range(3) for v in vehicles[direction][lane] if not v.crossed)
+    for index, direction in directionNumbers.items():
+        lanes = state.vehicles[direction]
+        count = sum(
+            1 for lane in range(3)
+            for vehicle in lanes[lane]
+            if not vehicle.crossed
+        )
         counts[direction] = count
     return counts

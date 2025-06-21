@@ -1,3 +1,5 @@
+# simulation.py
+
 import random
 import time
 import threading
@@ -8,14 +10,10 @@ from config import (
     directionNumbers, vehicleTypes, defaultStop,
     noOfSignals
 )
-from vehicle import vehicles, Vehicle
+from vehicle import Vehicle
 from traffic_signal import TrafficSignal, signals
 from utils import get_vehicle_counts
-
-# Global simulation state (can move to config.py if shared)
-currentGreen = 0
-currentYellow = 0
-
+import state
 
 def initialize():
     """
@@ -37,7 +35,6 @@ def control_traffic_cycle():
     Main traffic signal cycle controller that runs forever.
     Prioritizes lanes based on dynamic vehicle queue.
     """
-    global currentGreen, currentYellow
 
     while True:
         # Sort signal priority by current vehicle count
@@ -48,31 +45,31 @@ def control_traffic_cycle():
             for direction, _ in signal_queue
         ]
 
-        for currentGreen in signal_order:
-            vehicle_count = get_vehicle_counts()[directionNumbers[currentGreen]]
-            green_time = int(min(vehicle_count * 0.5, 10)) or 2  # Ensure at least 2 seconds
+        for green_index in signal_order:
+            state.currentGreen = green_index
 
-            signals[currentGreen].green = green_time
+            vehicle_count = get_vehicle_counts()[directionNumbers[green_index]]
+            green_time = int(min(vehicle_count * 0.5, 10)) or 2
 
-            # Green phase
+            signals[green_index].green = green_time
+
             for _ in range(green_time):
-                update_signal_timers(currentGreen, yellow=False)
+                update_signal_timers(green_index, yellow=False)
                 time.sleep(1)
 
-            # Yellow phase
-            currentYellow = 1
+            state.currentYellow = 1
             for i in range(3):
-                for vehicle in vehicles[directionNumbers[currentGreen]][i]:
-                    vehicle.stop = defaultStop[directionNumbers[currentGreen]]
+                for vehicle in state.vehicles[directionNumbers[green_index]][i]:
+                    vehicle.stop = defaultStop[directionNumbers[green_index]]
             for _ in range(defaultYellow):
-                update_signal_timers(currentGreen, yellow=True)
+                update_signal_timers(green_index, yellow=True)
                 time.sleep(1)
-            currentYellow = 0
+            state.currentYellow = 0
 
-            # Reset this signal's timers
-            signals[currentGreen].green = defaultGreen[currentGreen]
-            signals[currentGreen].yellow = defaultYellow
-            signals[currentGreen].red = defaultRed
+            # Reset signal timers
+            signals[green_index].green = defaultGreen[green_index]
+            signals[green_index].yellow = defaultYellow
+            signals[green_index].red = defaultRed
 
 
 def update_signal_timers(current_green: int, yellow: bool):

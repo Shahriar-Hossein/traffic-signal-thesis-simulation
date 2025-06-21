@@ -1,20 +1,11 @@
 import pygame
 from config import (
     speeds, x, y, stoppingGap, defaultStop, 
-    movingGap, directionNumbers, stopLines,
-    currentGreen, currentYellow
+    movingGap, stopLines,
 )
+import state
 
-# Group to manage and render all vehicles
-simulation = pygame.sprite.Group()
-
-# Dictionary to hold vehicles per lane and direction
-vehicles = {
-    'right': {0: [], 1: [], 2: [], 3: [], 'crossed': 0}, 
-    'down':  {0: [], 1: [], 2: [], 3: [], 'crossed': 0}, 
-    'left':  {0: [], 1: [], 2: [], 3: [], 'crossed': 0}, 
-    'up':    {0: [], 1: [], 2: [], 3: [], 'crossed': 0}
-}
+vehicles = lambda: state.vehicles
 
 class Vehicle(pygame.sprite.Sprite):
     def __init__(self, lane, vehicleClass, direction_number, direction):
@@ -35,12 +26,12 @@ class Vehicle(pygame.sprite.Sprite):
         self.image = pygame.image.load(image_path)
 
         # Add to lane
-        vehicles[direction][lane].append(self)
-        self.index = len(vehicles[direction][lane]) - 1
+        state.vehicles[direction][lane].append(self)
+        self.index = len(state.vehicles[direction][lane]) - 1
 
         # Determine stop position
-        if self.index > 0 and not vehicles[direction][lane][self.index - 1].crossed:
-            prev = vehicles[direction][lane][self.index - 1]
+        if self.index > 0 and not state.vehicles[direction][lane][self.index - 1].crossed:
+            prev = state.vehicles[direction][lane][self.index - 1]
             prev_rect = prev.image.get_rect()
             if direction == 'right':
                 self.stop = prev.stop - prev_rect.width - stoppingGap
@@ -66,7 +57,7 @@ class Vehicle(pygame.sprite.Sprite):
         elif direction == 'up':
             y[direction][lane] += offset
 
-        simulation.add(self)
+        state.vehicle_simulation.add(self)
 
     def render(self, screen):
         screen.blit(self.image, (self.x, self.y))
@@ -76,15 +67,15 @@ class Vehicle(pygame.sprite.Sprite):
         width, height = rect.width, rect.height
 
         green_go = (
-            (self.direction == 'right' and currentGreen == 0) or
-            (self.direction == 'down' and currentGreen == 1) or
-            (self.direction == 'left' and currentGreen == 2) or
-            (self.direction == 'up' and currentGreen == 3)
-        ) and currentYellow == 0
+            (self.direction == 'right' and state.currentGreen == 0) or
+            (self.direction == 'down' and state.currentGreen == 1) or
+            (self.direction == 'left' and state.currentGreen == 2) or
+            (self.direction == 'up' and state.currentGreen == 3)
+        ) and state.currentYellow == 0
 
         prev_vehicle = None
         if self.index > 0:
-            prev_vehicle = vehicles[self.direction][self.lane][self.index - 1]
+            prev_vehicle = state.vehicles[self.direction][self.lane][self.index - 1]
 
         if self.direction == 'right':
             if not self.crossed and self.x + width > stopLines[self.direction]:
