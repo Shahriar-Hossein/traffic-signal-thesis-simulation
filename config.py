@@ -1,7 +1,7 @@
 # Signal Timing Defaults
-defaultGreen = {0: 10, 1: 10, 2: 10, 3: 10}
+defaultGreen = {0: 12, 1: 12, 2: 12, 3: 12}
 defaultRed = 0
-defaultYellow = 7
+defaultYellow = 6
 
 # Vehicle Speeds (pixels per frame)
 speeds = {
@@ -31,7 +31,7 @@ directionNumbers = {
 x = {
     'right': [0, 0, 0, 0],
     'down': [660, 610, 560, 560],
-    'left': [1500, 1500, 1500, 1500],
+    'left': [1008, 1008, 1008, 1008],
     'up': [350, 400, 450, 450]
 }
 
@@ -40,7 +40,7 @@ y = {
     'right': [310, 360, 410, 416],
     'down': [0, 0, 0, 0],
     'left': [610, 560, 510, 560],
-    'up': [1400, 1400, 1400, 1400]
+    'up': [1000, 1000, 1000, 1000]
 }
 
 # Stop Lines (where vehicles halt before intersection)

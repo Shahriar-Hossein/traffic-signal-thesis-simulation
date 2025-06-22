@@ -1,32 +1,37 @@
-# logger.py
-
 import csv
 import os
 from datetime import datetime
 import state
 
-# Create global log filename ONCE for this run
 log_filename = None
 
-def init_logger():
+def init_logger(duration_sec, uneven_mode=None):
     """
-    Create a timestamped log file with headers.
+    Initialize a timestamped log file inside mode and duration-based subfolders.
+    Example: logs/priority/120/priority_log_120_20250622_231230.csv
     """
     global log_filename
-    log_dir = "logs"
+
+    mode_label = state.currentMode  # e.g., 'priority', 'fixed'
+    duration_label = str(duration_sec)  # just seconds as folder name
+
+    log_dir = os.path.join("logs", uneven_mode, duration_label)
     os.makedirs(log_dir, exist_ok=True)
+
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     log_filename = os.path.join(
         log_dir,
-        f"{state.currentMode}_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        f"{mode_label}_log_{duration_label}_{timestamp}.csv"
     )
 
+    # Write CSV headers
     with open(log_filename, mode="w", newline="") as file:
         writer = csv.writer(file)
         writer.writerow([
-            "timestamp", 
-            "vehicle_id", 
-            "vehicle_type", 
-            "direction", 
+            "timestamp",
+            "vehicle_id",
+            "vehicle_type",
+            "direction",
             "mode",
             "wait_time_sec"
         ])
@@ -35,15 +40,16 @@ def log_vehicle(vehicle):
     """
     Write a single vehicle crossing record.
     """
+    global log_filename
     timestamp = datetime.now()
-    wait_time = (timestamp - vehicle.created_at).total_seconds()
+    wait_time = vehicle.actual_wait_time
     log_entry = [
-        timestamp.strftime("%Y-%m-%d %H:%M:%S"), 
-        id(vehicle), 
-        vehicle.vehicleClass, 
-        vehicle.direction, 
+        timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+        id(vehicle),
+        vehicle.vehicleClass,
+        vehicle.direction,
         state.currentMode,
-        round(wait_time,2)
+        round(wait_time, 2)
     ]
 
     with open(log_filename, mode="a", newline="") as file:

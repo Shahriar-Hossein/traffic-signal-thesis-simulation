@@ -22,7 +22,7 @@ clock = pygame.time.Clock()
 # normal approach, fixed timer
 # state.currentMode = "fixed" 
 # Our appraoch, priority based
-state.currentMode = "prioity" 
+state.currentMode = "priority" 
 start_simulation_threads()
 
 
@@ -39,13 +39,12 @@ greenSignal = pygame.image.load('images/signals/green.png')
 font = pygame.font.Font(None, 30)
 
 
-duration = 120  # e.g., 2 minutes = 120 seconds
 start_time = time.time()
 
 while True:
     # Check simulation time
     elapsed_time = time.time() - start_time
-    if elapsed_time >= duration:
+    if elapsed_time >= state.duration:
         print("Simulation time complete. Exiting...")
         state.running = False
         pygame.quit()

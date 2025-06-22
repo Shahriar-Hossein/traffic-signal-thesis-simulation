@@ -3,15 +3,11 @@ import csv
 from datetime import datetime
 from collections import defaultdict
 
-LOG_DIR = "logs"
+LOG_ROOT = "logs"
 SUMMARY_DIR = "summary_logs"
 os.makedirs(SUMMARY_DIR, exist_ok=True)
 
 def read_log_file(filepath):
-    """
-    Reads a single log CSV and returns list of dict records.
-    Assumes columns: timestamp, vehicle_id, vehicle_type, direction, mode, wait_time_sec
-    """
     records = []
     with open(filepath, mode='r') as f:
         reader = csv.DictReader(f)
@@ -20,11 +16,6 @@ def read_log_file(filepath):
     return records
 
 def analyze_logs():
-    """
-    Analyze all log files and produce summary statistics per mode.
-    """
-
-    # Data structures to accumulate info
     summary = defaultdict(lambda: {
         'total_vehicles': 0,
         'vehicles_by_type': defaultdict(int),
@@ -33,62 +24,80 @@ def analyze_logs():
         'wait_time_counts': 0,
         'wait_time_by_direction': defaultdict(lambda: {'total': 0.0, 'count': 0}),
         'wait_time_by_type': defaultdict(lambda: {'total': 0.0, 'count': 0}),
+        'min_wait_time': float('inf'),
+        'max_wait_time': float('-inf'),
         'timestamps': [],
         'vehicle_ids': set(),
+        'log_file_count': 0
     })
 
-    for filename in os.listdir(LOG_DIR):
-        if not filename.endswith(".csv"):
-            continue
-        filepath = os.path.join(LOG_DIR, filename)
-        print(f"Processing {filename}...")
-        records = read_log_file(filepath)
+    file_summary_count = defaultdict(int)
 
-        for r in records:
-            mode = r['mode']
-            summary_data = summary[mode]
+    for root, _, files in os.walk(LOG_ROOT):
+        # root: logs/top_right/120
+        parts = root.split(os.sep)
+        # parts[-1] = '120' (duration)
+        # parts[-2] = 'top_right' (uneven mode)
+        uneven_mode = parts[-2] if len(parts) >= 2 else "unknown"
+        duration_folder = parts[-1] if len(parts) >= 1 else "unknown"
+        
+        for filename in files:
+            if not filename.endswith(".csv"):
+                continue
 
-            summary_data['total_vehicles'] += 1
-            summary_data['vehicles_by_type'][r['vehicle_type']] += 1
-            summary_data['vehicles_by_direction'][r['direction']] += 1
-            summary_data['vehicle_ids'].add(r['vehicle_id'])
+            filepath = os.path.join(root, filename)
+            records = read_log_file(filepath)
 
-            # Parse timestamp string to datetime
-            try:
-                ts = datetime.strptime(r['timestamp'], "%Y-%m-%d %H:%M:%S")
-                summary_data['timestamps'].append(ts)
-            except Exception as e:
-                print(f"Warning: could not parse timestamp {r['timestamp']}: {e}")
+            # folder = os.path.basename(root)
+            mode_part = filename.split("_")[0]
+            label = f"{mode_part}_{uneven_mode}_{duration_folder}"
 
-            # Parse and accumulate wait time
-            try:
-                wait_time = float(r.get('wait_time_sec', 0))
-                summary_data['total_wait_time'] += wait_time
-                summary_data['wait_time_counts'] += 1
+            data = summary[label]
+            data['log_file_count'] += 1
+            file_summary_count[label] += 1
 
-                # By direction
-                dir_stats = summary_data['wait_time_by_direction'][r['direction']]
-                dir_stats['total'] += wait_time
-                dir_stats['count'] += 1
+            for r in records:
+                data['total_vehicles'] += 1
+                data['vehicles_by_type'][r['vehicle_type']] += 1
+                data['vehicles_by_direction'][r['direction']] += 1
+                data['vehicle_ids'].add(r['vehicle_id'])
 
-                # By vehicle type
-                type_stats = summary_data['wait_time_by_type'][r['vehicle_type']]
-                type_stats['total'] += wait_time
-                type_stats['count'] += 1
+                try:
+                    ts = datetime.strptime(r['timestamp'], "%Y-%m-%d %H:%M:%S")
+                    data['timestamps'].append(ts)
+                except Exception as e:
+                    print(f"Warning: could not parse timestamp {r['timestamp']}: {e}")
 
-            except Exception as e:
-                print(f"Warning: could not parse wait_time_sec {r.get('wait_time_sec')}: {e}")
+                try:
+                    wait_time = float(r.get('wait_time_sec', 0))
+                    data['total_wait_time'] += wait_time
+                    data['wait_time_counts'] += 1
+                    data['min_wait_time'] = min(data['min_wait_time'], wait_time)
+                    data['max_wait_time'] = max(data['max_wait_time'], wait_time)
 
-    # Now prepare the output summary CSV
+                    dir_stats = data['wait_time_by_direction'][r['direction']]
+                    dir_stats['total'] += wait_time
+                    dir_stats['count'] += 1
 
+                    type_stats = data['wait_time_by_type'][r['vehicle_type']]
+                    type_stats['total'] += wait_time
+                    type_stats['count'] += 1
+
+                except Exception as e:
+                    print(f"Warning: could not parse wait_time_sec {r.get('wait_time_sec')}: {e}")
+
+    # Write summary CSV
     output_file = os.path.join(SUMMARY_DIR, "simulation_summary.csv")
     with open(output_file, mode='w', newline='') as f:
         fieldnames = [
-            "mode",
+            "label",
             "total_vehicles",
             "unique_vehicles",
-            "time_span_seconds",
+            "log_file_count",
             "average_wait_time_sec",
+            "min_wait_time_sec",
+            "max_wait_time_sec",
+            "average_throughput_vehicles_per_file",
             "average_wait_time_by_direction",
             "average_wait_time_by_type",
             "vehicles_by_type",
@@ -97,39 +106,42 @@ def analyze_logs():
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
 
-        for mode, data in summary.items():
-            timestamps = data['timestamps']
-            if timestamps:
-                time_span = (max(timestamps) - min(timestamps)).total_seconds()
-            else:
-                time_span = 0
-
-            avg_wait = (data['total_wait_time'] / data['wait_time_counts']) if data['wait_time_counts'] > 0 else 0
+        for label, data in summary.items():
+            avg_wait = data['total_wait_time'] / data['wait_time_counts'] if data['wait_time_counts'] else 0
+            avg_throughput = data['total_vehicles'] / data['log_file_count'] if data['log_file_count'] else 0
 
             avg_wait_dir = {
-                d: (stats['total'] / stats['count']) if stats['count'] > 0 else 0
+                d: round(stats['total'] / stats['count'], 2) if stats['count'] > 0 else 0
                 for d, stats in data['wait_time_by_direction'].items()
             }
             avg_wait_type = {
-                t: (stats['total'] / stats['count']) if stats['count'] > 0 else 0
+                t: round(stats['total'] / stats['count'], 2) if stats['count'] > 0 else 0
                 for t, stats in data['wait_time_by_type'].items()
             }
 
             row = {
-                "mode": mode,
+                "label": label,
                 "total_vehicles": data['total_vehicles'],
                 "unique_vehicles": len(data['vehicle_ids']),
-                "time_span_seconds": round(time_span, 2),
+                "log_file_count": data['log_file_count'],
                 "average_wait_time_sec": round(avg_wait, 2),
-                "average_wait_time_by_direction": str({k: round(v, 2) for k, v in avg_wait_dir.items()}),
-                "average_wait_time_by_type": str({k: round(v, 2) for k, v in avg_wait_type.items()}),
+                "min_wait_time_sec": round(data['min_wait_time'], 2) if data['min_wait_time'] != float('inf') else 0,
+                "max_wait_time_sec": round(data['max_wait_time'], 2) if data['max_wait_time'] != float('-inf') else 0,
+                "average_throughput_vehicles_per_file": round(avg_throughput, 2),
+                "average_wait_time_by_direction": str(avg_wait_dir),
+                "average_wait_time_by_type": str(avg_wait_type),
                 "vehicles_by_type": str(dict(data['vehicles_by_type'])),
-                "vehicles_by_direction": str(dict(data['vehicles_by_direction'])),
+                "vehicles_by_direction": str(dict(data['vehicles_by_direction']))
             }
 
             writer.writerow(row)
 
-    print(f"Summary saved to {output_file}")
+    print(f"✅ Summary saved to: {output_file}\n")
+
+    # Print how many files were summarized per group
+    print("🧾 Log files counted per label:")
+    for label, count in file_summary_count.items():
+        print(f" - {label}: {count} file(s)")
 
 if __name__ == "__main__":
     analyze_logs()
