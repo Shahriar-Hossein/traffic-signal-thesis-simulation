@@ -98,3 +98,5 @@ ENV/
 
 #pyCharm code
 .idea/
+
+old_logs/*
