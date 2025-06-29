@@ -16,4 +16,4 @@ def run_simulations(num_instances):
         print(f"Simulation instance {i+1} finished.")
 
 if __name__ == "__main__":
-    run_simulations(5)
+    run_simulations(12)

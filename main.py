@@ -20,7 +20,7 @@ pygame.init()
 pygame.font.init()
 clock = pygame.time.Clock()
 # normal approach, fixed timer
-# state.currentMode = "fixed" 
+state.currentMode = "fixed" 
 # Our appraoch, priority based
 state.currentMode = "priority" 
 start_simulation_threads()

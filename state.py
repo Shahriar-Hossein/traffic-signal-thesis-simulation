@@ -23,9 +23,9 @@ currentMode = "priority"
 # for exit logic
 running = True
 
-# uneven_mode = 'even'
+uneven_mode = 'even'
 # uneven_mode = 'one_direction'
-uneven_mode = 'top_right'
+# uneven_mode = 'top_right'
 # uneven_mode = 'bottom_left'
 
 

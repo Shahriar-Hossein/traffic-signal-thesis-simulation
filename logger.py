@@ -1,3 +1,5 @@
+# logger.py
+
 import csv
 import os
 from datetime import datetime
@@ -55,3 +57,25 @@ def log_vehicle(vehicle):
     with open(log_filename, mode="a", newline="") as file:
         writer = csv.writer(file)
         writer.writerow(log_entry)
+
+
+def log_signal_change(green_direction):
+    """
+    Log the time a signal turned green for a specific direction.
+    """
+    global log_filename
+    signal_log_dir = log_filename.replace("logs", "log_signals").replace(".csv", "_signal.csv")
+    os.makedirs(os.path.dirname(signal_log_dir), exist_ok=True)
+
+
+    if not os.path.exists(signal_log_dir):
+        with open(signal_log_dir, mode="w", newline="") as file:
+            writer = csv.writer(file)
+            writer.writerow(["timestamp", "direction"]) 
+
+    with open(signal_log_dir, mode="a", newline="") as file:
+        writer = csv.writer(file)
+        writer.writerow([
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            green_direction
+        ])

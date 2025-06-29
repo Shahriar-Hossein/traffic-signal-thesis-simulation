@@ -5,7 +5,7 @@ import time
 import threading
 from typing import List
 from logger import init_logger
-
+from logger import log_signal_change
 
 from config import (
     defaultGreen, defaultRed, defaultYellow,
@@ -44,10 +44,12 @@ def fixed_traffic_cycle():
     """
     fixed_order = [0, 1, 2, 3]  # right, down, left, up
     fixed_green_time = 10  # You can adjust this for your test (e.g., 10, 15, etc.)
-
+    # default yellow for this case is 6
+    # 
     while state.running:
         for green_index in fixed_order:
             state.currentGreen = green_index
+            log_signal_change(directionNumbers[green_index])
 
             signals[green_index].green = fixed_green_time
 
@@ -106,6 +108,7 @@ def control_traffic_cycle():
 
         for green_index in signal_order:
             state.currentGreen = green_index
+            log_signal_change(directionNumbers[green_index])
 
             vehicle_count = get_vehicle_counts()[directionNumbers[green_index]]
             # main formula
