@@ -129,10 +129,6 @@ def control_traffic_cycle():
             log_signal_change(directionNumbers[green_index])
 
             vehicle_count = get_weighted_vehicle_counts()[directionNumbers[green_index]]
-
-            # main formula
-            # green_time = int(min(vehicle_count * 0.5, 10)) or 1
-            # adjustment for the simulation purpose
             lanes = 3
             avg_headway = 2.0   # seconds per car per lane
             startup_loss = 2    # seconds lost when signal turns green
@@ -143,12 +139,11 @@ def control_traffic_cycle():
             # yellow_time = int(min(vehicle_count * 0.3 + 4, 6))
 
             signals[green_index].green = green_time
-            # signals[green_index].yellow = yellow_time
             signals[green_index].yellow = defaultYellow  # keep yellow fixed for simplicity
-            signals[green_index].red = green_time + defaultYellow
-            for _ in range(green_time):
+            signals[green_index].red = green_time + defaultYellow + 1
+            for t in range(green_time):
                 vc = get_vehicle_counts()[directionNumbers[green_index]]
-                if vc <= lanes and _ >= 5:
+                if vc <= lanes and t >= 5:
                     # Break early if few vehicles remain after minimum green time
                     break
                 update_signal_timers(green_index, yellow=False)
