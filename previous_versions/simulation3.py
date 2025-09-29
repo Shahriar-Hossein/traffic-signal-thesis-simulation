@@ -43,36 +43,18 @@ def fixed_traffic_cycle():
     with fixed green time, regardless of vehicle count.
     """
     fixed_order = [0, 1, 2, 3]  # right, down, left, up
-
-    # Initially keep all signals red for 10 seconds
-    for signal in signals:
-        signal.red = 10  # or set to 10 seconds if you want fixed red
-        signal.green = 0
-        signal.yellow = 0
-
-    state.currentGreen = -1  # No green yet
-    state.currentYellow = 0
-
-    print("Initial all-red phase for 10 seconds to accumulate vehicles.")
-    for _ in range(10):
-        # Just update timers for red signals (they remain red)
-        for i in range(noOfSignals):
-            signals[i].red = max(0, signals[i].red - 1)
-        time.sleep(1)
-
-
+    fixed_green_time = 10  # You can adjust this for your test (e.g., 10, 15, etc.)
+    # default yellow for this case is 6
+    # 
     while state.running:
         for green_index in fixed_order:
             state.currentGreen = green_index
             log_signal_change(directionNumbers[green_index])
 
-            green_time = defaultGreen[green_index]
-            signals[green_index].green = green_time
-            signals[green_index].yellow = defaultYellow
-            signals[green_index].red = green_time + defaultYellow
+            signals[green_index].green = fixed_green_time
 
             # Green phase
-            for _ in range(green_time):
+            for _ in range(fixed_green_time):
                 update_signal_timers(green_index, yellow=False)
                 time.sleep(1)
 
@@ -98,17 +80,17 @@ def control_traffic_cycle():
     Prioritizes lanes based on dynamic vehicle queue.
     """
 
-    # Initially keep all signals red for 10 seconds
+    # Initially keep all signals red for 5 seconds
     for signal in signals:
-        signal.red = 10  # or set to 10 seconds if you want fixed red
+        signal.red = 5  # or set to 5 seconds if you want fixed red
         signal.green = 0
         signal.yellow = 0
 
     state.currentGreen = -1  # No green yet
     state.currentYellow = 0
 
-    print("Initial all-red phase for 10 seconds to accumulate vehicles.")
-    for _ in range(10):
+    print("Initial all-red phase for 5 seconds to accumulate vehicles.")
+    for _ in range(5):
         # Just update timers for red signals (they remain red)
         for i in range(noOfSignals):
             signals[i].red = max(0, signals[i].red - 1)
@@ -123,13 +105,11 @@ def control_traffic_cycle():
             for direction, _ in signal_queue
         ]
 
-        # Cycle through chosen order
         for green_index in signal_order:
             state.currentGreen = green_index
             log_signal_change(directionNumbers[green_index])
 
             vehicle_count = get_weighted_vehicle_counts()[directionNumbers[green_index]]
-
             # main formula
             # green_time = int(min(vehicle_count * 0.5, 10)) or 1
             # adjustment for the simulation purpose
@@ -147,8 +127,8 @@ def control_traffic_cycle():
             signals[green_index].yellow = defaultYellow  # keep yellow fixed for simplicity
             signals[green_index].red = green_time + defaultYellow
             for _ in range(green_time):
-                vc = get_vehicle_counts()[directionNumbers[green_index]]
-                if vc <= lanes and _ >= 5:
+                vehicle_count = get_vehicle_counts()[directionNumbers[green_index]]
+                if vehicle_count <= lanes and _ >= 5:
                     # Break early if few vehicles remain after minimum green time
                     break
                 update_signal_timers(green_index, yellow=False)

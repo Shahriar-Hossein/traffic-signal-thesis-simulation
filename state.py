@@ -10,6 +10,14 @@ vehicles = {
     'up': {0:[], 1:[], 2:[], 3:[], 'crossed':0}
 }
 
+# Waiting time for each direction
+waiting_time = {
+    'right': 0,
+    'down': 0,
+    'left': 0,
+    'up': 0
+}
+
 # Group for rendering & managing vehicles
 vehicle_simulation = pygame.sprite.Group()
 
@@ -31,7 +39,7 @@ uneven_mode = 'even'
 
 # simulation time
 # duration = 300
-# duration = 180
-duration = 120
+duration = 180
+# duration = 120
 # duration = 60
 # duration = 240

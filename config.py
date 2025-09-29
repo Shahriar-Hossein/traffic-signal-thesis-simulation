@@ -1,7 +1,7 @@
 # Signal Timing Defaults
 defaultGreen = {0: 12, 1: 12, 2: 12, 3: 12}
 defaultRed = 0
-defaultYellow = 6
+defaultYellow = 7
 
 # Vehicle Speeds (pixels per frame)
 speeds = {

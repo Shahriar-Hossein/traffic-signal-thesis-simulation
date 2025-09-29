@@ -43,6 +43,7 @@ def fixed_traffic_cycle():
     with fixed green time, regardless of vehicle count.
     """
     fixed_order = [0, 1, 2, 3]  # right, down, left, up
+    fixed_green_time = 10  # You can adjust this for your test (e.g., 10, 15, etc.)
 
     # Initially keep all signals red for 10 seconds
     for signal in signals:
@@ -66,13 +67,10 @@ def fixed_traffic_cycle():
             state.currentGreen = green_index
             log_signal_change(directionNumbers[green_index])
 
-            green_time = defaultGreen[green_index]
-            signals[green_index].green = green_time
-            signals[green_index].yellow = defaultYellow
-            signals[green_index].red = green_time + defaultYellow
+            signals[green_index].green = fixed_green_time
 
             # Green phase
-            for _ in range(green_time):
+            for _ in range(fixed_green_time):
                 update_signal_timers(green_index, yellow=False)
                 time.sleep(1)
 
@@ -115,15 +113,33 @@ def control_traffic_cycle():
         time.sleep(1)
 
     while state.running:
-        # Sort signal priority by current vehicle count
+        # 1. Take snapshot of vehicle counts
         vehicle_counts_snapshot = get_weighted_vehicle_counts()
-        signal_queue = sorted(vehicle_counts_snapshot.items(), key=lambda x: x[1], reverse=True)
-        signal_order: List[int] = [
-            list(directionNumbers.keys())[list(directionNumbers.values()).index(direction)]
-            for direction, _ in signal_queue
-        ]
+        # 2. Calculate fairness-adjusted priority
+        alpha, beta = 0.7, 0.3   # tune these
+        priority_scores = {
+            d: alpha * vehicle_counts_snapshot[d] + beta * state.waiting_time[d]
+            for d in directionNumbers.values()
+        }
+         # 3. Max-wait override (force serve if too long)
+        max_wait = 60
+        force_direction = None
+        for d, t in state.waiting_time.items():
+            if t >= max_wait:
+                force_direction = d
+                break
 
-        # Cycle through chosen order
+        if force_direction:
+            print(f"Max-wait override: Serving {force_direction}")
+            signal_order = [list(directionNumbers.keys())[list(directionNumbers.values()).index(force_direction)]]
+        else:
+            signal_queue = sorted(priority_scores.items(), key=lambda x: x[1], reverse=True)
+            signal_order = [
+                list(directionNumbers.keys())[list(directionNumbers.values()).index(direction)]
+                for direction, _ in signal_queue
+            ]
+
+        # 4. Cycle through chosen order
         for green_index in signal_order:
             state.currentGreen = green_index
             log_signal_change(directionNumbers[green_index])
@@ -169,6 +185,13 @@ def control_traffic_cycle():
             signals[green_index].green = defaultGreen[green_index]
             signals[green_index].yellow = defaultYellow
             signals[green_index].red = defaultRed
+
+            # update waiting times
+            for d in state.waiting_time.keys():
+                if d == directionNumbers[green_index]:
+                    state.waiting_time[d] = 0
+                else:
+                    state.waiting_time[d] += green_time + defaultYellow
 
 
 def update_signal_timers(current_green: int, yellow: bool):

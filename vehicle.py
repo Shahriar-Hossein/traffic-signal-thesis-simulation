@@ -139,3 +139,7 @@ class Vehicle(pygame.sprite.Sprite):
             if not self.is_waiting:
                 self.wait_start_time = now
                 self.is_waiting = True
+    
+    def get_type(self):
+        # Returns the class of the vehicle (e.g., car, bike, truck)
+        return self.vehicleClass
