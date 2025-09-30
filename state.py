@@ -38,8 +38,13 @@ uneven_mode = 'even'
 
 
 # simulation time
-# duration = 300
-duration = 180
-# duration = 120
-# duration = 60
-# duration = 240
+# duration = 60 # 1 minute
+# duration = 120 # 2 minutes
+# duration = 180 # 3 minutes
+# duration = 240 # 4 minutes
+duration = 300 # 5 minutes
+# duration = 600 # 10 minutes
+# duration = 900 # 15 minutes
+# duration = 1200 # 20 minutes
+# duration = 1500 # 25 minutes
+# duration = 1800 # 30 minutes
