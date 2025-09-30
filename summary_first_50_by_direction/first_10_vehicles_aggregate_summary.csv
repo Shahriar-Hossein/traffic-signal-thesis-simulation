@@ -1,5 +1,0 @@
-direction,files_count,avg_duration_to_pass_50_sec,avg_wait_time_sec,min_wait_time_sec,max_wait_time_sec
-up,38,59.42,17.25,0.0,54.01
-down,38,65.42,15.95,0.0,53.64
-left,44,56.84,15.2,0.0,54.01
-right,32,64.56,14.55,0.0,53.77

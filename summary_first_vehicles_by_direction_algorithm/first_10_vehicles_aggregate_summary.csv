@@ -1,9 +1,0 @@
-direction,algorithm,files_count,avg_duration_to_pass_n_sec,avg_wait_time_sec,min_wait_time_sec,max_wait_time_sec
-down,priority,18,64.22,9.94,0.0,52.58
-left,priority,22,62.14,9.92,0.0,48.0
-up,priority,17,66.35,8.55,0.0,48.38
-right,priority,16,64.88,7.76,0.0,38.7
-up,fixed,21,53.81,24.3,0.0,54.01
-down,fixed,20,66.5,21.37,0.0,53.64
-left,fixed,22,51.55,20.47,0.0,54.01
-right,fixed,16,64.25,21.34,0.0,53.77

@@ -1,3 +1,0 @@
-label,log_file_count,average_cycle_time_by_direction
-fixed_even_120,13,"{'right': 64.0, 'down': 64.0, 'left': 64.0, 'up': 64.0}"
-priority_even_120,13,"{'left': 35.97, 'up': 37.74, 'right': 32.54, 'down': 34.05}"

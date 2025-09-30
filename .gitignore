@@ -102,3 +102,4 @@ ENV/
 old_logs/*
 logs/*
 log_signals/*
+data/*
