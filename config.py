@@ -1,14 +1,14 @@
 # Signal Timing Defaults
 defaultGreen = {0: 12, 1: 12, 2: 12, 3: 12}
-defaultRed = 0
-defaultYellow = 8
+defaultRed = 150
+defaultYellow = 4
 
 # Vehicle Speeds (pixels per frame)
 speeds = {
-    'car': 1.25,
-    'bus': 0.83,
-    'truck': 0.83,
-    'bike': 1
+    'car': 2.25,
+    'bus': 2.0,
+    'truck': 1.80,
+    'bike': 2.5
 }
 
 # Vehicle Types by ID
@@ -29,18 +29,18 @@ directionNumbers = {
 
 # Starting X Coordinates for Each Lane per Direction
 x = {
-    'right': [0, 0, 0, 0],
-    'down': [660, 610, 560, 560],
-    'left': [1008, 1008, 1008, 1008],
-    'up': [350, 400, 450, 450]
+    'right': [10, 10, 10, 0],
+    'down': [560, 610, 660, 560],
+    'left': [998, 998, 998, 1008],
+    'up': [348, 392, 448, 450]
 }
 
 # Starting Y Coordinates for Each Lane per Direction
 y = {
     'right': [310, 360, 410, 416],
-    'down': [0, 0, 0, 0],
-    'left': [610, 560, 510, 560],
-    'up': [1000, 1000, 1000, 1000]
+    'down': [10, 10, 10, 0],
+    'left': [510, 558, 605, 560],
+    'up': [990, 990, 990, 1000]
 }
 
 # Stop Lines (where vehicles halt before intersection)
@@ -89,9 +89,6 @@ movingGap = 15
 
 # Simulation Controls
 noOfSignals = 4
-currentGreen = 0
-nextGreen = (currentGreen + 1) % noOfSignals
-currentYellow = 0
 
 # Colors
 black = (0, 0, 0)
