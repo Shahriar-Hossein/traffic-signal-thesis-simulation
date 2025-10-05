@@ -56,7 +56,7 @@ def control_traffic_cycle():
 
             # vehicle_required_time = (vehicle_count / lanes) * avg_headway + startup_loss
             vehicle_required_time = vehicle_count * 0.67
-            green_time = max(6, min( int( vehicle_required_time ), 18 ) )
+            green_time = max(6, min( int( vehicle_required_time ), 24 ) )
 
             # yellow_time = int(min(vehicle_count * 0.3 + 4, 6))
 
