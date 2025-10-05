@@ -57,16 +57,17 @@ class Vehicle(pygame.sprite.Sprite):
         # Update lane start for next vehicle
         img_size = self.image.get_rect().width if direction in ['right', 'left'] else self.image.get_rect().height
         offset = img_size + stoppingGap
-
-        if direction == 'right':
-            x[direction][lane] -= offset
-        elif direction == 'left':
-            x[direction][lane] += offset
-        elif direction == 'down':
-            y[direction][lane] -= offset
-        elif direction == 'up':
-            y[direction][lane] += offset
-
+        if self.index > 0 and not state.vehicles[direction][lane][self.index - 1].crossed:
+            prev = state.vehicles[direction][lane][self.index - 1]
+            if direction == 'right':
+                self.x = prev.x - offset - 100
+            elif direction == 'left':
+                self.x = prev.x + offset + 100
+            elif direction == 'down':
+                self.y = prev.y - offset - 100
+            elif direction == 'up':
+                self.y = prev.y + offset + 100
+        
         state.vehicle_simulation.add(self)
 
     def render(self, screen):
