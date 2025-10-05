@@ -4,7 +4,7 @@ from datetime import datetime
 from collections import defaultdict
 
 BASE_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
-LOG_ROOT = os.path.join(BASE_DIR, "logs_signals")
+LOG_ROOT = os.path.join(BASE_DIR, "log_signals")
 SUMMARY_DIR = os.path.join(BASE_DIR, "summary_signals")
 os.makedirs(SUMMARY_DIR, exist_ok=True)
 

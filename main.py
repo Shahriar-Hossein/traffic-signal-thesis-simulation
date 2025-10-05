@@ -51,7 +51,7 @@ def main():
     # Our appraoch, priority based
     # state.currentMode = "priority" 
     # Fairness based approach
-    state.currentMode = "fairness_priority" 
+    # state.currentMode = "fairness_priority" 
 
     start_simulation_threads()
 

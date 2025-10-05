@@ -14,8 +14,10 @@ def generateVehicles(uneven_mode=None):
         - 'bottom_left': more vehicles from left and bottom
         - 'one_direction': mostly from right (can be changed)
     """
-
+    cnt = 0
     while state.running:
+        cnt += 1
+        # Randomly select vehicle type
         vehicle_type_index = random.randint(0, 3)
 
         # Define direction probabilities based on mode
@@ -46,5 +48,8 @@ def generateVehicles(uneven_mode=None):
             direction_number,
             direction
         )
+        time.sleep(1) # 1 second interval between vehicle generations   
 
-        time.sleep(1) 
+        # print(f"Generated vehicle {cnt}: {direction} lane {lane_number}")
+        # if cnt % 5 == 0:  # Log every 5th vehicle
+        #     time.sleep(1) # Slightly longer pause for high traffic   
