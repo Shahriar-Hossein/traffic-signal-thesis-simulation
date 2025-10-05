@@ -29,18 +29,18 @@ directionNumbers = {
 
 # Starting X Coordinates for Each Lane per Direction
 x = {
-    'right': [10, 10, 10, 0],
+    'right': [0, 0, 0, 0],
     'down': [560, 610, 660, 560],
-    'left': [998, 998, 998, 1008],
+    'left': [1008, 1008, 1008, 1008],
     'up': [348, 392, 448, 450]
 }
 
 # Starting Y Coordinates for Each Lane per Direction
 y = {
     'right': [310, 360, 410, 416],
-    'down': [10, 10, 10, 0],
+    'down': [0, 0, 0, 0],
     'left': [510, 558, 605, 560],
-    'up': [990, 990, 990, 1000]
+    'up': [1000, 1000, 1000, 1000]
 }
 
 # Stop Lines (where vehicles halt before intersection)
