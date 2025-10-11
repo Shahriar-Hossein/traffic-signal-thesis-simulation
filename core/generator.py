@@ -21,20 +21,47 @@ def generateVehicles(uneven_mode=None):
         vehicle_type_index = random.randint(0, 3)
 
         # Define direction probabilities based on mode
-        if uneven_mode == 'top_right':
+        # adjacent routes have more vehicles
+        if uneven_mode == 'down_left':
             # Assign weights: right & up high, left & down low
-            directions = ['right', 'down', 'left', 'up']
-            weights = [0.35, 0.15, 0.15, 0.35]  # sums to 1
-        elif uneven_mode == 'bottom_left':
-            directions = ['right', 'down', 'left', 'up']
-            weights = [0.15, 0.35, 0.35, 0.15]
-        elif uneven_mode == 'one_direction':
-            directions = ['right', 'down', 'left', 'up']
-            weights = [0.85, 0.05, 0.05, 0.05]
+            directions  = ['right', 'down', 'left', 'up']
+            weights     = [0.15,    0.35,   0.35,   0.15]  # sums to 1
+        elif uneven_mode == 'right_down':
+            directions  = ['right', 'down', 'left', 'up']
+            weights     = [0.35,    0.35,   0.15,   0.15]
+        elif uneven_mode == 'right_up':
+            directions  = ['right', 'down', 'left', 'up']
+            weights     = [0.35,    0.15,   0.15,   0.35]
+        elif uneven_mode == 'left_up':
+            directions  = ['right', 'down', 'left', 'up']
+            weights     = [0.15,    0.15,   0.35,   0.35]
+
+        # one direction has more vehicles
+        elif uneven_mode == 'up':
+            directions  = ['right', 'down', 'left', 'up']
+            weights     = [0.05,    0.05,   0.05,   0.85]
+        elif uneven_mode == 'down':
+            directions  = ['right', 'down', 'left', 'up']
+            weights     = [0.05,    0.85,   0.05,   0.05]
+        elif uneven_mode == 'left':
+            directions  = ['right', 'down', 'left', 'up']
+            weights     = [0.05,    0.05,   0.85,   0.05]
+        elif uneven_mode == 'right':
+            directions  = ['right', 'down', 'left', 'up']
+            weights     = [0.85,    0.05,   0.05,   0.05]
+
+        # alternate routes - up & down, left & right has more vehicles
+        elif uneven_mode == 'up_down':
+            directions  = ['right', 'down', 'left', 'up']
+            weights     = [0.15,    0.35,   0.15,   0.35]
+        elif uneven_mode == 'left_right':
+            directions  = ['right', 'down', 'left', 'up']
+            weights     = [0.35,    0.15,   0.35,   0.15]
+        
+        # uniform probability
         else:
-            # uniform probability
-            directions = ['right', 'down', 'left', 'up']
-            weights = [0.25, 0.25, 0.25, 0.25]
+            directions  = ['right', 'down', 'left', 'up']
+            weights     = [0.25,    0.25,   0.25,   0.25]
 
         direction = random.choices(directions, weights)[0]
         direction_number = list(directionNumbers.values()).index(direction)
@@ -48,8 +75,8 @@ def generateVehicles(uneven_mode=None):
             direction_number,
             direction
         )
-        time.sleep(1) # 1 second interval between vehicle generations   
+        # time.sleep(1) # 1 second interval between vehicle generations   
 
         # print(f"Generated vehicle {cnt}: {direction} lane {lane_number}")
-        # if cnt % 5 == 0:  # Log every 5th vehicle
-        #     time.sleep(1) # Slightly longer pause for high traffic   
+        if cnt % 3 == 0:  # 3 vehicle in each second on average
+            time.sleep(1) # 1 second interval between vehicle generations

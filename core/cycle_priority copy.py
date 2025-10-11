@@ -43,10 +43,9 @@ def control_traffic_cycle():
             list(directionNumbers.keys())[list(directionNumbers.values()).index(direction)]
             for direction, _ in signal_queue
         ]
-        print(f"evaluated signal order: {[directionNumbers[idx] for idx in signal_order]}")
+
         # Cycle through chosen order
-        while signal_order:
-            green_index = signal_order.pop(0)
+        for green_index in signal_order:
             state.currentGreen = green_index
             log_signal_change(directionNumbers[green_index])
 
@@ -56,7 +55,7 @@ def control_traffic_cycle():
             startup_loss = 1    # seconds lost when signal turns green
 
             # vehicle_required_time = (vehicle_count / lanes) * avg_headway + startup_loss
-            vehicle_required_time = vehicle_count * 0.75
+            vehicle_required_time = vehicle_count * 0.67
             green_time = max(6, min( int( vehicle_required_time ), 24 ) )
 
             signals[green_index].green = green_time
@@ -85,16 +84,3 @@ def control_traffic_cycle():
             signals[green_index].green = defaultGreen[green_index]
             signals[green_index].yellow = defaultYellow
             signals[green_index].red = defaultRed
-
-            # Re-evaluate priorities for the remaining signals
-            if signal_order:
-                vehicle_counts_snapshot = get_weighted_vehicle_counts()
-                
-                #sort remaining signals by updated vehicle counts
-                signal_order = sorted(
-                    signal_order,
-                    key=lambda idx: vehicle_counts_snapshot[directionNumbers[idx]],
-                    reverse=True
-                )
-                print(f"Re-evaluated signal order: {[directionNumbers[idx] for idx in signal_order]}")
-                

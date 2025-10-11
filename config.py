@@ -1,14 +1,14 @@
 # Signal Timing Defaults
 defaultGreen = {0: 12, 1: 12, 2: 12, 3: 12}
 defaultRed = 150
-defaultYellow = 4
+defaultYellow = 5
 
 # Vehicle Speeds (pixels per frame)
 speeds = {
-    'car': 2.25,
-    'bus': 2.0,
-    'truck': 1.80,
-    'bike': 2.5
+    'car': 2.0,
+    'bus': 1.75,
+    'truck': 1.5,
+    'bike': 2.25
 }
 
 # Vehicle Types by ID

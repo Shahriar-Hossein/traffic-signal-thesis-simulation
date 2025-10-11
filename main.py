@@ -46,15 +46,8 @@ def main():
     pygame.init()
     pygame.font.init()
     clock = pygame.time.Clock()
-    # normal approach, fixed timer
-    state.currentMode = "fixed" 
-    # Our appraoch, priority based
-    # state.currentMode = "priority" 
-    # Fairness based approach
-    # state.currentMode = "fairness_priority" 
 
     start_simulation_threads()
-
 
     # Setting background image i.e. image of intersection
     background = pygame.image.load('images/city_intersection.png')
@@ -67,7 +60,6 @@ def main():
     yellowSignal = pygame.image.load('images/signals/yellow.png')
     greenSignal = pygame.image.load('images/signals/green.png')
     font = pygame.font.Font(None, 30)
-
 
     start_time = time.time()
 

@@ -26,15 +26,21 @@ currentGreen = 0
 currentYellow = 0
 
 # priority mode for our approach, fixed for regular approach
+# priority approach, dynamic timer
 currentMode = "priority"
+# normal approach, fixed timer
+# currentMode = "fixed"
+
 
 # for exit logic
 running = True
 
-uneven_mode = 'even'
-# uneven_mode = 'one_direction'
+# uneven_mode = 'even'
+uneven_mode = 'up'
 # uneven_mode = 'top_right'
 # uneven_mode = 'bottom_left'
+# uneven_mode = 'up_down'
+# uneven_mode = 'left_right'
 
 
 # simulation time
