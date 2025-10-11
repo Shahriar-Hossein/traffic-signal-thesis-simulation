@@ -99,7 +99,3 @@ ENV/
 #pyCharm code
 .idea/
 
-old_logs/*
-logs/*
-log_signals/*
-data/*

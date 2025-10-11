@@ -1,0 +1,9 @@
+label,log_file_count,average_cycle_time_by_direction
+fixed_even_1200,10,"{'right': 64.03, 'down': 64.03, 'left': 64.03, 'up': 64.03}"
+priority_even_1200,10,"{'down': 40.09, 'right': 40.06, 'left': 40.09, 'up': 39.74}"
+priority_even_300,30,"{'right': 40.21, 'up': 39.79, 'down': 39.98, 'left': 39.7}"
+fixed_even_300,30,"{'right': 64.05, 'down': 64.05, 'left': 64.03, 'up': 64.03}"
+priority_even_600,20,"{'right': 40.43, 'left': 39.96, 'down': 39.96, 'up': 39.64}"
+fixed_even_600,20,"{'right': 64.01, 'down': 64.0, 'left': 64.0, 'up': 64.01}"
+priority_even_900,10,"{'down': 39.9, 'up': 39.65, 'right': 40.22, 'left': 40.12}"
+fixed_even_900,10,"{'right': 64.0, 'down': 64.0, 'left': 64.01, 'up': 64.02}"

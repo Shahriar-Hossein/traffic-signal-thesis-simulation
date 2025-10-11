@@ -1,0 +1,5 @@
+label,file_count,avg_sim_duration_sec,avg_wait_time_sec,avg_min_wait_time,avg_max_wait_time,avg_up_wait,avg_down_wait,avg_left_wait,avg_right_wait,avg_car_count,avg_bus_count,avg_bike_count,avg_truck_count
+priority_bottom_left_120,5,95.6,9.19,0.0,35.74,9.65,9.17,9.34,9.28,11.2,14.0,12.2,12.6
+fixed_bottom_left_120,5,91.6,20.31,0.0,53.17,15.69,21.14,21.19,19.48,14.0,10.2,13.0,12.8
+priority_even_120,17,95.35,9.36,0.0,38.64,10.23,9.92,8.95,8.83,13.41,11.65,13.41,11.53
+fixed_even_120,17,102.88,20.09,0.0,53.0,23.04,18.74,20.33,18.93,14.18,12.82,11.24,11.76
