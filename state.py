@@ -35,8 +35,8 @@ currentMode = "priority"
 # for exit logic
 running = True
 
-# uneven_mode = 'even'
-uneven_mode = 'up'
+uneven_mode = 'even'
+# uneven_mode = 'up'
 # uneven_mode = 'top_right'
 # uneven_mode = 'bottom_left'
 # uneven_mode = 'up_down'
@@ -48,9 +48,9 @@ uneven_mode = 'up'
 # duration = 120 # 2 minutes
 # duration = 180 # 3 minutes
 # duration = 240 # 4 minutes
-duration = 300 # 5 minutes
+# duration = 300 # 5 minutes
 # duration = 600 # 10 minutes
 # duration = 900 # 15 minutes
 # duration = 1200 # 20 minutes
 # duration = 1500 # 25 minutes
-# duration = 1800 # 30 minutes
+duration = 1800 # 30 minutes
