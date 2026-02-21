@@ -1,7 +1,7 @@
-## command to run the project
+# command to run the project
+- for single simmulation
 `` python3 main.py ``
-# for single simmulation
+- for multiple simulation simultaneously
 `` python3 run_simulation.py ``
-# for multiple simulation simultaneously
 
 vehicle generation speed 1.5 sec
