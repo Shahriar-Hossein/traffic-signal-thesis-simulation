@@ -1,10 +1,14 @@
 import pygame
+import math
+import random
 
 from datetime import datetime
 
 from config import (
     speeds, x, y, stoppingGap, defaultStop, 
     movingGap, stopLines,
+    turnDirections, turnTriggerOffset, turnFrames,
+    turnProbability,
 )
 import state
 
@@ -34,6 +38,32 @@ class Vehicle(pygame.sprite.Sprite):
         # Load vehicle image
         image_path = f"images/{direction}/{vehicleClass}.png"
         self.image = pygame.image.load(image_path)
+
+        # Turn-related properties
+        possible_turn = turnDirections[direction][lane]
+        # Randomly decide whether this vehicle actually turns
+        if possible_turn != direction and random.random() < turnProbability:
+            self.turn_direction = possible_turn
+            self.will_turn = True
+            self.target_turn_lane = random.randint(0, 2)  # pick random lane in new direction
+        else:
+            self.turn_direction = direction
+            self.will_turn = False
+            self.target_turn_lane = 0
+        self.turning_active = False
+        self.turn_complete = False
+        self.turn_progress = 0.0
+        self.original_image = self.image.copy() if self.will_turn else None
+        self.original_speed = self.speed
+        self._turn_center_x = 0.0
+        self._turn_center_y = 0.0
+        if self.will_turn:
+            turn_type = self._get_turn_type()
+            self.turn_total_frames = turnFrames[direction][turn_type].get(
+                self.target_turn_lane, 40
+            )
+        else:
+            self.turn_total_frames = 0
 
         # Add to lane
         state.vehicles[direction][lane].append(self)
@@ -73,9 +103,127 @@ class Vehicle(pygame.sprite.Sprite):
     def render(self, screen):
         screen.blit(self.image, (self.x, self.y))
 
+    # --- Turn helper constants and methods ---
+
+    _DIRECTION_VECTORS = {
+        'right': (1, 0),
+        'down': (0, 1),
+        'left': (-1, 0),
+        'up': (0, -1)
+    }
+
+    _DIRECTION_ANGLES = {
+        'right': 0,
+        'up': 90,
+        'left': 180,
+        'down': 270
+    }
+
+    def _get_turn_type(self):
+        """Returns 'right_turn', 'left_turn', or 'straight'."""
+        dirs = ['right', 'down', 'left', 'up']
+        orig_idx = dirs.index(self.direction)
+        target_idx = dirs.index(self.turn_direction)
+        diff = (target_idx - orig_idx) % 4
+        if diff == 1:
+            return 'right_turn'
+        if diff == 3:
+            return 'left_turn'
+        return 'straight'
+
+    def _direction_vector(self, direction):
+        return self._DIRECTION_VECTORS[direction]
+
+    def _reached_turn_trigger(self):
+        """Check if vehicle has entered the intersection far enough to begin turning."""
+        turn_type = self._get_turn_type()
+        offset = turnTriggerOffset[self.direction][turn_type][self.target_turn_lane]
+        if self.direction == 'right':
+            return self.x > stopLines['right'] + offset
+        elif self.direction == 'down':
+            return self.y > stopLines['down'] + offset
+        elif self.direction == 'left':
+            return self.x < stopLines['left'] - offset
+        elif self.direction == 'up':
+            return self.y < stopLines['up'] - offset
+        return False
+
+    def _get_turn_angle(self, t):
+        """Get the relative rotation angle for the current turn progress."""
+        start = self._DIRECTION_ANGLES[self.direction]
+        end = self._DIRECTION_ANGLES[self.turn_direction]
+        diff = (end - start + 180) % 360 - 180
+        return diff * t
+
+    def _execute_turn(self):
+        """Execute one frame of the smooth turning arc."""
+        # On first frame, initialize center tracking from current position
+        if self.turn_progress == 0.0:
+            rect = self.image.get_rect()
+            self._turn_center_x = self.x + rect.width / 2.0
+            self._turn_center_y = self.y + rect.height / 2.0
+
+        self.turn_progress += 1.0 / self.turn_total_frames
+        t = min(self.turn_progress, 1.0)
+
+        # Smooth arc: cosine fades out original direction, sine fades in new direction
+        orig_factor = math.cos(t * math.pi / 2)
+        new_factor = math.sin(t * math.pi / 2)
+
+        orig_dx, orig_dy = self._direction_vector(self.direction)
+        new_dx, new_dy = self._direction_vector(self.turn_direction)
+
+        dx = self.speed * (orig_factor * orig_dx + new_factor * new_dx)
+        dy = self.speed * (orig_factor * orig_dy + new_factor * new_dy)
+
+        self._turn_center_x += dx
+        self._turn_center_y += dy
+
+        # Rotate sprite image for visual smoothness
+        angle = self._get_turn_angle(t)
+        rotated = pygame.transform.rotate(self.original_image, angle)
+        new_rect = rotated.get_rect(
+            center=(int(self._turn_center_x), int(self._turn_center_y))
+        )
+        self.image = rotated
+        self.x = new_rect.left
+        self.y = new_rect.top
+
+        # Turn completed
+        if self.turn_progress >= 1.0:
+            self.turn_complete = True
+            # Switch to the proper pre-rendered image for the new direction
+            self.image = pygame.image.load(
+                f"images/{self.turn_direction}/{self.vehicleClass}.png"
+            )
+            rect = self.image.get_rect(
+                center=(int(self._turn_center_x), int(self._turn_center_y))
+            )
+            self.x = rect.left
+            self.y = rect.top
+
+    # --- Main movement logic ---
+
     def move(self):
         rect = self.image.get_rect()
         width, height = rect.width, rect.height
+
+        # --- Post-turn: just move in new direction, no gap checks ---
+        if self.turn_complete:
+            dx, dy = self._direction_vector(self.turn_direction)
+            self.x += self.speed * dx
+            self.y += self.speed * dy
+            return
+
+        # --- Active turning: execute turn arc ---
+        if self.crossed and self.will_turn and not self.turn_complete:
+            if not self.turning_active:
+                if self._reached_turn_trigger():
+                    self.turning_active = True
+                    self.turn_progress = 0.0
+            if self.turning_active:
+                self._execute_turn()
+                return
 
         green_go = (
             (self.direction == 'right' and state.currentGreen == 0) or
@@ -84,9 +232,22 @@ class Vehicle(pygame.sprite.Sprite):
             (self.direction == 'up' and state.currentGreen == 3)
         ) and state.currentYellow == 0
 
+        # Find the nearest non-turning vehicle ahead in the same lane.
+        # When the vehicle in front has turned away, this vehicle naturally
+        # resumes its own original speed (no artificial blocker).
         prev_vehicle = None
         if self.index > 0:
-            prev_vehicle = state.vehicles[self.direction][self.lane][self.index - 1]
+            for i in range(self.index - 1, -1, -1):
+                candidate = state.vehicles[self.direction][self.lane][i]
+                if not getattr(candidate, 'turning_active', False) \
+                        and not getattr(candidate, 'turn_complete', False):
+                    prev_vehicle = candidate
+                    break
+
+        # Speed recovery: restore original speed when the direct predecessor
+        # has turned away and is no longer blocking this vehicle's lane.
+        if self.speed < self.original_speed:
+            self.speed = self.original_speed
 
         # Check if vehicle crossed stop line and log it
         if not self.crossed:

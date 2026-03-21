@@ -98,3 +98,61 @@ white = (255, 255, 255)
 screenWidth = 1008
 screenHeight = 1000
 screenSize = (screenWidth, screenHeight)
+
+# --- Turn Configuration ---
+
+# Turn direction mapping per lane (from driver's perspective):
+#   Lane 0 = left turn lane, Lane 1 = straight, Lane 2 = right turn lane
+turnDirections = {
+    'right': {0: 'up',    1: 'right', 2: 'down'},
+    'down':  {0: 'left',  1: 'down',  2: 'right'},
+    'left':  {0: 'up',    1: 'left',  2: 'down'},
+    'up':    {0: 'left',  1: 'up',    2: 'right'},
+}
+
+# Probability that a vehicle in lane 0 or 2 will actually turn (0.0 to 1.0)
+# Vehicles that don't turn will go straight even from turn lanes
+turnProbability = 0.5
+
+# How far past the stop line (pixels) before a turn begins
+# Structure: direction -> turn_type -> {lane: offset}
+# Each turning vehicle randomly picks one of 3 target lanes in the new direction
+turnTriggerOffset = {
+    'right': {
+        'left_turn':  {0: 40,  1: 60,  2: 80},
+        'right_turn': {0: 240, 1: 260, 2: 280},
+    },
+    'down': {
+        'left_turn':  {0: 40,  1: 60,  2: 80},
+        'right_turn': {0: 240, 1: 260, 2: 280},
+    },
+    'left': {
+        'left_turn':  {0: 40,  1: 60,  2: 80},
+        'right_turn': {0: 270, 1: 290, 2: 310},
+    },
+    'up': {
+        'left_turn':  {0: 40,  1: 60,  2: 80},
+        'right_turn': {0: 270, 1: 290, 2: 310},
+    },
+}
+
+# Number of frames for the turn animation arc
+# Structure: direction -> turn_type -> {lane: frames}
+turnFrames = {
+    'right': {
+        'right_turn': {0: 30, 1: 35, 2: 40},
+        'left_turn':  {0: 50, 1: 55, 2: 60},
+    },
+    'down': {
+        'right_turn': {0: 30, 1: 35, 2: 40},
+        'left_turn':  {0: 50, 1: 55, 2: 60},
+    },
+    'left': {
+        'right_turn': {0: 30, 1: 35, 2: 40},
+        'left_turn':  {0: 50, 1: 55, 2: 60},
+    },
+    'up': {
+        'right_turn': {0: 30, 1: 35, 2: 40},
+        'left_turn':  {0: 50, 1: 55, 2: 60},
+    },
+}
