@@ -7,7 +7,7 @@ from datetime import datetime
 from config import (
     speeds, x, y, stoppingGap, defaultStop, 
     movingGap, stopLines,
-    turnDirections, turnTriggerOffset, turnFrames,
+    turnDirections, turnFrames,
     turnProbability,
 )
 import state
@@ -62,8 +62,12 @@ class Vehicle(pygame.sprite.Sprite):
             self.turn_total_frames = turnFrames[direction][turn_type].get(
                 self.target_turn_lane, 40
             )
+            # Dynamically compute when to start turning so the arc
+            # naturally ends at the correct target lane coordinate.
+            self._dynamic_trigger_offset = self._compute_trigger_offset()
         else:
             self.turn_total_frames = 0
+            self._dynamic_trigger_offset = 0
 
         # Add to lane
         state.vehicles[direction][lane].append(self)
@@ -134,10 +138,61 @@ class Vehicle(pygame.sprite.Sprite):
     def _direction_vector(self, direction):
         return self._DIRECTION_VECTORS[direction]
 
+    def _compute_trigger_offset(self):
+        """Compute trigger offset so the arc naturally ends at the target lane.
+
+        The vehicle's movement axis before the turn becomes the perpendicular
+        axis of the new direction.  By choosing when the turn starts, we
+        control where the arc deposits the vehicle on that axis.
+        """
+        N = self.turn_total_frames
+        orig_dx, orig_dy = self._DIRECTION_VECTORS[self.direction]
+        new_dx, new_dy = self._DIRECTION_VECTORS[self.turn_direction]
+
+        # Sum displacement on each axis over the full arc
+        total_dx = 0.0
+        total_dy = 0.0
+        for i in range(1, N + 1):
+            t = min(i / N, 1.0)
+            of = math.cos(t * math.pi / 2)
+            nf = math.sin(t * math.pi / 2)
+            total_dx += self.speed * (of * orig_dx + nf * new_dx)
+            total_dy += self.speed * (of * orig_dy + nf * new_dy)
+
+        # Load target image to get dimensions
+        target_img = pygame.image.load(
+            f"images/{self.turn_direction}/{self.vehicleClass}.png"
+        )
+        target_rect = target_img.get_rect()
+        current_rect = self.image.get_rect()
+
+        # Identify axis quantities depending on original direction
+        if self.direction in ('right', 'left'):
+            half_size = current_rect.width / 2.0
+            total_perp = total_dx
+            target_center = (
+                x[self.turn_direction][self.target_turn_lane]
+                + target_rect.width / 2.0
+            )
+        else:  # 'down', 'up'
+            half_size = current_rect.height / 2.0
+            total_perp = total_dy
+            target_center = (
+                y[self.turn_direction][self.target_turn_lane]
+                + target_rect.height / 2.0
+            )
+
+        stop_line = stopLines[self.direction]
+        # right/down: trigger fires when pos > stopLine + offset  → sign = +1
+        # left/up:    trigger fires when pos < stopLine - offset  → sign = -1
+        sign = 1 if self.direction in ('right', 'down') else -1
+
+        offset = sign * (target_center - stop_line - half_size - total_perp)
+        return max(offset, 10)  # ensure a sensible minimum
+
     def _reached_turn_trigger(self):
         """Check if vehicle has entered the intersection far enough to begin turning."""
-        turn_type = self._get_turn_type()
-        offset = turnTriggerOffset[self.direction][turn_type][self.target_turn_lane]
+        offset = self._dynamic_trigger_offset
         if self.direction == 'right':
             return self.x > stopLines['right'] + offset
         elif self.direction == 'down':
@@ -157,16 +212,21 @@ class Vehicle(pygame.sprite.Sprite):
 
     def _execute_turn(self):
         """Execute one frame of the smooth turning arc."""
-        # On first frame, initialize center tracking from current position
+        # On first frame, initialize center tracking
         if self.turn_progress == 0.0:
             rect = self.image.get_rect()
             self._turn_center_x = self.x + rect.width / 2.0
             self._turn_center_y = self.y + rect.height / 2.0
 
+            # Pre-load target direction image for use at completion
+            self._turn_target_image = pygame.image.load(
+                f"images/{self.turn_direction}/{self.vehicleClass}.png"
+            )
+
         self.turn_progress += 1.0 / self.turn_total_frames
         t = min(self.turn_progress, 1.0)
 
-        # Smooth arc: cosine fades out original direction, sine fades in new direction
+        # Smooth arc: cosine fades out original direction, sine fades in new
         orig_factor = math.cos(t * math.pi / 2)
         new_factor = math.sin(t * math.pi / 2)
 
@@ -189,18 +249,78 @@ class Vehicle(pygame.sprite.Sprite):
         self.x = new_rect.left
         self.y = new_rect.top
 
-        # Turn completed
+        # Turn completed — snap to exact lane coordinate (only a few
+        # pixels off due to frame-boundary overshoot at trigger time).
         if self.turn_progress >= 1.0:
             self.turn_complete = True
-            # Switch to the proper pre-rendered image for the new direction
-            self.image = pygame.image.load(
-                f"images/{self.turn_direction}/{self.vehicleClass}.png"
-            )
-            rect = self.image.get_rect(
-                center=(int(self._turn_center_x), int(self._turn_center_y))
-            )
-            self.x = rect.left
-            self.y = rect.top
+            self.image = self._turn_target_image
+            new_rect = self.image.get_rect()
+            if self.turn_direction in ('right', 'left'):
+                self.y = y[self.turn_direction][self.target_turn_lane]
+                self.x = int(self._turn_center_x - new_rect.width / 2.0)
+            else:
+                self.x = x[self.turn_direction][self.target_turn_lane]
+                self.y = int(self._turn_center_y - new_rect.height / 2.0)
+
+    def _find_nearest_ahead_post_turn(self):
+        """Find the nearest vehicle ahead in the new direction after a turn."""
+        new_dir = self.turn_direction
+        rect = self.image.get_rect()
+        my_w, my_h = rect.width, rect.height
+
+        # Perpendicular-axis tolerance for "same lane" matching
+        lane_tolerance = 25
+
+        if new_dir in ('right', 'left'):
+            my_lane_coord = self.y
+        else:
+            my_lane_coord = self.x
+
+        nearest = None
+        nearest_dist = float('inf')
+
+        for vehicle in state.vehicle_simulation:
+            if vehicle is self:
+                continue
+
+            # Determine effective direction of the other vehicle
+            if getattr(vehicle, 'turn_complete', False):
+                eff_dir = vehicle.turn_direction
+            elif getattr(vehicle, 'turning_active', False):
+                continue  # skip vehicles mid-turn
+            else:
+                eff_dir = vehicle.direction
+
+            if eff_dir != new_dir:
+                continue
+
+            # Check if in same lane (perpendicular axis within tolerance)
+            if new_dir in ('right', 'left'):
+                other_lane_coord = vehicle.y
+                if abs(other_lane_coord - my_lane_coord) > lane_tolerance:
+                    continue
+                if new_dir == 'right' and vehicle.x > self.x:
+                    dist = vehicle.x - (self.x + my_w)
+                elif new_dir == 'left' and vehicle.x < self.x:
+                    dist = self.x - (vehicle.x + vehicle.image.get_rect().width)
+                else:
+                    continue
+            else:
+                other_lane_coord = vehicle.x
+                if abs(other_lane_coord - my_lane_coord) > lane_tolerance:
+                    continue
+                if new_dir == 'down' and vehicle.y > self.y:
+                    dist = vehicle.y - (self.y + my_h)
+                elif new_dir == 'up' and vehicle.y < self.y:
+                    dist = self.y - (vehicle.y + vehicle.image.get_rect().height)
+                else:
+                    continue
+
+            if dist < nearest_dist:
+                nearest_dist = dist
+                nearest = vehicle
+
+        return nearest, nearest_dist
 
     # --- Main movement logic ---
 
@@ -208,9 +328,15 @@ class Vehicle(pygame.sprite.Sprite):
         rect = self.image.get_rect()
         width, height = rect.width, rect.height
 
-        # --- Post-turn: just move in new direction, no gap checks ---
+        # --- Post-turn: move in new direction with gap checking ---
         if self.turn_complete:
             dx, dy = self._direction_vector(self.turn_direction)
+
+            # Check for vehicles ahead to prevent overlapping
+            ahead, gap_dist = self._find_nearest_ahead_post_turn()
+            if ahead is not None and gap_dist <= movingGap:
+                return  # wait — too close to vehicle ahead
+
             self.x += self.speed * dx
             self.y += self.speed * dy
             return
@@ -239,15 +365,20 @@ class Vehicle(pygame.sprite.Sprite):
         if self.index > 0:
             for i in range(self.index - 1, -1, -1):
                 candidate = state.vehicles[self.direction][self.lane][i]
-                if not getattr(candidate, 'turning_active', False) \
-                        and not getattr(candidate, 'turn_complete', False):
+                # Only skip vehicles whose turn is fully complete (they've
+                # left this lane).  Vehicles that are mid-turn are still
+                # physically in the way and must block following traffic.
+                if not getattr(candidate, 'turn_complete', False):
                     prev_vehicle = candidate
                     break
 
-        # Speed recovery: restore original speed when the direct predecessor
-        # has turned away and is no longer blocking this vehicle's lane.
+        # Speed recovery: restore original speed only when the direct
+        # predecessor has fully completed its turn and left the lane.
+        # While the vehicle ahead is mid-turn it is still physically
+        # blocking, so do not speed up.
         if self.speed < self.original_speed:
-            self.speed = self.original_speed
+            if prev_vehicle is None or not getattr(prev_vehicle, 'turning_active', False):
+                self.speed = self.original_speed
 
         # Check if vehicle crossed stop line and log it
         if not self.crossed:

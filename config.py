@@ -127,7 +127,7 @@ turnTriggerOffset = {
         'right_turn': {0: 240, 1: 260, 2: 280},
     },
     'left': {
-        'left_turn':  {0: 40,  1: 60,  2: 80},
+        'left_turn':  {0: 60,  1: 80,  2: 90},
         'right_turn': {0: 270, 1: 290, 2: 310},
     },
     'up': {
