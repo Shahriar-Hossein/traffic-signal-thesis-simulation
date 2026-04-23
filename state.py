@@ -44,7 +44,7 @@ uneven_mode = 'even'
 
 
 # simulation time
-# duration = 60 # 1 minute
+duration = 60 # 1 minute
 # duration = 120 # 2 minutes
 # duration = 180 # 3 minutes
 # duration = 240 # 4 minutes
@@ -53,4 +53,4 @@ uneven_mode = 'even'
 # duration = 900 # 15 minutes
 # duration = 1200 # 20 minutes
 # duration = 1500 # 25 minutes
-duration = 1800 # 30 minutes
+# duration = 1800 # 30 minutes

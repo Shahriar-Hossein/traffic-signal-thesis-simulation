@@ -4,7 +4,7 @@ from datetime import datetime
 
 from config import (
     speeds, x, y, stoppingGap, defaultStop,
-    movingGap, stopLines
+    movingGap, stopLines, screenHeight, screenWidth
 )
 import state
 
@@ -16,92 +16,98 @@ vehicles = lambda: state.vehicles
 class Vehicle(pygame.sprite.Sprite):
     def __init__(self, lane, vehicleClass, direction_number, direction):
         super().__init__()
+
+        # ---------------------------------------------------------
+        # BASIC ATTRIBUTES
+        # ---------------------------------------------------------
         self.lane = lane
         self.vehicleClass = vehicleClass
         self.speed = speeds[vehicleClass]
-        self.direction_number = direction_number
-        self.direction = direction
 
-        # TURN PARAMETERS (SIMPLE VERSION)
-        self.turn = "straight"            # left / right / straight
-        self.turn_dest_direction = None   # where it will face after turn
-        self.turn_target_lane = random.randint(0, 2)     # which lane of the new road
-        self.turn_target_coord = None     # coordinate of that lane
-        self.turn_align_threshold = 4
-        self.turn_blend_frames = 12
-        self._turning = False
-        self._turn_frame = 0
-        self.turn_lane = random.randint(0, 2)
+        self.direction_number = direction_number      # 0=right,1=down,2=left,3=up
+        self.direction = direction                    # "right", "down", "left", "up"
 
+        # Spawn coordinates
+        self.x = x[direction][lane]
+        self.y = y[direction][lane]
+
+        # Vehicle image
+        image_path = f"images/{direction}/{vehicleClass}.png"
+        self.image = pygame.image.load(image_path)
+
+        # Vehicle state
+        self.crossed = False
+        self.index = None
         self.created_at = datetime.now()
         self.wait_start_time = None
         self.actual_wait_time = 0
         self.is_waiting = False
 
-        # Starting coordinates
-        self.x = x[direction][lane]
-        self.y = y[direction][lane]
-        self.crossed = 0
+        # Detached flag (used when a vehicle leaves its lane to turn)
+        self._detached = False
 
-        # Load image
-        image_path = f"images/{direction}/{vehicleClass}.png"
-        self.image = pygame.image.load(image_path)
-
-        # -----------------------------------------
-        # 1. DECIDE TURN TYPE BASED ON SPAWN LANE
-        # -----------------------------------------
-        lanes_count = len(x[direction])
-
+        # ---------------------------------------------------------
+        # TURN LOGIC (3 LANES ONLY)
+        # ---------------------------------------------------------
+        # lane 0 = left turn
+        # lane 1 = straight
+        # lane 2 = right turn
         if lane == 0:
             self.turn = "left"
-        elif lane == lanes_count - 1:
+        elif lane == 2:
             self.turn = "right"
         else:
             self.turn = "straight"
 
-        # -----------------------------------------
-        # 2. DETERMINE DESTINATION DIRECTION (AT SPAWN)
-        # -----------------------------------------
+        # Destination direction after turn
         if self.turn == "left":
             self.turn_dest_direction = {
                 "up": "left",
-                "down": "right",
                 "left": "down",
+                "down": "right",
                 "right": "up",
             }[direction]
-
 
         elif self.turn == "right":
             self.turn_dest_direction = {
                 "up": "right",
+                "right": "down",
                 "down": "left",
                 "left": "up",
-                "right": "down",
             }[direction]
 
-        # Straight means no turning
         else:
-            self.turn_dest_direction = None
+            self.turn_dest_direction = None    # going straight
 
-        # -----------------------------------------
-        # 3. PICK RANDOM TARGET LANE (AT SPAWN)
-        # -----------------------------------------
+        # Random lane of the new road (0..2)
+        self.turn_target_lane = random.randint(0, 2)
+
+        # Turn blending animation
+        self.turn_align_threshold = 4
+        self.turn_blend_frames = 12
+        self._turning = False
+        self._turn_frame = 0
+
+        # Coordinate where car should start turning (align axis)
         if self.turn != "straight":
-
-            # If original direction was vertical, turning means align y
             if direction in ("up", "down"):
+                # vertical → horizontal: align Y to dest road's lane Y
                 self.turn_target_coord = y[self.turn_dest_direction][self.turn_target_lane]
-            # If original direction was horizontal, align x
             else:
+                # horizontal → vertical: align X to dest road's lane X
                 self.turn_target_coord = x[self.turn_dest_direction][self.turn_target_lane]
+        else:
+            self.turn_target_coord = None
 
-        # Add to state vehicles
+        # ---------------------------------------------------------
+        # REGISTER VEHICLE
+        # ---------------------------------------------------------
         state.vehicles[direction][lane].append(self)
         self.index = len(state.vehicles[direction][lane]) - 1
 
-        # -----------------------------------------
-        # Set stop position behind previous vehicle
-        # -----------------------------------------
+        # ---------------------------------------------------------
+        # INITIAL STOP POSITION BEHIND PREVIOUS VEHICLE
+        # ---------------------------------------------------------
         if self.index > 0 and not state.vehicles[direction][lane][self.index - 1].crossed:
             prev = state.vehicles[direction][lane][self.index - 1]
             prev_rect = prev.image.get_rect()
@@ -117,16 +123,17 @@ class Vehicle(pygame.sprite.Sprite):
         else:
             self.stop = defaultStop[direction]
 
-        # -----------------------------------------
-        # Adjust spawn position behind previous car
-        # -----------------------------------------
+        # ---------------------------------------------------------
+        # ADJUST SPAWN POSITION (NO OVERLAP)
+        # ---------------------------------------------------------
         img_size = (
             self.image.get_rect().width
-            if direction in ["right", "left"]
+            if direction in ("right", "left")
             else self.image.get_rect().height
         )
 
         offset = img_size + stoppingGap
+
         if self.index > 0 and not state.vehicles[direction][lane][self.index - 1].crossed:
             prev = state.vehicles[direction][lane][self.index - 1]
 
@@ -139,34 +146,81 @@ class Vehicle(pygame.sprite.Sprite):
             elif direction == "up":
                 self.y = prev.y + offset + 100
 
+        # Add to sprite group
         state.vehicle_simulation.add(self)
 
-    # ================================================================
+    # -----------------------------------------------------------------
+    # Helper: detach from current lane list (called when starting a turn)
+    # -----------------------------------------------------------------
+    def _detach_from_lane(self):
+        if self._detached:
+            return
+        lane_list = state.vehicles[self.direction][self.lane]
+        # Remove self from the lane list if present
+        try:
+            lane_list.remove(self)
+        except ValueError:
+            # not present; ignore
+            pass
+        else:
+            # Re-index remaining vehicles in that lane
+            for i, v in enumerate(lane_list):
+                v.index = i
+        self._detached = True
+        # mark index as None while detached
+        self.index = None
+
+    # -----------------------------------------------------------------
+    # Helper: attach to the new lane list (called when finishing a turn)
+    # -----------------------------------------------------------------
+    def _attach_to_new_lane(self):
+        # append to new lane list (self.direction and self.lane should already be updated)
+        lane_list = state.vehicles[self.direction][self.lane]
+        lane_list.append(self)
+        self.index = len(lane_list) - 1
+        self._detached = False
+
+    # =================================================================
     # RENDER
-    # ================================================================
+    # =================================================================
     def render(self, screen):
         screen.blit(self.image, (self.x, self.y))
 
-    # ================================================================
-    # MOVEMENT + TURNING
-    # ================================================================
+    # =================================================================
+    # MOVEMENT LOGIC
+    # =================================================================
     def move(self):
-        rect = self.image.get_rect()
-        width, height = rect.width, rect.height
-
-        green_go = (
-            (self.direction == "right" and ( state.currentGreen == 0 or self.crossed ))
-            or (self.direction == "down" and ( state.currentGreen == 1 or self.crossed  ) )
-            or (self.direction == "left" and ( state.currentGreen == 2 or self.crossed ))
-            or (self.direction == "up" and ( state.currentGreen == 3 or self.crossed ))
-        ) and state.currentYellow == 0
-
-        prev_vehicle = None
-        if self.index > 0:
-            prev_vehicle = state.vehicles[self.direction][self.lane][self.index - 1]
+        width = self.image.get_width()
+        height = self.image.get_height()
 
         # --------------------------------------------------------
-        # STOP LINE CROSSING
+        # TRAFFIC SIGNAL CHECK
+        # --------------------------------------------------------
+        green_go = (
+            (self.direction == "right" and (state.currentGreen == 0 or self.crossed))
+            or (self.direction == "down" and (state.currentGreen == 1 or self.crossed))
+            or (self.direction == "left" and (state.currentGreen == 2 or self.crossed))
+            or (self.direction == "up" and (state.currentGreen == 3 or self.crossed))
+        ) and state.currentYellow == 0
+
+        # --------------------------------------------------------
+        # GET PREVIOUS VEHICLE (IF ATTACHED)
+        # --------------------------------------------------------
+        prev_vehicle = None
+        if self.index is not None and self.index > 0:
+            prev_vehicle = state.vehicles[self.direction][self.lane][self.index - 1]
+
+        def prev_blocks(prev):
+            if not prev:
+                return False
+            if getattr(prev, "_turning", False):
+                return False
+            if getattr(prev, "_detached", False):
+                return False
+            return True
+
+        # --------------------------------------------------------
+        # CROSS STOP LINE
         # --------------------------------------------------------
         if not self.crossed:
             if (
@@ -175,52 +229,103 @@ class Vehicle(pygame.sprite.Sprite):
                 or (self.direction == "left" and self.x < stopLines[self.direction])
                 or (self.direction == "up" and self.y < stopLines[self.direction])
             ):
-                self.crossed = 1
+                self.crossed = True
                 log_vehicle(self)
 
         # --------------------------------------------------------
-        # TURN START TRIGGERED ONCE AFTER CROSSING
+        # TURN ACTIVATION
         # --------------------------------------------------------
-        if ( self.crossed and self.turn != "straight" and not self._turning ):
-            # If original direction was vertical, turning means align y
+        if self.crossed and self.turn != "straight" and not self._turning:
+
             if self.direction in ("up", "down"):
-                if( self.turn_target_coord == self.y ):
-                    self._turning = True
-                    self._turn_frame = 0
-            # If original direction was horizontal, align x
+                aligned = abs(self.y - self.turn_target_coord) <= self.turn_align_threshold
             else:
-                if( self.turn_target_coord == self.x ):
-                    self._turning = True
-                    self._turn_frame = 0
+                aligned = abs(self.x - self.turn_target_coord) <= self.turn_align_threshold
 
+            if aligned:
+                # deterministic detach using index
+                if self.index is not None:
+                    lane_list = state.vehicles[self.direction][self.lane]
+                    lane_list.pop(self.index)
+                    for i, v in enumerate(lane_list):
+                        v.index = i
+
+                self._detached = True
+                self.index = None
+                self._turning = True
+                self._turn_frame = 0
 
         # --------------------------------------------------------
-        # TURN BLENDING (CURVE)
+        # TURN BLENDING
         # --------------------------------------------------------
         if self._turning:
-            blend_ratio = self._turn_frame / self.turn_blend_frames
 
-            # vertical → horizontal
+            ratio = self._turn_frame / self.turn_blend_frames
+
             if self.direction in ("up", "down"):
+                lateral = ratio * self.speed
                 if self.turn == "left":
-                    self.x -= blend_ratio * self.speed
-                elif self.turn == "right":
-                    self.x += blend_ratio * self.speed
+                    self.x -= lateral
+                else:
+                    self.x += lateral
+            else:
+                lateral = ratio * self.speed
+                if self.turn == "left":
+                    self.y += lateral
+                else:
+                    self.y -= lateral
 
-            # horizontal → vertical
-            if self.direction in ("left", "right"):
-                if self.turn == "left":
-                    self.y += blend_ratio * self.speed
-                elif self.turn == "right":
-                    self.y -= blend_ratio * self.speed
+            # continue forward motion
+            if self.direction == "right":
+                self.x += self.speed
+            elif self.direction == "left":
+                self.x -= self.speed
+            elif self.direction == "down":
+                self.y += self.speed
+            elif self.direction == "up":
+                self.y -= self.speed
 
             self._turn_frame += 1
 
+            # TURN COMPLETE
             if self._turn_frame >= self.turn_blend_frames:
-                # finalize turn
+
+                # snap to exact lane coordinate
+                if self.direction in ("up", "down"):
+                    self.y = y[self.turn_dest_direction][self.turn_target_lane]
+                else:
+                    self.x = x[self.turn_dest_direction][self.turn_target_lane]
+
+                # update direction & lane
                 self.direction = self.turn_dest_direction
                 self.lane = self.turn_target_lane
+
+                # attach to new lane
+                lane_list = state.vehicles[self.direction][self.lane]
+                lane_list.append(self)
+                self.index = len(lane_list) - 1
+                self._detached = False
+
+                # recompute stop position
+                if self.index > 0:
+                    prev = lane_list[self.index - 1]
+                    prev_rect = prev.image.get_rect()
+
+                    if self.direction == "right":
+                        self.stop = prev.stop - prev_rect.width - stoppingGap
+                    elif self.direction == "left":
+                        self.stop = prev.stop + prev_rect.width + stoppingGap
+                    elif self.direction == "down":
+                        self.stop = prev.stop - prev_rect.height - stoppingGap
+                    elif self.direction == "up":
+                        self.stop = prev.stop + prev_rect.height + stoppingGap
+                else:
+                    self.stop = defaultStop[self.direction]
+
                 self._turning = False
+                self._turn_frame = 0
+
+            return  # skip normal driving during turn
 
         # --------------------------------------------------------
         # NORMAL DRIVING
@@ -230,7 +335,10 @@ class Vehicle(pygame.sprite.Sprite):
         if self.direction == "right":
             can_move = (
                 (self.x + width <= self.stop or self.crossed or green_go)
-                and (not prev_vehicle or self.x + width < prev_vehicle.x - movingGap)
+                and (
+                    not prev_blocks(prev_vehicle)
+                    or (self.x + width < prev_vehicle.x - movingGap)
+                )
             )
             if can_move:
                 self.x += self.speed
@@ -239,7 +347,10 @@ class Vehicle(pygame.sprite.Sprite):
         elif self.direction == "down":
             can_move = (
                 (self.y + height <= self.stop or self.crossed or green_go)
-                and (not prev_vehicle or self.y + height < prev_vehicle.y - movingGap)
+                and (
+                    not prev_blocks(prev_vehicle)
+                    or (self.y + height < prev_vehicle.y - movingGap)
+                )
             )
             if can_move:
                 self.y += self.speed
@@ -249,8 +360,8 @@ class Vehicle(pygame.sprite.Sprite):
             can_move = (
                 (self.x >= self.stop or self.crossed or green_go)
                 and (
-                    not prev_vehicle
-                    or self.x > prev_vehicle.x + prev_vehicle.image.get_rect().width + movingGap
+                    not prev_blocks(prev_vehicle)
+                    or (self.x > prev_vehicle.x + prev_vehicle.image.get_width() + movingGap)
                 )
             )
             if can_move:
@@ -261,8 +372,8 @@ class Vehicle(pygame.sprite.Sprite):
             can_move = (
                 (self.y >= self.stop or self.crossed or green_go)
                 and (
-                    not prev_vehicle
-                    or self.y > prev_vehicle.y + prev_vehicle.image.get_rect().height + movingGap
+                    not prev_blocks(prev_vehicle)
+                    or (self.y > prev_vehicle.y + prev_vehicle.image.get_height() + movingGap)
                 )
             )
             if can_move:
@@ -273,16 +384,33 @@ class Vehicle(pygame.sprite.Sprite):
         # WAIT TIME TRACKING
         # --------------------------------------------------------
         now = datetime.now()
+
         if moving:
             if self.is_waiting:
-                waited = (now - self.wait_start_time).total_seconds()
-                self.actual_wait_time += waited
-                self.is_waiting = False
+                self.actual_wait_time += (now - self.wait_start_time).total_seconds()
                 self.wait_start_time = None
+                self.is_waiting = False
         else:
             if not self.is_waiting:
                 self.wait_start_time = now
                 self.is_waiting = True
+
+        # --------------------------------------------------------
+        # OFF-SCREEN CLEANUP
+        # --------------------------------------------------------
+
+        if (
+            self.x > screenWidth
+            or self.x < -width
+            or self.y > screenHeight
+            or self.y < -height
+        ):
+            if self.index is not None:
+                lane_list = state.vehicles[self.direction][self.lane]
+                lane_list.pop(self.index)
+                for i, v in enumerate(lane_list):
+                    v.index = i
+            self.kill()
 
     def get_type(self):
         return self.vehicleClass
