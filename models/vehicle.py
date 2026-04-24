@@ -14,7 +14,6 @@ import state
 
 from utils.logger import log_vehicle
 
-vehicles = lambda: state.vehicles
 
 class Vehicle(pygame.sprite.Sprite):
     def __init__(self, lane, vehicleClass, direction_number, direction):
@@ -339,6 +338,10 @@ class Vehicle(pygame.sprite.Sprite):
 
             self.x += self.speed * dx
             self.y += self.speed * dy
+            # If vehicle moved off-screen, remove it from simulation
+            if self._is_out_of_bounds():
+                self._remove_from_simulation()
+                return
             return
 
         # --- Active turning: execute turn arc ---
@@ -349,6 +352,10 @@ class Vehicle(pygame.sprite.Sprite):
                     self.turn_progress = 0.0
             if self.turning_active:
                 self._execute_turn()
+                # After executing a turn frame, if vehicle ends up off-screen remove it
+                if self._is_out_of_bounds():
+                    self._remove_from_simulation()
+                    return
                 return
 
         green_go = (
@@ -435,7 +442,47 @@ class Vehicle(pygame.sprite.Sprite):
             if not self.is_waiting:
                 self.wait_start_time = now
                 self.is_waiting = True
-    
+        # After normal movement handling, remove vehicles that exited the screen
+        if self._is_out_of_bounds():
+            self._remove_from_simulation()
+
     def get_type(self):
         # Returns the class of the vehicle (e.g., car, bike, truck)
         return self.vehicleClass
+
+    def _is_out_of_bounds(self, margin: int = 100) -> bool:
+        """Return True if vehicle is well outside the display bounds."""
+        rect = self.image.get_rect()
+        left = self.x
+        top = self.y
+        right = self.x + rect.width
+        bottom = self.y + rect.height
+
+        from config import screenWidth, screenHeight
+
+        if right < -margin or left > screenWidth + margin or bottom < -margin or top > screenHeight + margin:
+            return True
+        return False
+
+    def _remove_from_simulation(self):
+        """Remove vehicle from sprite groups and lane lists, and fix indices."""
+        try:
+            state.vehicle_simulation.remove(self)
+        except Exception:
+            pass
+
+        lane_list = state.vehicles.get(self.direction, {}).get(self.lane)
+        if lane_list is None:
+            return
+
+        # Remove by identity if present
+        try:
+            idx = lane_list.index(self)
+        except ValueError:
+            return
+
+        lane_list.pop(idx)
+
+        # Update indices for remaining vehicles in the lane
+        for i, v in enumerate(lane_list):
+            v.index = i
