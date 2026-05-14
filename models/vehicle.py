@@ -338,8 +338,8 @@ class Vehicle(pygame.sprite.Sprite):
 
             self.x += self.speed * dx
             self.y += self.speed * dy
-            # If vehicle moved off-screen, remove it from simulation
-            if self._is_out_of_bounds():
+            # Only remove if vehicle already crossed the stop line and left view
+            if self.crossed and self._is_out_of_bounds():
                 self._remove_from_simulation()
                 return
             return
@@ -352,8 +352,8 @@ class Vehicle(pygame.sprite.Sprite):
                     self.turn_progress = 0.0
             if self.turning_active:
                 self._execute_turn()
-                # After executing a turn frame, if vehicle ends up off-screen remove it
-                if self._is_out_of_bounds():
+                # After executing a turn frame, only remove if it had crossed
+                if self.crossed and self._is_out_of_bounds():
                     self._remove_from_simulation()
                     return
                 return
@@ -443,7 +443,8 @@ class Vehicle(pygame.sprite.Sprite):
                 self.wait_start_time = now
                 self.is_waiting = True
         # After normal movement handling, remove vehicles that exited the screen
-        if self._is_out_of_bounds():
+        # but only if they already crossed the stop line earlier
+        if self.crossed and self._is_out_of_bounds():
             self._remove_from_simulation()
 
     def get_type(self):

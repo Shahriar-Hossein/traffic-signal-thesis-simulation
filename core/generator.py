@@ -78,5 +78,5 @@ def generateVehicles(uneven_mode=None):
         # time.sleep(1) # 1 second interval between vehicle generations   
 
         # print(f"Generated vehicle {cnt}: {direction} lane {lane_number}")
-        if cnt % 3 == 0:  # 3 vehicle in each second on average
+        if cnt % 5 == 0:  # 3 vehicle in each second on average
             time.sleep(1) # 1 second interval between vehicle generations
