@@ -81,3 +81,29 @@ def draw_inline_counts(
     )
     text_surface = font.render(line, True, white, black)
     screen.blit(text_surface, position)
+
+
+def draw_buildings(screen: pygame.Surface, building_size: Tuple[int, int] = (150, 150)):
+    """
+    Draw scaled building images on the four corners of the screen.
+    
+    Args:
+        screen: pygame.Surface to draw on
+        building_size: Tuple of (width, height) for scaled building images
+    """
+    # Building image paths and their corner positions (top-left of image)
+    buildings = [
+        ('images/buildings/appartment_building.png', (0, 0)),  # Top-left
+        ('images/buildings/cafe_building.png', (screen.get_width() - building_size[0], 0)),  # Top-right
+        ('images/buildings/commercial_building.png', (0, screen.get_height() - building_size[1])),  # Bottom-left
+        ('images/buildings/mall_building.png', (screen.get_width() - building_size[0], screen.get_height() - building_size[1]))  # Bottom-right
+    ]
+    
+    for image_path, position in buildings:
+        try:
+            building_img = pygame.image.load(image_path)
+            # Scale the building image to the specified size
+            scaled_building = pygame.transform.scale(building_img, building_size)
+            screen.blit(scaled_building, position)
+        except pygame.error as e:
+            print(f"Warning: Could not load building image from {image_path}: {e}")
