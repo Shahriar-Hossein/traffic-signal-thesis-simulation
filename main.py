@@ -23,7 +23,8 @@ from utils.draw import (
     draw_traffic_signals,
     draw_all_vehicles,
     draw_vehicle_count_texts,
-    draw_inline_counts
+    draw_inline_counts,
+    draw_buildings
 )
 
 def start_simulation_threads():
@@ -77,6 +78,8 @@ def main():
                 sys.exit()
 
         screen.blit(background,(0,0))   # display background in simulation
+
+        # draw_buildings(screen)
 
         draw_traffic_signals(screen, font, signals, state.currentGreen, 
             state.currentYellow, redSignal, yellowSignal, greenSignal,
