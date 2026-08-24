@@ -103,3 +103,5 @@ old_logs/*
 logs/*
 log_signals/*
 data/*
+
+/**/*.pdf
