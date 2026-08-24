@@ -63,10 +63,6 @@ def control_traffic_cycle():
             signals[green_index].yellow = defaultYellow  # keep yellow fixed for simplicity
             signals[green_index].red = green_time + defaultYellow + 1
             for t in range(green_time):
-                vc = get_vehicle_counts()[directionNumbers[green_index]]
-                if vc <= lanes and t >= 6:
-                    # Break early if few vehicles remain after minimum green time
-                    break
                 update_signal_timers(green_index, yellow=False)
                 time.sleep(1)
 
