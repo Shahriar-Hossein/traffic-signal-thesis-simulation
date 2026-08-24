@@ -27,9 +27,9 @@ currentYellow = 0
 
 # priority mode for our approach, fixed for regular approach
 # priority approach, dynamic timer
-currentMode = "priority"
+# currentMode = "priority"
 # normal approach, fixed timer
-# currentMode = "fixed"
+currentMode = "fixed"
 
 
 # for exit logic
@@ -44,11 +44,11 @@ uneven_mode = 'even'
 
 
 # simulation time
-# duration = 60 # 1 minute
+duration = 60 # 1 minute
 # duration = 120 # 2 minutes
 # duration = 180 # 3 minutes
 # duration = 240 # 4 minutes
-duration = 300 # 5 minutes
+# duration = 300 # 5 minutes
 # duration = 600 # 10 minutes
 # duration = 900 # 15 minutes
 # duration = 1200 # 20 minutes
