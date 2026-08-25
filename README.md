@@ -651,11 +651,35 @@ currentMode = "fixed"        # "fixed" | "priority" | "fairness_priority"
 uneven_mode = 'even'         # 'even' | 'up' | 'down' | 'left' | 'right'
                              # | 'up_down' | 'left_right'
                              # | 'right_down' | 'right_up' | 'down_left' | 'left_up'
-duration    = 1200           # seconds
+run_mode    = 'time'         # 'time' | 'vehicles'  — how the run ends
+duration    = 1200           # seconds          (used when run_mode == 'time')
+target_vehicle_count = 500   # vehicles         (used when run_mode == 'vehicles')
+count_mode_timeout   = 1800  # seconds, safety cap for 'vehicles' mode
 ```
 
-Arrival rate is in [core/generator.py](core/generator.py) — `time.sleep(1)` every 5 vehicles gives
-5 veh/s. Signal timing defaults are in [config.py](config.py) (`defaultGreen`, `defaultYellow`).
+Arrival rates are in [config.py](config.py) (`trafficConditions`, `trafficConditionInterval`) — the
+generator switches between high/medium/low every 2 minutes. Signal timing defaults are also in
+[config.py](config.py) (`defaultGreen`, `defaultYellow`).
+
+#### The two run modes
+
+| | `run_mode = 'time'` | `run_mode = 'vehicles'` |
+|---|---|---|
+| Ends when | the clock reaches `duration` | all `target_vehicle_count` vehicles have crossed the stop line |
+| Fixed quantity | run length | vehicle count |
+| Measured quantity | how many crossed | how long it took (`duration_sec` in the sidecar) |
+| Log tree | `data/logs/`, `data/log_signals/` | `data/logs_by_count/`, `data/log_signals_by_count/` |
+
+The two modes write to completely separate trees and never touch each other's data or summaries.
+
+Use **`vehicles`** when you want a complete sample: a time run stops the clock mid-stream, so
+every vehicle still queued at that moment has no row in the CSV — and those are exactly the
+longest-waiting ones, which biases mean wait downward by a different amount for each controller.
+A count run logs every vehicle it generates.
+
+Two things to know about count mode: run length becomes an output rather than an input (it varies
+with the random high/medium/low sequence drawn), and the tail of the run drains under zero
+arrivals, which no time run experiences. Do not pool the two.
 
 ### Run
 
@@ -664,17 +688,34 @@ python3 main.py              # single instance
 python3 run_simulation.py    # batch of 5 concurrent instances
 ```
 
-Logs are written automatically to `data/logs/<uneven_mode>/<duration>/` and
-`data/log_signals/<uneven_mode>/<duration>/`. **Both arms must be run separately** — `currentMode`
-is a module-level constant, so every instance in a batch uses the same controller.
+Logs are written automatically:
+
+- **time mode** → `data/logs/<uneven_mode>/<duration>/<controller>_log_<duration>_<ts>.csv`
+- **count mode** → `data/logs_by_count/<uneven_mode>/<N>/<controller>_countlog_<N>_<ts>.csv`,
+  plus a `_meta.json` sidecar per run holding the target, the actual counts, `duration_sec`, and
+  `stop_reason` (`target_reached` | `timeout` | `user_quit`)
+
+with the matching signal logs under `data/log_signals/` and `data/log_signals_by_count/`.
+
+**Both arms must be run separately** — `currentMode` is a module-level constant, so every instance
+in a batch uses the same controller. A count run that hits `count_mode_timeout` is recorded with
+`stop_reason: "timeout"` and is excluded from the pooled statistics by the analyzer — it is a
+truncated run, not a complete one.
 
 ### Analyse
 
 ```bash
-python3 analyzers/analyze_log.py           # → data/summary_logs/simulation_summary.csv
+python3 analyzers/analyze_log.py           # time runs  → data/summary_logs/simulation_summary.csv
+python3 analyzers/analyze_count_log.py     # count runs → data/summary_count_logs/count_simulation_summary.csv
 python3 analyzers/analyze_signal_log.py    # → data/summary_signals/
 python3 analyzers/analyze_first_n_vehicles.py
 python3 analyzers/analyze_first_n_vehicles_by_direction.py
 ```
+
+`analyze_count_log.py` reports `average_duration_sec` and
+`average_throughput_vehicles_per_sec` — with the vehicle count fixed, a shorter run is the
+result. It also warns whenever a file's row count does not match its vehicle target.
+
+Architecture reference: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 Remember: ignore the `unique_vehicles` column (§5.1).

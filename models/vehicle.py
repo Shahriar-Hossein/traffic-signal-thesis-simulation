@@ -396,6 +396,7 @@ class Vehicle(pygame.sprite.Sprite):
                 (self.direction == 'up' and self.y < stopLines[self.direction])
             ):
                 self.crossed = 1
+                state.vehicles_crossed += 1
                 log_vehicle(self)
 
         # Determine if vehicle should move or wait

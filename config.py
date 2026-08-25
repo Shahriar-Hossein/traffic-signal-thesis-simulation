@@ -1,5 +1,5 @@
 # Signal Timing Defaults
-defaultGreen = {0: 12, 1: 12, 2: 12, 3: 12}
+defaultGreen = {0: 24, 1: 24, 2: 24, 3: 24}
 defaultRed = 150
 defaultYellow = 5
 
@@ -156,3 +156,14 @@ turnFrames = {
         'left_turn':  {0: 50, 1: 55, 2: 60},
     },
 }
+
+# Traffic Conditions (vehicle generation rate in vehicles per second)
+# The generator switches between these to simulate changing traffic load
+trafficConditions = {
+    'high': 4,      # 4 vehicles per second
+    'medium': 2,    # 2 vehicles per second
+    'low': 0.5      # 1 vehicle every 2 seconds
+}
+
+# How long (seconds) a traffic condition stays active before switching
+trafficConditionInterval = 120  # 2 minutes

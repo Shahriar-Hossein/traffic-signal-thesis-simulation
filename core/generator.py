@@ -3,7 +3,20 @@ import state
 import random
 import time
 from models.vehicle import Vehicle
-from config import directionNumbers, vehicleTypes
+from config import (
+    directionNumbers, vehicleTypes,
+    trafficConditions, trafficConditionInterval
+)
+
+
+def pick_traffic_condition(previous=None):
+    """
+    Randomly pick a traffic condition ('high'/'medium'/'low'),
+    always different from the one currently active.
+    """
+    choices = [c for c in trafficConditions if c != previous]
+    return random.choice(choices)
+
 
 def generateVehicles(uneven_mode=None):
     """
@@ -13,10 +26,42 @@ def generateVehicles(uneven_mode=None):
         - 'top_right': more vehicles from top and right
         - 'bottom_left': more vehicles from left and bottom
         - 'one_direction': mostly from right (can be changed)
+
+    The generation rate switches between the traffic conditions defined in
+    config.trafficConditions (high/medium/low) every
+    config.trafficConditionInterval seconds, picked at random.
     """
+    # NOTE: the traffic-condition sequence is unseeded, so two runs of the same
+    # length (or the same vehicle quota) see different load sequences.  Seeding
+    # is a separate change; see docs/RUN_MODE_VEHICLE_COUNT_PLAN.md.
     cnt = 0
+    condition = None
+    condition_started_at = 0  # forces a pick on the first iteration
+
     while state.running:
+        # In 'vehicles' mode the generator releases a fixed quota and stops.
+        # The simulation itself keeps running until those vehicles have crossed.
+        if (state.run_mode == 'vehicles'
+                and state.vehicles_generated >= state.target_vehicle_count):
+            print(
+                f"Generated all {state.target_vehicle_count} vehicles. "
+                "Generator stopping."
+            )
+            break
+
         cnt += 1
+
+        # Switch traffic condition every `trafficConditionInterval` seconds
+        now = time.time()
+        if now - condition_started_at >= trafficConditionInterval:
+            condition = pick_traffic_condition(condition)
+            condition_started_at = now
+            state.traffic_condition = condition
+            print(
+                f"Traffic condition: {condition} "
+                f"({trafficConditions[condition]} vehicles/sec)"
+            )
+
         # Randomly select vehicle type
         vehicle_type_index = random.randint(0, 3)
 
@@ -75,8 +120,9 @@ def generateVehicles(uneven_mode=None):
             direction_number,
             direction
         )
-        # time.sleep(1) # 1 second interval between vehicle generations   
-
+        state.vehicles_generated += 1
         # print(f"Generated vehicle {cnt}: {direction} lane {lane_number}")
-        if cnt % 5 == 0:  # 3 vehicle in each second on average
-            time.sleep(1) # 1 second interval between vehicle generations
+
+        # Interval between generations, derived from the active condition
+        # e.g. 4 vehicles/sec -> 0.25s, 0.5 vehicles/sec -> 2s
+        time.sleep(1 / trafficConditions[condition])
