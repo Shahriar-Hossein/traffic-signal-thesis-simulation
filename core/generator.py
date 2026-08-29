@@ -3,19 +3,16 @@ import state
 import random
 import time
 from models.vehicle import Vehicle
+from core.plan import (
+    sample_vehicle, pick_traffic_condition, DIRECTIONS,
+)
 from config import (
-    directionNumbers, vehicleTypes,
     trafficConditions, trafficConditionInterval
 )
 
-
-def pick_traffic_condition(previous=None):
-    """
-    Randomly pick a traffic condition ('high'/'medium'/'low'),
-    always different from the one currently active.
-    """
-    choices = [c for c in trafficConditions if c != previous]
-    return random.choice(choices)
+# How long a replay sleep may block before re-checking `state.running`, so a
+# window close still stops the thread promptly during a low-rate stretch.
+REPLAY_SLEEP_SLICE = 0.05
 
 
 def generateVehicles(uneven_mode=None):
@@ -30,10 +27,17 @@ def generateVehicles(uneven_mode=None):
     The generation rate switches between the traffic conditions defined in
     config.trafficConditions (high/medium/low) every
     config.trafficConditionInterval seconds, picked at random.
+
+    When state.generation_source == 'plan' this hands off to replay_vehicles,
+    which reads a pre-written plan instead of drawing.
     """
+    if state.generation_source == 'plan':
+        replay_vehicles(state.vehicle_plan)
+        return
+
     # NOTE: the traffic-condition sequence is unseeded, so two runs of the same
-    # length (or the same vehicle quota) see different load sequences.  Seeding
-    # is a separate change; see docs/RUN_MODE_VEHICLE_COUNT_PLAN.md.
+    # length (or the same vehicle quota) see different load sequences.  Paired
+    # replay runs are the fix for that; see docs/PAIRED_REPLAY_PLAN.md.
     cnt = 0
     condition = None
     condition_started_at = 0  # forces a pick on the first iteration
@@ -62,63 +66,15 @@ def generateVehicles(uneven_mode=None):
                 f"({trafficConditions[condition]} vehicles/sec)"
             )
 
-        # Randomly select vehicle type
-        vehicle_type_index = random.randint(0, 3)
-
-        # Define direction probabilities based on mode
-        # adjacent routes have more vehicles
-        if uneven_mode == 'down_left':
-            # Assign weights: right & up high, left & down low
-            directions  = ['right', 'down', 'left', 'up']
-            weights     = [0.15,    0.35,   0.35,   0.15]  # sums to 1
-        elif uneven_mode == 'right_down':
-            directions  = ['right', 'down', 'left', 'up']
-            weights     = [0.35,    0.35,   0.15,   0.15]
-        elif uneven_mode == 'right_up':
-            directions  = ['right', 'down', 'left', 'up']
-            weights     = [0.35,    0.15,   0.15,   0.35]
-        elif uneven_mode == 'left_up':
-            directions  = ['right', 'down', 'left', 'up']
-            weights     = [0.15,    0.15,   0.35,   0.35]
-
-        # one direction has more vehicles
-        elif uneven_mode == 'up':
-            directions  = ['right', 'down', 'left', 'up']
-            weights     = [0.05,    0.05,   0.05,   0.85]
-        elif uneven_mode == 'down':
-            directions  = ['right', 'down', 'left', 'up']
-            weights     = [0.05,    0.85,   0.05,   0.05]
-        elif uneven_mode == 'left':
-            directions  = ['right', 'down', 'left', 'up']
-            weights     = [0.05,    0.05,   0.85,   0.05]
-        elif uneven_mode == 'right':
-            directions  = ['right', 'down', 'left', 'up']
-            weights     = [0.85,    0.05,   0.05,   0.05]
-
-        # alternate routes - up & down, left & right has more vehicles
-        elif uneven_mode == 'up_down':
-            directions  = ['right', 'down', 'left', 'up']
-            weights     = [0.15,    0.35,   0.15,   0.35]
-        elif uneven_mode == 'left_right':
-            directions  = ['right', 'down', 'left', 'up']
-            weights     = [0.35,    0.15,   0.35,   0.15]
-        
-        # uniform probability
-        else:
-            directions  = ['right', 'down', 'left', 'up']
-            weights     = [0.25,    0.25,   0.25,   0.25]
-
-        direction = random.choices(directions, weights)[0]
-        direction_number = list(directionNumbers.values()).index(direction)
-
-        lane_count = 3
-        lane_number = random.randint(0, lane_count - 1)
+        # Type, direction and lane all come from the shared sampler so the
+        # plan writer cannot drift away from what the live mode produces.
+        drawn = sample_vehicle(uneven_mode, random)
 
         Vehicle(
-            lane_number,
-            vehicleTypes[vehicle_type_index],
-            direction_number,
-            direction
+            drawn['lane'],
+            drawn['vehicle_type'],
+            drawn['direction_number'],
+            drawn['direction']
         )
         state.vehicles_generated += 1
         # print(f"Generated vehicle {cnt}: {direction} lane {lane_number}")
@@ -126,3 +82,75 @@ def generateVehicles(uneven_mode=None):
         # Interval between generations, derived from the active condition
         # e.g. 4 vehicles/sec -> 0.25s, 0.5 vehicles/sec -> 2s
         time.sleep(1 / trafficConditions[condition])
+
+
+def replay_vehicles(plan):
+    """
+    Release the vehicles of a pre-written plan instead of drawing new ones.
+
+    Each vehicle is released against an *absolute* deadline
+    (`run_start + t_offset_sec`) on a monotonic clock rather than by sleeping
+    the gap between consecutive vehicles.  Cumulative sleeps let the overshoot
+    of every `time.sleep` compound over a run; deadline sleeps let a late
+    release be absorbed by the next one, so drift self-corrects instead of
+    accumulating.
+
+    A release that is already past its deadline goes out immediately and the
+    lateness is recorded — never skipped or hurried, because dropping a
+    vehicle would break the pairing with the other arm.
+    """
+    records = plan['vehicles']
+    print(
+        f"Replaying plan {plan['header']['plan_id']}: "
+        f"{len(records)} vehicles"
+    )
+
+    run_start = time.monotonic()
+    drift_sum_ms = 0.0
+    drift_max_ms = 0.0
+
+    for record in records:
+        if not state.running:
+            break
+
+        deadline = run_start + record['t_offset_sec']
+
+        # Sleep toward the deadline in slices so a quit is noticed quickly.
+        while state.running:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            time.sleep(min(remaining, REPLAY_SLEEP_SLICE))
+
+        if not state.running:
+            break
+
+        lateness_ms = (time.monotonic() - deadline) * 1000.0
+        drift_sum_ms += lateness_ms
+        drift_max_ms = max(drift_max_ms, lateness_ms)
+
+        if record['condition'] != state.traffic_condition:
+            state.traffic_condition = record['condition']
+            print(
+                f"Traffic condition: {record['condition']} "
+                f"({trafficConditions[record['condition']]} vehicles/sec)"
+            )
+
+        Vehicle(
+            record['lane'],
+            record['vehicle_type'],
+            DIRECTIONS.index(record['direction']),
+            record['direction'],
+            will_turn=record['will_turn'],
+            turn_direction=record['turn_direction'],
+            target_turn_lane=record['target_turn_lane'],
+            plan_seq=record['seq'],
+        )
+
+        state.vehicles_generated += 1
+        state.release_count += 1
+        state.release_drift_sum_ms = drift_sum_ms
+        state.release_drift_max_ms = drift_max_ms
+
+    if state.vehicles_generated >= len(records):
+        print(f"Released all {len(records)} planned vehicles. Generator stopping.")

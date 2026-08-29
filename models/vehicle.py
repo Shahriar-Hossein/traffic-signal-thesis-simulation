@@ -7,18 +7,32 @@ from datetime import datetime
 from config import (
     speeds, x, y, stoppingGap, defaultStop, 
     movingGap, stopLines,
-    turnDirections, turnFrames,
-    turnProbability,
+    turnFrames,
 )
 import state
+
+from core.plan import sample_turn
 
 from utils.logger import log_vehicle
 
 
 class Vehicle(pygame.sprite.Sprite):
-    def __init__(self, lane, vehicleClass, direction_number, direction):
+    def __init__(self, lane, vehicleClass, direction_number, direction,
+                 will_turn=None, turn_direction=None, target_turn_lane=None,
+                 plan_seq=None):
+        """
+        `will_turn` / `turn_direction` / `target_turn_lane` are the replay
+        hooks: leave them None (the default) and the turn is drawn exactly as
+        it always was, pass them and the drawn decision is skipped so both
+        arms of a paired run make the identical turn.
+
+        `plan_seq` is this vehicle's index in the replay plan — the pairing
+        key for the two arms.  It has to be carried explicitly because
+        `id(vehicle)` is reused by CPython after a despawn.
+        """
         super().__init__()
         self.lane = lane
+        self.plan_seq = plan_seq
         self.vehicleClass = vehicleClass
         self.speed = speeds[vehicleClass]
         self.direction_number = direction_number
@@ -39,16 +53,20 @@ class Vehicle(pygame.sprite.Sprite):
         self.image = pygame.image.load(image_path)
 
         # Turn-related properties
-        possible_turn = turnDirections[direction][lane]
-        # Randomly decide whether this vehicle actually turns
-        if possible_turn != direction and random.random() < turnProbability:
-            self.turn_direction = possible_turn
-            self.will_turn = True
-            self.target_turn_lane = random.randint(0, 2)  # pick random lane in new direction
+        if will_turn is None:
+            # Live path: draw the decision.  `sample_turn` is the same function
+            # the plan writer uses, so the two cannot drift apart.
+            turn = sample_turn(direction, lane, random)
         else:
-            self.turn_direction = direction
-            self.will_turn = False
-            self.target_turn_lane = 0
+            # Replay path: use the plan's decision verbatim, no draws at all.
+            turn = {
+                'will_turn': bool(will_turn),
+                'turn_direction': turn_direction if will_turn else direction,
+                'target_turn_lane': target_turn_lane if will_turn else 0,
+            }
+        self.will_turn = turn['will_turn']
+        self.turn_direction = turn['turn_direction']
+        self.target_turn_lane = turn['target_turn_lane']
         self.turning_active = False
         self.turn_complete = False
         self.turn_progress = 0.0
