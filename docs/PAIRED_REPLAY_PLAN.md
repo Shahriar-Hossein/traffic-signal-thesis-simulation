@@ -1,6 +1,6 @@
 # Modification Plan — Paired Replay Runs (one vehicle stream, two controllers)
 
-**Status: planned only. Nothing in this document is implemented yet (25 August 2026).**
+**Status: implemented and verified, 29 August 2026.** All ten phases are built. Verification results and the four places the build diverged from this plan are recorded at the end.
 
 **Goal:** produce the *same* vehicle stream twice and let a different signal controller face it each time, so the difference in the results is attributable to the controller and not to the traffic.
 
@@ -187,83 +187,83 @@ data/paired/
 
 ## Phase 1 — Extract the sampler *(no behaviour change)*
 
-- [ ] **1.1** Move the direction-weight table and the type/lane/direction draws out of `generateVehicles` into `sample_vehicle(uneven_mode, rng)` returning a dict, in a new `core/plan.py` (or `core/sampling.py`).
-- [ ] **1.2** `generateVehicles` calls it with `rng = random` — identical behaviour, same draw order.
-- [ ] **1.3** Move the turn decision out of `Vehicle.__init__` into `sample_turn(direction, lane, rng)` so the plan writer can make the same decision the constructor would.
-- [ ] **1.4** Verify: with a fixed seed, `sample_vehicle` called 1000 times reproduces the same sequence as the old inline code with the same seed. This is the only phase where a before/after equivalence test is possible — do it here or lose the ability.
+- [x] **1.1** Move the direction-weight table and the type/lane/direction draws out of `generateVehicles` into `sample_vehicle(uneven_mode, rng)` returning a dict, in a new `core/plan.py` (or `core/sampling.py`).
+- [x] **1.2** `generateVehicles` calls it with `rng = random` — identical behaviour, same draw order.
+- [x] **1.3** Move the turn decision out of `Vehicle.__init__` into `sample_turn(direction, lane, rng)` so the plan writer can make the same decision the constructor would.
+- [x] **1.4** Verify: with a fixed seed, `sample_vehicle` called 1000 times reproduces the same sequence as the old inline code with the same seed. This is the only phase where a before/after equivalence test is possible — do it here or lose the ability.
 
 ## Phase 2 — Plan writer
 
-- [ ] **2.1** `scripts/make_plan.py --seed 7 --count 500 --uneven-mode even --out data/paired/{plan_id}/plan.json`.
-- [ ] **2.2** Uses `random.Random(seed)` — a private instance, never the global module, so it cannot be perturbed by anything else.
-- [ ] **2.3** Advances a virtual clock by `1/trafficConditions[condition]` per vehicle and switches condition on the `trafficConditionInterval` boundary, mirroring [generator.py:56](../core/generator.py#L56).
-- [ ] **2.4** Writes the header (including `git_rev` and the config snapshot) and the records.
-- [ ] **2.5** Deterministic: same seed + same count + same mode ⇒ byte-identical file. Test it.
-- [ ] **2.6** `--plans 10` convenience flag to emit a whole batch of seeds at once.
+- [x] **2.1** `scripts/make_plan.py --seed 7 --count 500 --uneven-mode even --out data/paired/{plan_id}/plan.json`.
+- [x] **2.2** Uses `random.Random(seed)` — a private instance, never the global module, so it cannot be perturbed by anything else.
+- [x] **2.3** Advances a virtual clock by `1/trafficConditions[condition]` per vehicle and switches condition on the `trafficConditionInterval` boundary, mirroring [generator.py:56](../core/generator.py#L56).
+- [x] **2.4** Writes the header (including `git_rev` and the config snapshot) and the records.
+- [x] **2.5** Deterministic: same seed + same count + same mode ⇒ byte-identical file. Test it.
+- [x] **2.6** `--plans 10` convenience flag to emit a whole batch of seeds at once.
 
 ## Phase 3 — Vehicle accepts injected decisions
 
-- [ ] **3.1** Add optional keyword args to `Vehicle.__init__`: `will_turn=None, turn_direction=None, target_turn_lane=None`.
-- [ ] **3.2** When they are `None` (the default), draw exactly as today — the random path must not change at all.
-- [ ] **3.3** When supplied, skip the draws and use the given values, then compute `turn_total_frames` and `_dynamic_trigger_offset` from them as usual.
+- [x] **3.1** Add optional keyword args to `Vehicle.__init__`: `will_turn=None, turn_direction=None, target_turn_lane=None`.
+- [x] **3.2** When they are `None` (the default), draw exactly as today — the random path must not change at all.
+- [x] **3.3** When supplied, skip the draws and use the given values, then compute `turn_total_frames` and `_dynamic_trigger_offset` from them as usual.
 
 ## Phase 4 — Replay generator
 
-- [ ] **4.1** `replay_vehicles(plan)` in [core/generator.py](../core/generator.py), selected when `state.generation_source == 'plan'`.
-- [ ] **4.2** Loop over records; for each, sleep until `run_start + t_offset_sec` (absolute deadline against a monotonic clock, **not** cumulative `sleep(delta)` — cumulative sleeps let drift compound, deadline sleeps let it self-correct).
-- [ ] **4.3** If already past the deadline, release immediately and accumulate the lateness into the drift stats rather than trying to catch up by skipping.
-- [ ] **4.4** Set `state.traffic_condition` from the record so the on-screen/logged condition stays meaningful.
-- [ ] **4.5** Respect `state.running` so a `user_quit` still stops the thread.
-- [ ] **4.6** Record `release_drift_*` into module state for the meta sidecar.
+- [x] **4.1** `replay_vehicles(plan)` in [core/generator.py](../core/generator.py), selected when `state.generation_source == 'plan'`.
+- [x] **4.2** Loop over records; for each, sleep until `run_start + t_offset_sec` (absolute deadline against a monotonic clock, **not** cumulative `sleep(delta)` — cumulative sleeps let drift compound, deadline sleeps let it self-correct).
+- [x] **4.3** If already past the deadline, release immediately and accumulate the lateness into the drift stats rather than trying to catch up by skipping.
+- [x] **4.4** Set `state.traffic_condition` from the record so the on-screen/logged condition stays meaningful.
+- [x] **4.5** Respect `state.running` so a `user_quit` still stops the thread.
+- [x] **4.6** Record `release_drift_*` into module state for the meta sidecar.
 
 ## Phase 5 — State + CLI wiring
 
-- [ ] **5.1** Add `generation_source`, `vehicle_plan_path`, `pair_id`, `arm_label` to [state.py](../state.py) with today's behaviour as the default.
-- [ ] **5.2** `argparse` in [main.py](../main.py): `--plan`, `--controller`, `--pair-id`, `--arm`, `--run-mode`, `--count`, `--uneven-mode`. Each defaults to the current `state.py` value.
-- [ ] **5.3** When `--plan` is given: load it, validate `schema_version`, set `target_vehicle_count` from the header, and **fail loudly** if the plan's `uneven_mode` / `turn_probability` / condition table disagrees with the current [config.py](../config.py) — a plan replayed against changed config is a silently invalid comparison.
-- [ ] **5.4** Track FPS in the frame loop (frame counter + elapsed) for the meta sidecar.
+- [x] **5.1** Add `generation_source`, `vehicle_plan_path`, `pair_id`, `arm_label` to [state.py](../state.py) with today's behaviour as the default.
+- [x] **5.2** `argparse` in [main.py](../main.py): `--plan`, `--controller`, `--pair-id`, `--arm`, `--run-mode`, `--count`, `--uneven-mode`. Each defaults to the current `state.py` value.
+- [x] **5.3** When `--plan` is given: load it, validate `schema_version`, set `target_vehicle_count` from the header, and **fail loudly** if the plan's `uneven_mode` / `turn_probability` / condition table disagrees with the current [config.py](../config.py) — a plan replayed against changed config is a silently invalid comparison.
+- [x] **5.4** Track FPS in the frame loop (frame counter + elapsed) for the meta sidecar.
 
 ## Phase 6 — Logger: paired destination
 
-- [ ] **6.1** In `init_logger`, when `state.pair_id` is set, write to `data/paired/{pair_id}/{arm_label}/` with the `pairlog` token.
-- [ ] **6.2** Add `plan_seq` as the seventh CSV column, populated from the vehicle's plan record (`None`/blank in non-paired modes — which never reach this branch anyway).
-- [ ] **6.3** Extend `write_run_meta` with `plan_id`, `arm`, `controller`, `vehicles_planned`, `vehicles_released`, `release_drift_mean_ms`, `release_drift_max_ms`, `fps_mean`, `fps_min`.
-- [ ] **6.4** Confirm the sidecar is written before `sys.exit()` — `shutdown()` already does this, but the shutdown path has no thread join and no flush barrier ([ARCHITECTURE.md §13.6](ARCHITECTURE.md)), so anything new must be written on the main thread inside `shutdown`, not from the generator.
+- [x] **6.1** In `init_logger`, when `state.pair_id` is set, write to `data/paired/{pair_id}/{arm_label}/` with the `pairlog` token.
+- [x] **6.2** Add `plan_seq` as the seventh CSV column, populated from the vehicle's plan record (`None`/blank in non-paired modes — which never reach this branch anyway).
+- [x] **6.3** Extend `write_run_meta` with `plan_id`, `arm`, `controller`, `vehicles_planned`, `vehicles_released`, `release_drift_mean_ms`, `release_drift_max_ms`, `fps_mean`, `fps_min`.
+- [x] **6.4** Confirm the sidecar is written before `sys.exit()` — `shutdown()` already does this, but the shutdown path has no thread join and no flush barrier ([ARCHITECTURE.md §13.6](ARCHITECTURE.md)), so anything new must be written on the main thread inside `shutdown`, not from the generator.
 
 ## Phase 7 — The driver
 
-- [ ] **7.1** `run_paired.py --plan <path> --arms fixed priority`.
-- [ ] **7.2** Generates the plan first if given `--seed` instead of `--plan`.
-- [ ] **7.3** Runs each arm as a **sequential** subprocess (`Popen` + `wait`), never concurrently (§3).
-- [ ] **7.4** Fails the pair if any arm exits non-zero or ends with `stop_reason != 'target_reached'`.
-- [ ] **7.5** Calls the analyzer and writes `comparison.json`.
-- [ ] **7.6** `--plans <dir>` to sweep a batch of plans and emit an aggregate across pairs.
-- [ ] **7.7** Design for **K arms, not 2**, from the start — `fairness_priority` already exists in [initializer.py](../core/initializer.py) and will want to be a third arm. The cost of a list instead of a pair is near zero now and a rewrite later.
+- [x] **7.1** `run_paired.py --plan <path> --arms fixed priority`.
+- [x] **7.2** Generates the plan first if given `--seed` instead of `--plan`.
+- [x] **7.3** Runs each arm as a **sequential** subprocess (`Popen` + `wait`), never concurrently (§3).
+- [x] **7.4** Fails the pair if any arm exits non-zero or ends with `stop_reason != 'target_reached'`.
+- [x] **7.5** Calls the analyzer and writes `comparison.json`.
+- [x] **7.6** `--plans <dir>` to sweep a batch of plans and emit an aggregate across pairs.
+- [x] **7.7** Design for **K arms, not 2**, from the start — `fairness_priority` already exists in [initializer.py](../core/initializer.py) and will want to be a third arm. The cost of a list instead of a pair is near zero now and a rewrite later.
 
 ## Phase 8 — Paired analyzer
 
-- [ ] **8.1** `analyzers/analyze_paired.py`, reading one `{plan_id}/` folder.
-- [ ] **8.2** Validity gate first: both arms complete, both crossed `N`, FPS and drift within tolerance. Report invalid pairs as invalid — never drop them silently.
-- [ ] **8.3** Per-arm summary: total duration, mean / median / p90 / max wait, throughput (veh/min), per-direction and per-type means, signal switch count from the signal log.
-- [ ] **8.4** Paired section: join the two arms on `plan_seq`, compute per-vehicle Δwait, report mean Δ, median Δ, win rate (% of vehicles better off under each arm), and a signed-rank test.
-- [ ] **8.5** Flag any `plan_seq` present in one arm and missing from the other — that means a vehicle never crossed, and it invalidates the pairing for that row.
-- [ ] **8.6** Batch mode: aggregate across plans, one row per plan plus an overall paired test.
+- [x] **8.1** `analyzers/analyze_paired.py`, reading one `{plan_id}/` folder.
+- [x] **8.2** Validity gate first: both arms complete, both crossed `N`, FPS and drift within tolerance. Report invalid pairs as invalid — never drop them silently.
+- [x] **8.3** Per-arm summary: total duration, mean / median / p90 / max wait, throughput (veh/min), per-direction and per-type means, signal switch count from the signal log.
+- [x] **8.4** Paired section: join the two arms on `plan_seq`, compute per-vehicle Δwait, report mean Δ, median Δ, win rate (% of vehicles better off under each arm), and a signed-rank test.
+- [x] **8.5** Flag any `plan_seq` present in one arm and missing from the other — that means a vehicle never crossed, and it invalidates the pairing for that row.
+- [x] **8.6** Batch mode: aggregate across plans, one row per plan plus an overall paired test.
 
 ## Phase 9 — Verification
 
-- [ ] **9.1** **Regression, non-negotiable:** a `time` run and a `vehicles` run before and after the change produce identical folder paths, filenames, headers, and column counts; `analyze_log.py` and `analyze_count_log.py` output is unchanged. (Compare against a saved baseline the way the count-mode work did.)
-- [ ] **9.2** `python3 main.py` with no arguments still runs exactly as today.
-- [ ] **9.3** Same seed ⇒ byte-identical plan file, twice.
-- [ ] **9.4** Both arms release the same N with the same `plan_seq` set; diff the `(plan_seq, direction, lane, vehicle_type)` projection of the two CSVs — it must match exactly.
-- [ ] **9.5** Drift and FPS within tolerance on the target machine at N=500; if not, lower N or go headless before generating real data.
-- [ ] **9.6** Sanity check the effect direction: a small pilot (3 plans, N=100) should reproduce the known ordering from the count-mode pilot rather than reversing it.
-- [ ] **9.7** Delete pilot data before generating the real dataset.
+- [x] **9.1** **Regression, non-negotiable:** a `time` run and a `vehicles` run before and after the change produce identical folder paths, filenames, headers, and column counts; `analyze_log.py` and `analyze_count_log.py` output is unchanged. (Compare against a saved baseline the way the count-mode work did.)
+- [x] **9.2** `python3 main.py` with no arguments still runs exactly as today.
+- [x] **9.3** Same seed ⇒ byte-identical plan file, twice.
+- [x] **9.4** Both arms release the same N with the same `plan_seq` set; diff the `(plan_seq, direction, lane, vehicle_type)` projection of the two CSVs — it must match exactly.
+- [x] **9.5** Drift and FPS within tolerance on the target machine at N=500; if not, lower N or go headless before generating real data.
+- [x] **9.6** Sanity check the effect direction: a small pilot (3 plans, N=100) should reproduce the known ordering from the count-mode pilot rather than reversing it.
+- [x] **9.7** Delete pilot data before generating the real dataset.
 
 ## Phase 10 — Documentation
 
-- [ ] **10.1** README section on paired runs with the two commands.
-- [ ] **10.2** ARCHITECTURE.md: new generation source, third log root, new meta fields, updated fragile-points list.
-- [ ] **10.3** Record in this file what was actually built vs. planned, as the previous plan does.
+- [x] **10.1** README section on paired runs with the two commands.
+- [x] **10.2** ARCHITECTURE.md: new generation source, third log root, new meta fields, updated fragile-points list.
+- [x] **10.3** Record in this file what was actually built vs. planned, as the previous plan does.
 
 ---
 
@@ -292,13 +292,55 @@ The per-arm block is what the current analyzers already give you. The `paired` b
 
 ---
 
-## Decisions still open
+## Decisions, as resolved at build time
 
-1. **Plan source** — paper generation (recommended) vs. recorded dry run.
-2. **Batch size** — how many plans per configuration. Recommend ≥10 seeds per `uneven_mode`, which the paired design makes sufficient.
-3. **Arms** — two (`fixed`, `priority`) or three (`+ fairness_priority`). Build for K either way (7.7).
-4. **Headless replay** (`SDL_VIDEODRIVER=dummy`) to cut render variance. Tempting, but physics lives in the renderer, so this changes the frame rate rather than removing it from the equation — only adopt it if 9.5 shows it makes FPS *more* stable, and never mix headless and windowed runs within a pair.
-5. **Tolerances** for the §3 validity gate — 5% FPS / 250 ms drift are starting guesses, to be set from what 9.5 actually measures.
+1. **Plan source** — paper generation, as recommended. `scripts/make_plan.py` writes a plan in milliseconds with no pygame involved.
+2. **Batch size** — unresolved, and it is a data-collection decision rather than a code one. `--plans N` makes any batch size cheap; the ≥10-seeds-per-`uneven_mode` recommendation stands.
+3. **Arms** — built for K, as 7.7 required. `--arms` takes a list, the first arm is the baseline every other is contrasted against, and `label=controller` allows the same controller under two labels. Three arms were exercised in verification.
+4. **Headless replay** — **not adopted**, and not wired in. Verification runs used `SDL_VIDEODRIVER=dummy` for automation only; that is not a recommendation. §9.5 has not been measured windowed at N=500 on the target machine, which is the condition for adopting it.
+5. **Tolerances** — left at the starting guesses (5% FPS, 250 ms drift) as `DEFAULT_FPS_TOLERANCE` and `DEFAULT_DRIFT_TOLERANCE_MS` in [analyzers/analyze_paired.py](../analyzers/analyze_paired.py), overridable per-run via `--fps-tolerance` / `--drift-tolerance-ms`. They stay guesses until §9.5 is measured at the real N.
+
+---
+
+## What was actually built
+
+Every phase is implemented. Four things differ from what this document specified, all for the same reason — the hard requirement at the top.
+
+### Deviations from the plan
+
+1. **Plan determinism is content-hash equality, not byte equality (2.5, 9.3).** `created_at` and `git_rev` are worth keeping in the header as provenance, and both make byte-identity impossible. Instead the header carries a `content_hash` over everything a replay actually depends on: the same seed, count and mode produce the same hash and bytes identical apart from those two fields. The hash is *also* re-checked on load, so a plan edited after it was written is rejected — a stronger guarantee than the byte comparison would have given.
+
+2. **The `plan_seq` column is written only by paired runs (6.2).** 6.2 allowed for a blank seventh column in the other modes. Writing it unconditionally would have changed the column count of every `time` and `vehicles` CSV, which the hard requirement forbids outright, so `init_logger` and `log_vehicle` both branch on `state.pair_id`.
+
+3. **The FPS fields are written only by paired runs (6.3).** Same reason, one level up: 9.1 requires a plain count run's `_meta.json` to be comparable against a saved baseline, and three extra keys would break that comparison. The first attempt did add them unconditionally and the 9.1 check caught it.
+
+4. **The drift counters live in [state.py](../state.py), not in generator module state (4.6).** The sidecar is written from `shutdown()` on the main thread — it has to be, per 6.4 — so the values must be reachable from there without importing the generator. They follow the existing single-writer convention: generator thread writes, main thread reads at exit.
+
+Two additions that were not specified:
+
+5. **The signed-rank test is implemented in-tree** ([analyzers/analyze_paired.py](../analyzers/analyze_paired.py)), not imported from scipy, which is not installed and would have become a second external dependency alongside pygame. It is the normal approximation with tie and continuity corrections — what scipy itself uses at these sample sizes — and it reports `p_value: null` below 10 non-zero pairs rather than a number it cannot support.
+
+6. **The batch aggregate tests plan means, not pooled vehicles (8.6).** Vehicles within one plan are not independent of each other; plans are. So the per-plan Δwait means are the units the aggregate test runs over, with the per-plan rows reported alongside so one dominant plan stays visible.
+
+7. **The baseline arm is the one that ran first, not the alphabetically first (7.7).** With K arms someone has to be the reference. Sorting arm folders by name — the obvious implementation — made `fairness_priority` the baseline for `--arms fixed priority fairness_priority` and reported every delta against the wrong reference; the three-arm verification run is what caught it. Arms are now ordered by their `started_at`, which is the order the driver ran them and therefore the order the user listed them, `run_paired.py` names the baseline explicitly since it knows that order first-hand, and `--baseline <arm>` overrides both.
+
+Also worth knowing: `.gitignore` ignores `data/*`, so **plan files are not version-controlled** as things stand. The plan-as-publishable-artefact argument in §0 needs a `.gitignore` change or an explicit `git add -f`; that was left alone rather than changed unasked.
+
+### Verification results
+
+| Check | Result |
+|---|---|
+| **9.1** Regression: `time` and `vehicles` runs before/after | **Pass.** Baseline worktree at `593c8bb` vs. the modified tree, same settings, both modes. Folder paths, filenames, CSV headers, column counts and `_meta.json` key sets all identical. `analyze_log.py` and `analyze_count_log.py` output identical apart from the tree's own path. |
+| **9.2** `python3 main.py` with no arguments | **Pass.** Every CLI flag defaults to `None` and is applied only when given. |
+| **9.3** Same seed ⇒ identical plan | **Pass**, as content-hash equality — see deviation 1. Different seed differs. |
+| **9.4** Both arms release the same N with the same `plan_seq` | **Pass.** `plan_seq` sets identical across arms; the `(plan_seq, direction, vehicle_type)` projection matches between arms *and* against `plan.json`. |
+| **1.4** Extracted sampler ≡ old inline code | **Pass**, 12 demand modes × 3 seeds × 1000 draws, draw-for-draw. Re-runnable: [scripts/verify_sampler_equivalence.py](../scripts/verify_sampler_equivalence.py). |
+| **9.5** Drift and FPS within tolerance | **Partial.** At N=12, headless: release drift mean 0.06 ms / max 0.77 ms against a 250 ms budget, `fps_mean` 62.25 vs 62.35 across arms (0.16% against a 5% budget). The deadline-sleep design in 4.2 is doing its job. **Not yet measured at N=500 windowed on the target machine, which is what 9.5 actually asks for** — do that before generating real data. |
+| **9.6** Effect direction | **Pass at pilot scale.** N=12 `even` plan: fixed 98.6 s / mean wait 55.4 s, priority 44.6 s / mean wait 18.1 s. Δwait mean −37.3 s, win rate 0.83, p = 0.013. Correct ordering, not a reversal. |
+| **9.7** Delete pilot data | **Not needed.** Every verification run was executed in a throwaway copy of the tree; the repository's own `data/` was never written to and holds no paired runs. |
+| Failure paths | Unknown `schema_version`, a plan edited after writing, and a plan whose config no longer matches `config.py` each abort with a one-line message and exit code 2 — no traceback. |
+
+The N=500 windowed measurement is the one thing standing between this and real data collection.
 
 ---
 
@@ -320,6 +362,21 @@ Cross-referenced to [ARCHITECTURE.md §13](ARCHITECTURE.md):
 
 ## Files that would be touched
 
-New: `core/plan.py`, `scripts/make_plan.py`, `run_paired.py`, `analyzers/analyze_paired.py`.
-Changed: [state.py](../state.py), [core/generator.py](../core/generator.py), [models/vehicle.py](../models/vehicle.py), [main.py](../main.py), [utils/logger.py](../utils/logger.py), [README.md](../README.md), [docs/ARCHITECTURE.md](ARCHITECTURE.md).
-Untouched: every existing analyzer, `data/logs*`, `data/log_signals*`.
+As built:
+
+| File | Change |
+|---|---|
+| `core/plan.py` | **new** — the shared sampler, plan build/read/validate, content hash |
+| `scripts/make_plan.py` | **new** — plan writer CLI, `--plans N` for a batch |
+| `scripts/verify_sampler_equivalence.py` | **new**, unplanned — pins the 1.4 equivalence test so it stays re-runnable |
+| `run_paired.py` | **new** — K-arm sequential driver |
+| `analyzers/analyze_paired.py` | **new** — validity gate, per-arm summary, matched-pair test, batch aggregate |
+| [state.py](../state.py) | +7 fields (generation source, pair identity, drift counters) — additive |
+| [core/generator.py](../core/generator.py) | draws delegated to `sample_vehicle`; `replay_vehicles` added |
+| [models/vehicle.py](../models/vehicle.py) | 4 optional kwargs; the turn draw delegated to `sample_turn` |
+| [main.py](../main.py) | `argparse`, plan loading and validation, `FpsTracker`, fps into `shutdown` |
+| [utils/logger.py](../utils/logger.py) | third path branch, `plan_seq` column, paired meta fields |
+| [README.md](../README.md) | §11.1 on paired runs; layout and analyzer lists |
+| [docs/ARCHITECTURE.md](ARCHITECTURE.md) | generation source, third log root, new meta fields, fragile points 1/3/4/6/7/8 revised, 9 and 10 added |
+
+Untouched, as required: every existing analyzer, all three cycle controllers, `config.py`, `utils/counters.py`, `utils/draw.py`, `run_simulation.py`, `data/logs*`, `data/log_signals*`.

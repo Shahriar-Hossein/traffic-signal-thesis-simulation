@@ -591,6 +591,7 @@ State these; a thesis that names its own limitations is stronger than one that w
 ```
 main.py                          entry point: pygame loop, threads, render, duration cut-off
 run_simulation.py                launches N concurrent simulation instances (batch runner)
+run_paired.py                    PAIRED runs: one plan, K controllers, strictly sequential
 config.py                        geometry, timings, speeds, lane→movement map, turn parameters
 state.py                         global mutable state + RUN CONFIGURATION (mode, demand, duration)
 
@@ -600,8 +601,13 @@ core/
   cycle_priority.py              PROPOSED  — weighted-queue priority controller
   cycle_fairness_priority.py     VARIANT   — shorter cap, order fixed per round (no data)
   cycle_priority copy.py         superseded draft of cycle_priority (0.67 multiplier, no re-sort)
-  generator.py                   arrival process, per-mode direction weights
+  generator.py                   arrival process: live draws, or replay of a plan file
+  plan.py                        the shared sampler + plan build / read / validate
   updater.py                     per-second countdown bookkeeping
+
+scripts/
+  make_plan.py                   writes a replay plan (pure function of a seed, no pygame)
+  verify_sampler_equivalence.py  proves the extracted sampler draws what the old code drew
 
 models/
   vehicle.py                     vehicle agent: movement, car-following, turn arc, delay tracking
@@ -617,10 +623,14 @@ analyzers/
   analyze_signal_log.py          per-direction cycle-time statistics
   analyze_first_n_vehicles.py    equal-sample-size comparison (first N vehicles per mode)
   analyze_first_n_vehicles_by_direction.py   first N per direction
+  analyze_count_log.py           vehicle-count runs: duration and throughput per label
+  analyze_paired.py              PAIRED runs: validity gate + matched-pair test
 
 data/
   logs/<mode>/<duration>/        vehicle crossing logs
   log_signals/<mode>/<duration>/ green-onset logs
+  logs_by_count/<mode>/<N>/      vehicle-count run logs (+ _meta.json sidecars)
+  paired/<plan_id>/              plan.json, one folder per arm, comparison.json
   summary_logs/                  analyzer output
 
 previous_versions/               pre-refactor monolithic scripts (historical)
@@ -671,6 +681,8 @@ generator switches between high/medium/low every 2 minutes. Signal timing defaul
 | Log tree | `data/logs/`, `data/log_signals/` | `data/logs_by_count/`, `data/log_signals_by_count/` |
 
 The two modes write to completely separate trees and never touch each other's data or summaries.
+**Where vehicles come from is a separate switch** (`state.generation_source`) — see §11.1 on
+paired runs.
 
 Use **`vehicles`** when you want a complete sample: a time run stops the clock mid-stream, so
 every vehicle still queued at that moment has no row in the CSV — and those are exactly the
@@ -688,6 +700,14 @@ python3 main.py              # single instance
 python3 run_simulation.py    # batch of 5 concurrent instances
 ```
 
+`main.py` also accepts flags, each defaulting to its `state.py` value, so the bare
+`python3 main.py` above behaves exactly as it always has:
+
+```bash
+python3 main.py --controller priority --run-mode vehicles --count 500 --uneven-mode even
+python3 main.py --help
+```
+
 Logs are written automatically:
 
 - **time mode** → `data/logs/<uneven_mode>/<duration>/<controller>_log_<duration>_<ts>.csv`
@@ -702,6 +722,111 @@ in a batch uses the same controller. A count run that hits `count_mode_timeout` 
 `stop_reason: "timeout"` and is excluded from the pooled statistics by the analyzer — it is a
 truncated run, not a complete one.
 
+### 11.1 Paired replay runs — same traffic, two controllers
+
+Every comparison above is between two runs that faced **different traffic**. The load sequence is
+drawn independently per run and moves the headline number by more than the controller plausibly
+does: two identical N=30 count runs took 45 s and 89 s. That is why the design above needs
+hundreds of replications before the controller signal rises out of the traffic noise.
+
+A **paired replay** removes that variance. A plan file is written first, and each controller then
+faces that exact stream — the same N, the same arrival offsets, the same vehicle mix, the same
+turn decisions. Two consequences:
+
+1. The difference in the results is attributable to the controller, not to the traffic.
+2. Vehicle `plan_seq = 214` in the fixed arm and `plan_seq = 214` in the priority arm are the
+   *same arrival*. Their two wait times form a matched pair, so a signed-rank test applies —
+   a far stronger claim than comparing two independent means, and one that typically needs
+   ~10 plans where the unpaired design needs ~50 runs.
+
+The plan file is also a publishable artefact: "here is the exact traffic both algorithms faced"
+is a reviewable claim in a way that "both were random" is not.
+
+#### The two commands
+
+```bash
+# 1. Write a plan (milliseconds — pure function of the seed, no simulation)
+python3 scripts/make_plan.py --seed 7 --count 500 --uneven-mode even
+
+# 2. Run every arm against it, sequentially, then compare
+python3 run_paired.py --plan data/paired/even_500_seed07/plan.json --arms fixed priority
+```
+
+`run_paired.py --seed 7 --count 500` does both in one step, and
+`run_paired.py --plans data/paired --arms fixed priority` sweeps a whole batch and emits an
+aggregate. Arms are a list, not a pair — `--arms fixed priority fairness_priority` works, and
+`--arms baseline=fixed check=fixed` runs the same controller twice under different labels.
+
+**The first arm you list is the baseline** every other arm is compared against, so
+`--arms fixed priority fairness_priority` gives you `fixed → priority` and
+`fixed → fairness_priority`, both with a negative Δwait when the adaptive arm wins. Analyzing a
+folder later, `analyze_paired.py` recovers that order from each arm's `started_at`; override it
+with `--baseline <arm>`.
+
+Generate a batch of plans at once with `python3 scripts/make_plan.py --plans 10 --count 500`.
+
+#### Output
+
+```
+data/paired/{plan_id}/
+  plan.json                                  the shared vehicle stream
+  fixed/     fixed_pairlog_{N}_{ts}.csv      crossings — the usual six columns plus plan_seq
+             fixed_pairlog_{N}_{ts}_signal.csv
+             fixed_pairlog_{N}_{ts}_meta.json
+  priority/  ...
+  comparison.json                            per-arm summary + the matched-pair test
+```
+
+This is a **third root**, sibling to `logs/` and `logs_by_count/`. No existing analyzer walks it,
+and it writes nothing into either existing tree.
+
+#### Two rules that are load-bearing
+
+**Arms run sequentially, never in parallel.** Vehicle physics runs inside the renderer
+(`draw_all_vehicles` calls `vehicle.move()`), so an arm that renders more slowly has literally
+slower vehicles. Two pygame processes competing for the GPU do not get the same frame rate, and
+that confound looks exactly like a controller effect. `run_paired.py` enforces this; do **not**
+use `run_simulation.py`'s concurrent pattern for paired runs.
+
+**A pair that did not honour the plan is reported invalid, not averaged in.** Each arm records its
+frame rate and its release drift in `_meta.json`, and `analyze_paired.py` refuses a pair whose arms
+differ in `fps_mean` by more than 5% or whose worst release was more than 250 ms late. Both
+tolerances are starting guesses — set them from what your machine actually measures at your N, via
+`--fps-tolerance` / `--drift-tolerance-ms`. Without this check the whole design rests on an
+assumption nobody verified.
+
+#### What is identical, and what cannot be
+
+| Identical by construction | Free to differ |
+|---|---|
+| Vehicle count | Actual release timestamps (`time.sleep` overshoots) |
+| Per-vehicle type, direction, lane | Frame rate |
+| Turn decision and target lane | Queue geometry at release — *a legitimate controller effect* |
+| Intended release offsets | Everything downstream of release: waits, signal states, duration |
+| Traffic-condition schedule | |
+
+Replaying a plan against a changed `config.py` is refused outright — a plan replayed under a
+different turn probability or arrival-rate table is not the traffic it says it is, and the
+comparison would be silently invalid.
+
+#### Analyse a pair
+
+```bash
+python3 analyzers/analyze_paired.py data/paired/even_500_seed07
+python3 analyzers/analyze_paired.py --batch data/paired
+python3 analyzers/analyze_paired.py data/paired/even_500_seed07 --baseline priority
+```
+
+`comparison.json` holds a per-arm block (duration, mean/median/p90/max wait, throughput,
+per-direction and per-type means, signal switch count) and a `paired` block — `n_matched`,
+mean and median Δwait, win rate, and the Wilcoxon signed-rank result. The paired block is the
+part that only exists because of this design.
+
+Any `plan_seq` present in one arm and missing from the other is flagged: it means a vehicle never
+crossed there, and it invalidates that row's pairing.
+
+---
+
 ### Analyse
 
 ```bash
@@ -710,6 +835,7 @@ python3 analyzers/analyze_count_log.py     # count runs → data/summary_count_l
 python3 analyzers/analyze_signal_log.py    # → data/summary_signals/
 python3 analyzers/analyze_first_n_vehicles.py
 python3 analyzers/analyze_first_n_vehicles_by_direction.py
+python3 analyzers/analyze_paired.py data/paired/<plan_id>   # paired runs → comparison.json
 ```
 
 `analyze_count_log.py` reports `average_duration_sec` and
