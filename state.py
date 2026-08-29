@@ -49,9 +49,28 @@ target_vehicle_count = 500
 # the run aborts here instead of hanging forever (batch runs depend on this).
 count_mode_timeout = 1800
 
+# --- Where vehicles come from ---
+# 'random' -> live draws (original behaviour)
+# 'plan'   -> replay a pre-written plan file, so two runs face identical traffic
+generation_source = 'random'
+vehicle_plan_path = None   # set when generation_source == 'plan'
+vehicle_plan = None        # the loaded plan dict, populated by main.py
+
+# --- Paired-run identity (only set by the CLI / driver script) ---
+# When pair_id is set the logger writes to data/paired/ instead of either
+# existing log root.  Left None, nothing about logging changes.
+pair_id = None      # e.g. 'even_500_seed07'
+arm_label = None    # e.g. 'fixed' / 'priority'
+
 # --- Live counters (written at runtime, not settings) ---
 # Owned by the generator thread only.
 vehicles_generated = 0
+# Replay adherence, owned by the generator thread, read by main on shutdown.
+# How late each release was against its planned offset; the paired analyzer
+# refuses a pair whose arms did not honour the plan equally well.
+release_count = 0
+release_drift_sum_ms = 0.0
+release_drift_max_ms = 0.0
 # Owned by the main/render thread only (incremented where a vehicle crosses).
 # Each counter has a single writer, so no lock is needed.
 vehicles_crossed = 0
