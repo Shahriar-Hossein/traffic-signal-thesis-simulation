@@ -119,6 +119,10 @@ def apply_args(args):
             )
             sys.exit(2)
 
+        if state.pair_id != state.vehicle_plan['header']['plan_id']:
+            print("ERROR: --pair-id must match the loaded plan's plan_id.")
+            sys.exit(2)
+
         if state.arm_label is None:
             # The arm folder is what makes parts[-2] meaningful; default it to
             # the controller rather than writing into an unnamed folder.

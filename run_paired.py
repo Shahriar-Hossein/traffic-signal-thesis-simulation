@@ -23,6 +23,7 @@ import json
 import os
 import subprocess
 import sys
+import shutil
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
@@ -31,7 +32,7 @@ from analyzers.analyze_paired import (  # noqa: E402
     analyze_pair, analyze_batch, print_pair,
     DEFAULT_FPS_TOLERANCE, DEFAULT_DRIFT_TOLERANCE_MS,
 )
-from core.plan import build_plan, write_plan, default_plan_id  # noqa: E402
+from core.plan import build_plan, write_plan, default_plan_id, load_plan  # noqa: E402
 from scripts.make_plan import plan_path  # noqa: E402
 
 PAIRED_ROOT = os.path.join(ROOT, "data", "paired")
@@ -100,10 +101,28 @@ def read_arm_meta(plan_id, label):
 def run_pair(plan_file, arms, timeout=None, fps_tolerance=DEFAULT_FPS_TOLERANCE,
              drift_tolerance_ms=DEFAULT_DRIFT_TOLERANCE_MS):
     """Run every arm against one plan, then analyze and write comparison.json."""
-    with open(plan_file) as f:
-        header = json.load(f)["header"]
-    plan_id = header["plan_id"]
+    plan = load_plan(plan_file)
+    header = plan['header']
+    plan_id = header['plan_id']
+    if os.path.basename(plan_id) != plan_id or plan_id in ('.', '..'):
+        raise ValueError('plan_id must be a single folder name')
     plan_dir = os.path.join(PAIRED_ROOT, plan_id)
+    for label, controller in arms:
+        if os.path.basename(label) != label or label in ('', '.', '..'):
+            raise ValueError('arm labels must be single folder names')
+        if controller not in ('fixed', 'priority', 'fairness_priority'):
+            raise ValueError(f'unknown controller: {controller}')
+        folder = os.path.join(plan_dir, label)
+        if os.path.exists(folder):
+            raise ValueError(f'arm folder already exists: {folder}; use a fresh plan ID or arm label')
+    archived_plan = os.path.join(plan_dir, 'plan.json')
+    if os.path.exists(archived_plan):
+        if load_plan(archived_plan)['header']['content_hash'] != header['content_hash']:
+            raise ValueError('archived plan differs from requested plan')
+    else:
+        os.makedirs(plan_dir, exist_ok=True)
+        shutil.copyfile(plan_file, archived_plan)
+    plan_file = archived_plan
 
     print(f"\n══ pair {plan_id}: {header['target_vehicle_count']} vehicles, "
           f"{len(arms)} arm(s), run one at a time ══")
@@ -198,7 +217,10 @@ def main(argv=None):
     if args.seed is not None:
         plan_id = default_plan_id(args.uneven_mode, args.count, args.seed)
         plan = build_plan(args.seed, args.count, args.uneven_mode, plan_id=plan_id)
-        plan_file = write_plan(plan, plan_path(plan_id))
+        plan_file = plan_path(plan_id)
+        if os.path.exists(plan_file):
+            parser.error(f'plan already exists: {plan_file}; use --plan or a fresh seed')
+        write_plan(plan, plan_file)
         print(f"Wrote plan {plan_id} -> {plan_file}")
     else:
         plan_file = args.plan
