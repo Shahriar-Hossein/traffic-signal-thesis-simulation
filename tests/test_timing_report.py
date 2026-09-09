@@ -55,6 +55,7 @@ class TimingReportTests(unittest.TestCase):
         # Greens were granted 24s and ran 24.5s.
         self.assertEqual(first['green_overrun_max_ms'], 500.0)
         self.assertEqual(first['green_at_upper_bound'], 2)
+        self.assertEqual(first['green_distribution'], {'24.0': 2})
         self.assertEqual(first['release_lateness_max_ms'], 0.0)
 
         contrast = report['contrasts'][0]

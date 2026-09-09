@@ -91,6 +91,13 @@ def summarize_timing(arm, plan):
         # controller is no longer responding to demand.
         'green_at_lower_bound': sum(1 for value in greens if value <= 6),
         'green_at_upper_bound': sum(1 for value in greens if value >= 24),
+        # The whole distribution, not just the bounds: a controller whose
+        # greens pile up at one value is not adapting, whatever its mean.
+        'green_distribution': {
+            str(value): greens.count(value) for value in sorted(set(greens))
+        },
+        'green_p05': round(percentile(greens, 0.05), 2) if greens else None,
+        'green_p95': round(percentile(greens, 0.95), 2) if greens else None,
         'release_lateness_mean_ms': round(statistics.fmean(lateness) * 1000, 1) if lateness else None,
         'release_lateness_p99_ms': round(percentile(lateness, 0.99) * 1000, 1) if lateness else None,
         'release_lateness_max_ms': round(max(lateness) * 1000, 1) if lateness else None,
