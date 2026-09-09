@@ -244,6 +244,35 @@ comparator now matter more than further replication of fixed-versus-priority.**
 Replicating a comparison against a baseline nobody would deploy adds precision
 to the wrong number.
 
+### Grid slice: the effect depends strongly on the cell
+
+Three cells, two development seeds each (401, 402), N=500, all six pairs
+valid.
+
+| Cell | Skew / regime | Δ mean stopped delay | Win rate | Clearance |
+| --- | --- | --- | --- | --- |
+| `right_medium` | strong / near capacity | −81.96, −78.07 s | 0.846, 0.842 | 602→363, 591→353 s |
+| `right_high` | strong / overloaded | −92.02, −89.83 s | 0.840, 0.860 | 598→361, 496→313 s |
+| `even_high` | balanced / overloaded | −9.12, −9.96 s | **0.392, 0.480** | 272→243, **225→240 s** |
+
+Both seeds agree closely within every cell, so these differences are between
+cells, not noise.
+
+Three things follow.
+
+1. **Skew dominates.** The effect under strong skew is eight to nine times the
+   balanced effect. As the previous section argues, that is mostly fixed-24
+   failing under skew rather than ordering succeeding.
+2. **Under balanced overload most vehicles lose.** Win rates of 0.392 and
+   0.480 mean the majority of vehicles wait *longer*, while the mean still
+   improves by about 9.5 s. The entire gain is tail reallocation. The recorded
+   hypothesis — that persistent overload would erase the benefit — is half
+   confirmed: the mean benefit shrinks to about a ninth, and the typical
+   vehicle is worse off.
+3. **Clearance and delay can disagree.** On `even_high` seed 402, clearance got
+   *worse* (225 → 240 s) while mean delay improved. They are different
+   endpoints and must be reported separately, never as one "efficiency" claim.
+
 ### How many plans the real study needs
 
 From the pilot SD of 5.43 s, per scenario cell:
