@@ -26,8 +26,8 @@ The [implementation](../core/cycle_priority.py) uses `W = sum(1 / configured_veh
 ### 1. Make measurements trustworthy
 
 - [x] **Repair the paired validity gate** in [analyze_paired.py](../analyzers/analyze_paired.py). It now requires a verified plan hash, complete run identity/counts/timing, matching startup configuration/source fingerprints, exactly one crossing per expected `plan_seq`, matching type/direction/lane/turn attributes, and finite nonnegative waits. Invalid pairs produce rejection reasons and no effect estimates. Startup fingerprints include configuration, timeout, simulation source and image assets. The driver archives external plans and refuses existing arm folders. Core scheduling and green calculation are unchanged.
-- [ ] **Unify timing and verify replay at scale.** Run windowed N=500 fixed-versus-fixed repeats, then fixed-versus-priority, on the target machine and at the intended maximum workload. Check phase timing, release timing, FPS over time, and repeatability. The 5% FPS/250 ms limits are provisional; matching average FPS alone is insufficient. Prefer one simulation clock with fixed physics steps if timing changes outcomes, preserving the controller's decisions. Current clocks start separately, and reported completion includes the 1.5-second display drain; record the actual last crossing separately.
-- [ ] **Validate the traffic model and observation boundary.** Check discharge headways, turning/merge conflicts, clearance, directional geometry, and conservation of vehicles. Spawn distance currently depends on the preceding queue, so identical planned arrivals can start at different positions across controllers; measure entry-to-stop-line elapsed time alongside stopped delay. State spatial/time units and justify single-approach phasing, unlimited storage, and perfect sensing. Calibrate against suitable measurements or cross-check key findings in an established simulator before claiming realistic traffic efficiency. [FHWA guidance](https://ops.fhwa.dot.gov/publications/fhwahop18036/chapter5.htm) distinguishes a working model from a calibrated one.
+- [x] **Unify timing and verify replay at scale.** One monotonic run clock now serves main, the generator and the controllers, so releases, greens and crossings share an origin. Releases, crossings, per-phase decisions and the whole FPS window series are recorded; the last crossing is reported apart from the display drain. Verified at N=500 on this machine — see the measurements below. Physics still runs inside the renderer at a 60 FPS cap rather than on fixed physics steps; that remains the standing risk. Two open items carry forward: measure a second machine before tightening the provisional 250 ms / 5% limits, and move to fixed physics steps if a slower machine changes outcomes, preserving the controller's decisions.
+- [ ] **Validate the traffic model and observation boundary.** Discharge headways, startup delay, green utilisation and entry-to-stop-line travel time are now measured (see below) and the first two are clearly unrealistic; calibration has not been attempted yet. Still to check: turning/merge conflicts, turning/merge conflicts, clearance, directional geometry, and conservation of vehicles. Spawn distance currently depends on the preceding queue, so identical planned arrivals can start at different positions across controllers; measure entry-to-stop-line elapsed time alongside stopped delay. State spatial/time units and justify single-approach phasing, unlimited storage, and perfect sensing. Calibrate against suitable measurements or cross-check key findings in an established simulator before claiming realistic traffic efficiency. [FHWA guidance](https://ops.fhwa.dot.gov/publications/fhwahop18036/chapter5.htm) distinguishes a working model from a calibrated one.
 
 ### 2. Freeze an experiment that can find wins and losses
 
@@ -44,6 +44,62 @@ The [implementation](../core/cycle_priority.py) uses `W = sum(1 / configured_veh
 ## University report versus conference paper
 
 Keep the university report as its own evidence/version track. Its current printed pp. 40–43 mix fixed-count methodology with time-limit termination; Chapter 4 still reports the old time-based experiments. It also states 4-second yellow, describes ordering inconsistently between §§3.2 and 3.4.1, and gives qualitative fairness claims in §4.4. Figures 4.1 and 4.4 show no uncertainty. Do not transplant those results into the new methodology or update old configuration values as though the old runs used them. Build the conference methods and results from the frozen, validated experiment above.
+
+## Timing and model measurements — 10 September 2026
+
+Instrumentation added this session: a shared monotonic run clock, per-vehicle
+`released_sec`/`crossed_sec`, a per-phase decision log (round/phase identity,
+decision-time weights and queues, selected green, actual green end), the full
+FPS window series, and the last-crossing time separated from the 1.5 s display
+drain. Three analyzers read them: `analyze_timing.py` (clock comparability),
+`analyze_discharge.py` (traffic-model behaviour) and the extended
+`analyze_paired.py` (plan-level intervals, tail delay, worst-served approach).
+
+### Replay repeatability, N=500, three identical fixed arms
+
+Plan `even_500_seed201`, one machine, SDL dummy display, all three arms valid.
+
+| Quantity | Result |
+| --- | --- |
+| Δ stopped delay between repeats | −0.008 s and −0.013 s on a mean of 47.42 s |
+| Clearance time | 248.095 / 248.060 / 248.051 s (spread 45 ms) |
+| Release lateness, worst | 4.4–4.8 ms (tolerance 250 ms) |
+| Release gap between arms, worst | ≤ 4.7 ms |
+| Phase onset gap between arms, worst | ≤ 15.1 ms |
+| Green overrun against granted time, worst | 11.9–17.3 ms |
+| FPS mean / worst window | 62.22–62.23 / 61.97–61.99 |
+| FPS window gap between arms, p95 | ≤ 0.66% (tolerance 5%) |
+
+**Reading:** on this machine the replay noise floor for stopped delay is about
+0.01 s, roughly 0.03% of the mean. An effect below ~0.05 s is not
+distinguishable from run-to-run jitter. The 250 ms drift and 5% FPS limits are
+two orders of magnitude looser than observed behaviour; they are still the
+right shape of check, but they would not catch a moderate regression. Tighten
+them once a second machine has been measured — a single machine cannot set a
+portable threshold.
+
+### Traffic-model behaviour, same runs
+
+Measured on the saturated N=500 runs, identical to three decimals across all
+three repeats.
+
+| Quantity | Simulated | Typical real-world |
+| --- | --- | --- |
+| Per-lane saturation headway (median) | 0.82 s | ≈ 1.9 s |
+| Per-lane discharge implied | ≈ 4,400 veh/h | ≈ 1,900 veh/h |
+| Startup delay to first crossing | 0.08 s | ≈ 2 s of startup lost time |
+| Per-approach discharge (3 lanes) | 2.52 veh/s | ≈ 1.6 veh/s |
+| Green utilisation | 0.81 | — |
+| Crossings outside any green | 17 of 500 (3.4%) | — |
+
+**Reading:** the intersection discharges roughly 2.3× faster per lane than a
+real one and has almost no startup lost time. This is the single largest
+threat to any efficiency claim: greens are cheaper here than in reality, which
+systematically favours whichever controller grants more green. It does not
+invalidate a *paired* comparison — both arms discharge alike — but it does
+invalidate absolute throughput and delay figures, and it may change the sign
+of an ordering effect near capacity. Calibrating headway and startup loss is
+now the top model task, ahead of collecting results.
 
 ## Implementation checkpoint — 10 September 2026
 
