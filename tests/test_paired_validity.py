@@ -81,6 +81,10 @@ class ReplayValidityTests(unittest.TestCase):
         self.assertIsNone(result['paired'][0]['wilcoxon_p_value'])
         batch = analyze_batch(str(self.root), write=False, baseline='fixed')
         self.assertEqual(batch['per_contrast']['fixed_vs_priority']['plans'], 1)
+        self.assertEqual(result['scenario'], 'even_3')
+        self.assertIn('even_3', batch['per_scenario'])
+        # One plan cannot support an interval; it must say so, not invent one.
+        self.assertIsNone(batch['per_contrast']['fixed_vs_priority']['ci_low'])
 
     def test_sidecar_logs_are_not_mistaken_for_vehicle_logs(self):
         result = self.result()
@@ -238,6 +242,28 @@ class ReplayValidityTests(unittest.TestCase):
         self.assertFalse(analyze_pair(str(self.directory), write=False, baseline='absent')['valid'])
         for tolerance in (-1, float('nan'), float('inf')):
             self.assertFalse(analyze_pair(str(self.directory), write=False, fps_tolerance=tolerance)['valid'])
+
+
+class IntervalTests(unittest.TestCase):
+    def test_bootstrap_interval_brackets_the_mean_and_is_reproducible(self):
+        from analyzers.analyze_paired import bootstrap_ci, contrast_summary
+        values = [-1.0, -0.8, -1.4, -0.2, -1.1, -0.6, -0.9, -1.3]
+        first = bootstrap_ci(values)
+        self.assertEqual(first, bootstrap_ci(values))
+        mean = sum(values) / len(values)
+        self.assertLess(first['ci_low'], mean)
+        self.assertGreater(first['ci_high'], mean)
+        self.assertLess(first['ci_high'], 0)
+
+        summary = contrast_summary(values)
+        self.assertEqual(summary['plans'], 8)
+        self.assertEqual(summary['plans_favouring_arm'], 8)
+
+    def test_interval_spanning_zero_is_reported_as_such(self):
+        from analyzers.analyze_paired import bootstrap_ci
+        interval = bootstrap_ci([-1.0, 1.2, -0.4, 0.9, 0.1, -0.7])
+        self.assertLess(interval['ci_low'], 0)
+        self.assertGreater(interval['ci_high'], 0)
 
 
 if __name__ == '__main__':

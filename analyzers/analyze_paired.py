@@ -28,6 +28,7 @@ import glob
 import json
 import math
 import os
+import random
 import statistics
 import sys
 
@@ -328,6 +329,57 @@ def check_validity(arms, plan, fps_tolerance, drift_tolerance_ms):
     return reasons
 
 
+# --- Interval estimation -------------------------------------------------
+
+BOOTSTRAP_ITERATIONS = 10000
+BOOTSTRAP_SEED = 20260910
+
+
+def bootstrap_ci(values, confidence=0.95, iterations=BOOTSTRAP_ITERATIONS):
+    """
+    Percentile bootstrap CI for the mean of independent plan-level effects.
+
+    Bootstrapped rather than assumed normal: the number of plans is small and
+    the shape of the effect distribution is not established. The seed is fixed
+    so a reported interval can be reproduced exactly.
+    """
+    values = list(values)
+    if len(values) < 2:
+        return {"ci_low": None, "ci_high": None, "ci_method": "insufficient plans",
+                "ci_confidence": confidence}
+
+    generator = random.Random(BOOTSTRAP_SEED)
+    n = len(values)
+    means = sorted(
+        statistics.fmean(values[generator.randrange(n)] for _ in range(n))
+        for _ in range(iterations)
+    )
+    tail = (1 - confidence) / 2
+    low = means[max(0, math.ceil(tail * iterations) - 1)]
+    high = means[min(iterations - 1, math.ceil((1 - tail) * iterations) - 1)]
+    return {
+        "ci_low": round(low, 3),
+        "ci_high": round(high, 3),
+        "ci_method": f"percentile bootstrap, {iterations} resamples, seed {BOOTSTRAP_SEED}",
+        "ci_confidence": confidence,
+    }
+
+
+def contrast_summary(means):
+    """Plan-level effect summary: the unit of inference is the plan."""
+    return {
+        "plans": len(means),
+        "delta_wait_mean_of_plan_means": round(statistics.fmean(means), 3),
+        "delta_wait_median_of_plan_means": round(statistics.median(means), 3),
+        "delta_wait_sd_of_plan_means": (
+            round(statistics.stdev(means), 3) if len(means) > 1 else None
+        ),
+        "plans_favouring_arm": sum(1 for m in means if m < 0),
+        **bootstrap_ci(means),
+        **{f"wilcoxon_{k}": v for k, v in wilcoxon_signed_rank(means).items()},
+    }
+
+
 # --- Signed-rank test ----------------------------------------------------
 
 def normal_sf(z):
@@ -499,8 +551,15 @@ def analyze_pair(plan_dir, fps_tolerance=DEFAULT_FPS_TOLERANCE,
         # An explicit baseline wins over run order.
         arms.sort(key=lambda a: a["arm"] != baseline)
 
+    header = plan['header'] if plan else {}
     comparison = {
         "plan_id": plan_id,
+        # The stratum this plan belongs to. Effects are reported per scenario
+        # because a mean pooled across demand regimes describes none of them.
+        "scenario": (
+            f"{header.get('uneven_mode')}_{header.get('target_vehicle_count')}"
+            if plan else "unknown"
+        ),
         "planned_vehicle_count": planned_count,
         "arm_names": [a["arm"] for a in arms],
     }
@@ -560,11 +619,19 @@ def analyze_batch(root, fps_tolerance=DEFAULT_FPS_TOLERANCE,
 
     # One mean difference per plan; never pool interacting vehicles as replicates.
     pooled = defaultdict(list)
+    stratified = defaultdict(lambda: defaultdict(list))
     for pair in valid:
         for block in pair.get("paired", []):
             key = f"{block['baseline']}_vs_{block['arm']}"
             if block["delta_wait_mean"] is not None:
                 pooled[key].append(block["delta_wait_mean"])
+                stratified[pair.get("scenario", "unknown")][key].append(
+                    block["delta_wait_mean"])
+
+    invalid_by_scenario = defaultdict(int)
+    for pair in pairs:
+        if not pair.get("valid"):
+            invalid_by_scenario[pair.get("scenario", "unknown")] += 1
 
     aggregate = {
         "root": os.path.abspath(root),
@@ -574,17 +641,22 @@ def analyze_batch(root, fps_tolerance=DEFAULT_FPS_TOLERANCE,
             {"plan_id": p["plan_id"], "reasons": p["invalid_reasons"]}
             for p in pairs if not p.get("valid")
         ],
+        # Failures are reported by scenario, not dropped: a scenario that
+        # fails often is a finding about that scenario.
+        "invalid_by_scenario": dict(sorted(
+            (scenario, count) for scenario, count in invalid_by_scenario.items()
+        )),
+        "inference_unit": "plan",
         "per_contrast": {},
+        "per_scenario": {},
     }
 
     for key, means in pooled.items():
-        test = wilcoxon_signed_rank(means)
-        aggregate["per_contrast"][key] = {
-            "plans": len(means),
-            "delta_wait_mean_of_plan_means": round(statistics.fmean(means), 3),
-            "delta_wait_median_of_plan_means": round(statistics.median(means), 3),
-            "plans_favouring_arm": sum(1 for m in means if m < 0),
-            **{f"wilcoxon_{k}": v for k, v in test.items()},
+        aggregate["per_contrast"][key] = contrast_summary(means)
+
+    for scenario, contrasts in sorted(stratified.items()):
+        aggregate["per_scenario"][scenario] = {
+            key: contrast_summary(means) for key, means in sorted(contrasts.items())
         }
 
     if write:
