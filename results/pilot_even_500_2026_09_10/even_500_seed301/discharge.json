@@ -1,0 +1,42 @@
+[
+  {
+    "arm_dir": "/home/shahriar/projects/traffic-signal/data/paired/even_500_seed301/fixed",
+    "arm": "fixed",
+    "controller": "fixed",
+    "phases": 14,
+    "crossings_total": 500,
+    "crossings_outside_green": 10,
+    "served_per_green_mean": 35.0,
+    "served_per_green_max": 71,
+    "greens_serving_nobody": 0,
+    "headway_mean_sec": 1.368,
+    "headway_median_sec": 0.819,
+    "headway_p05_sec": 0.534,
+    "headway_p95_sec": 5.305,
+    "headways_measured": 448,
+    "startup_delay_mean_sec": 0.087,
+    "green_utilisation_mean": 0.762,
+    "discharge_rate_mean_vps": 1.458,
+    "discharge_rate_max_vps": 2.957
+  },
+  {
+    "arm_dir": "/home/shahriar/projects/traffic-signal/data/paired/even_500_seed301/priority",
+    "arm": "priority",
+    "controller": "priority",
+    "phases": 30,
+    "crossings_total": 500,
+    "crossings_outside_green": 1,
+    "served_per_green_mean": 16.63,
+    "served_per_green_max": 36,
+    "greens_serving_nobody": 0,
+    "headway_mean_sec": 0.914,
+    "headway_median_sec": 0.818,
+    "headway_p05_sec": 0.482,
+    "headway_p95_sec": 2.011,
+    "headways_measured": 411,
+    "startup_delay_mean_sec": 0.085,
+    "green_utilisation_mean": 0.771,
+    "discharge_rate_mean_vps": 2.173,
+    "discharge_rate_max_vps": 3.332
+  }
+]

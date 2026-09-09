@@ -1,0 +1,81 @@
+{
+  "plan_id": "even_500_seed307",
+  "errors": [],
+  "arms": [
+    {
+      "arm": "fixed",
+      "controller": "fixed",
+      "phases": 13,
+      "green_overrun_mean_ms": 5.5,
+      "green_overrun_max_ms": 13.7,
+      "green_selected_mean": 24.0,
+      "green_selected_min": 24.0,
+      "green_selected_max": 24.0,
+      "green_at_lower_bound": 0,
+      "green_at_upper_bound": 13,
+      "green_distribution": {
+        "24.0": 13
+      },
+      "green_p05": 24.0,
+      "green_p95": 24.0,
+      "release_lateness_mean_ms": 0.3,
+      "release_lateness_p99_ms": 2.4,
+      "release_lateness_max_ms": 3.2,
+      "fps_mean": 62.25,
+      "fps_min": 61.81,
+      "fps_p05": 62.06,
+      "fps_windows": 388,
+      "last_crossing_sec": 391.8398,
+      "duration_sec": 393.37
+    },
+    {
+      "arm": "priority",
+      "controller": "priority",
+      "phases": 25,
+      "green_overrun_mean_ms": 1.6,
+      "green_overrun_max_ms": 12.0,
+      "green_selected_mean": 8.56,
+      "green_selected_min": 6.0,
+      "green_selected_max": 19.0,
+      "green_at_lower_bound": 13,
+      "green_at_upper_bound": 0,
+      "green_distribution": {
+        "6.0": 13,
+        "7.0": 2,
+        "8.0": 2,
+        "9.0": 2,
+        "11.0": 1,
+        "12.0": 1,
+        "15.0": 2,
+        "16.0": 1,
+        "19.0": 1
+      },
+      "green_p05": 6.0,
+      "green_p95": 16.0,
+      "release_lateness_mean_ms": 0.2,
+      "release_lateness_p99_ms": 2.1,
+      "release_lateness_max_ms": 2.8,
+      "fps_mean": 62.24,
+      "fps_min": 61.8,
+      "fps_p05": 62.02,
+      "fps_windows": 352,
+      "last_crossing_sec": 355.1487,
+      "duration_sec": 356.68
+    }
+  ],
+  "contrasts": [
+    {
+      "baseline": "fixed",
+      "arm": "priority",
+      "matched_vehicles": 500,
+      "release_gap_mean_ms": 0.3,
+      "release_gap_max_ms": 3.1,
+      "phases_compared": 13,
+      "phase_order_identical": false,
+      "phase_onset_gap_max_ms": null,
+      "fps_window_gap_max_pct": 0.84,
+      "fps_window_gap_p95_pct": 0.56,
+      "clearance_gap_sec": -36.691
+    }
+  ]
+}

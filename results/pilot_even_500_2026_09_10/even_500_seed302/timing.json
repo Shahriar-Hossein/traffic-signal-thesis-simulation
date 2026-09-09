@@ -1,0 +1,79 @@
+{
+  "plan_id": "even_500_seed302",
+  "errors": [],
+  "arms": [
+    {
+      "arm": "fixed",
+      "controller": "fixed",
+      "phases": 11,
+      "green_overrun_mean_ms": 5.0,
+      "green_overrun_max_ms": 8.3,
+      "green_selected_mean": 24.0,
+      "green_selected_min": 24.0,
+      "green_selected_max": 24.0,
+      "green_at_lower_bound": 0,
+      "green_at_upper_bound": 11,
+      "green_distribution": {
+        "24.0": 11
+      },
+      "green_p05": 24.0,
+      "green_p95": 24.0,
+      "release_lateness_mean_ms": 0.3,
+      "release_lateness_p99_ms": 2.4,
+      "release_lateness_max_ms": 3.3,
+      "fps_mean": 62.24,
+      "fps_min": 61.8,
+      "fps_p05": 62.0,
+      "fps_windows": 333,
+      "last_crossing_sec": 336.0693,
+      "duration_sec": 337.59
+    },
+    {
+      "arm": "priority",
+      "controller": "priority",
+      "phases": 20,
+      "green_overrun_mean_ms": 2.3,
+      "green_overrun_max_ms": 9.7,
+      "green_selected_mean": 10.5,
+      "green_selected_min": 6.0,
+      "green_selected_max": 24.0,
+      "green_at_lower_bound": 12,
+      "green_at_upper_bound": 3,
+      "green_distribution": {
+        "6.0": 12,
+        "9.0": 1,
+        "10.0": 1,
+        "14.0": 1,
+        "15.0": 1,
+        "18.0": 1,
+        "24.0": 3
+      },
+      "green_p05": 6.0,
+      "green_p95": 24.0,
+      "release_lateness_mean_ms": 0.2,
+      "release_lateness_p99_ms": 2.7,
+      "release_lateness_max_ms": 3.8,
+      "fps_mean": 62.25,
+      "fps_min": 61.85,
+      "fps_p05": 62.01,
+      "fps_windows": 317,
+      "last_crossing_sec": 320.1795,
+      "duration_sec": 321.7
+    }
+  ],
+  "contrasts": [
+    {
+      "baseline": "fixed",
+      "arm": "priority",
+      "matched_vehicles": 500,
+      "release_gap_mean_ms": 0.3,
+      "release_gap_max_ms": 3.7,
+      "phases_compared": 11,
+      "phase_order_identical": false,
+      "phase_onset_gap_max_ms": null,
+      "fps_window_gap_max_pct": 0.79,
+      "fps_window_gap_p95_pct": 0.53,
+      "clearance_gap_sec": -15.89
+    }
+  ]
+}

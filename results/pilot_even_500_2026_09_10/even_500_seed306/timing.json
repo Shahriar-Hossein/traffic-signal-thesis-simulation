@@ -1,0 +1,78 @@
+{
+  "plan_id": "even_500_seed306",
+  "errors": [],
+  "arms": [
+    {
+      "arm": "fixed",
+      "controller": "fixed",
+      "phases": 14,
+      "green_overrun_mean_ms": 4.7,
+      "green_overrun_max_ms": 8.8,
+      "green_selected_mean": 24.0,
+      "green_selected_min": 24.0,
+      "green_selected_max": 24.0,
+      "green_at_lower_bound": 0,
+      "green_at_upper_bound": 14,
+      "green_distribution": {
+        "24.0": 14
+      },
+      "green_p05": 24.0,
+      "green_p95": 24.0,
+      "release_lateness_mean_ms": 0.2,
+      "release_lateness_p99_ms": 1.6,
+      "release_lateness_max_ms": 2.1,
+      "fps_mean": 62.25,
+      "fps_min": 61.79,
+      "fps_p05": 62.02,
+      "fps_windows": 415,
+      "last_crossing_sec": 418.7038,
+      "duration_sec": 420.23
+    },
+    {
+      "arm": "priority",
+      "controller": "priority",
+      "phases": 30,
+      "green_overrun_mean_ms": 1.0,
+      "green_overrun_max_ms": 2.8,
+      "green_selected_mean": 7.27,
+      "green_selected_min": 6.0,
+      "green_selected_max": 11.0,
+      "green_at_lower_bound": 17,
+      "green_at_upper_bound": 0,
+      "green_distribution": {
+        "6.0": 17,
+        "7.0": 2,
+        "8.0": 4,
+        "9.0": 2,
+        "10.0": 3,
+        "11.0": 2
+      },
+      "green_p05": 6.0,
+      "green_p95": 11.0,
+      "release_lateness_mean_ms": 0.2,
+      "release_lateness_p99_ms": 1.9,
+      "release_lateness_max_ms": 2.7,
+      "fps_mean": 62.25,
+      "fps_min": 61.88,
+      "fps_p05": 62.04,
+      "fps_windows": 375,
+      "last_crossing_sec": 378.1709,
+      "duration_sec": 379.7
+    }
+  ],
+  "contrasts": [
+    {
+      "baseline": "fixed",
+      "arm": "priority",
+      "matched_vehicles": 500,
+      "release_gap_mean_ms": 0.2,
+      "release_gap_max_ms": 2.6,
+      "phases_compared": 14,
+      "phase_order_identical": false,
+      "phase_onset_gap_max_ms": null,
+      "fps_window_gap_max_pct": 1.02,
+      "fps_window_gap_p95_pct": 0.56,
+      "clearance_gap_sec": -40.533
+    }
+  ]
+}

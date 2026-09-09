@@ -1,0 +1,102 @@
+{
+  "plan_id": "even_500_seed302",
+  "scenario": "even_500",
+  "planned_vehicle_count": 500,
+  "arm_names": [
+    "fixed",
+    "priority"
+  ],
+  "valid": true,
+  "invalid_reasons": [],
+  "arms": {
+    "fixed": {
+      "controller": "fixed",
+      "duration_sec": 337.59,
+      "vehicles_logged": 500,
+      "wait_mean": 41.09,
+      "wait_median": 37.45,
+      "wait_p90": 87.24,
+      "wait_p95": 90.51,
+      "wait_max": 97.42,
+      "worst_direction": "up",
+      "worst_direction_wait_mean": 45.02,
+      "direction_service_gap": 8.02,
+      "travel_mean": 48.51,
+      "travel_p90": 91.76,
+      "last_crossing_sec": 336.0693,
+      "throughput_per_min": 89.27,
+      "wait_mean_by_direction": {
+        "down": 38.7,
+        "left": 43.68,
+        "right": 37.0,
+        "up": 45.02
+      },
+      "wait_mean_by_type": {
+        "bike": 39.95,
+        "bus": 42.54,
+        "car": 42.08,
+        "truck": 40.04
+      },
+      "signal_changes": 12,
+      "fps_mean": 62.24,
+      "fps_min": 61.8,
+      "fps_windows_recorded": 333,
+      "release_drift_mean_ms": 0.24,
+      "release_drift_max_ms": 3.3,
+      "stop_reason": "target_reached"
+    },
+    "priority": {
+      "controller": "priority",
+      "duration_sec": 321.7,
+      "vehicles_logged": 500,
+      "wait_mean": 35.29,
+      "wait_median": 29.73,
+      "wait_p90": 77.01,
+      "wait_p95": 83.04,
+      "wait_max": 92.93,
+      "worst_direction": "down",
+      "worst_direction_wait_mean": 41.05,
+      "direction_service_gap": 11.77,
+      "travel_mean": 41.85,
+      "travel_p90": 84.84,
+      "last_crossing_sec": 320.1795,
+      "throughput_per_min": 93.7,
+      "wait_mean_by_direction": {
+        "down": 41.05,
+        "left": 29.27,
+        "right": 35.3,
+        "up": 35.59
+      },
+      "wait_mean_by_type": {
+        "bike": 33.95,
+        "bus": 32.84,
+        "car": 37.93,
+        "truck": 36.67
+      },
+      "signal_changes": 21,
+      "fps_mean": 62.25,
+      "fps_min": 61.85,
+      "fps_windows_recorded": 317,
+      "release_drift_mean_ms": 0.23,
+      "release_drift_max_ms": 3.83,
+      "stop_reason": "target_reached"
+    }
+  },
+  "baseline_arm": "fixed",
+  "paired": [
+    {
+      "baseline": "fixed",
+      "arm": "priority",
+      "n_matched": 500,
+      "unmatched_in_baseline": 0,
+      "unmatched_in_arm": 0,
+      "rows_without_plan_seq": 0,
+      "delta_wait_mean": -5.797,
+      "delta_wait_median": -11.58,
+      "win_rate_priority": 0.574,
+      "tied": 13,
+      "inference_unit": "plan",
+      "wilcoxon_p_value": null
+    }
+  ]
+}

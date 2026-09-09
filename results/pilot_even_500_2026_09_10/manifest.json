@@ -1,0 +1,29 @@
+{
+  "name": "pilot_even_500_2026_09_10",
+  "exported_at": "2026-09-09T20:55:31+00:00",
+  "revision": {
+    "commit": "17abf85e76d640f3b5ecfe2ae76285acc2a24aaf",
+    "branch": "feature/modify-data-collection",
+    "dirty": false,
+    "uncommitted": []
+  },
+  "python": "3.12.3",
+  "platform": "Linux-7.0.0-31-generic-x86_64-with-glibc2.39",
+  "plans": [
+    "even_500_seed301",
+    "even_500_seed302",
+    "even_500_seed303",
+    "even_500_seed304",
+    "even_500_seed305",
+    "even_500_seed306",
+    "even_500_seed307",
+    "even_500_seed308"
+  ],
+  "commands": {
+    "export": "python3 scripts/export_results.py --name pilot_even_500_2026_09_10 data/paired/even_500_seed301 data/paired/even_500_seed302 data/paired/even_500_seed303 data/paired/even_500_seed304 data/paired/even_500_seed305 data/paired/even_500_seed306 data/paired/even_500_seed307 data/paired/even_500_seed308",
+    "pair": "python3 analyzers/analyze_paired.py <plan_dir>",
+    "batch": "python3 analyzers/analyze_paired.py --batch data/paired",
+    "timing": "python3 analyzers/analyze_timing.py <plan_dir>",
+    "discharge": "python3 analyzers/analyze_discharge.py <arm_dir>"
+  }
+}

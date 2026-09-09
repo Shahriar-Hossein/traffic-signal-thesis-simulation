@@ -1,0 +1,78 @@
+{
+  "plan_id": "even_500_seed303",
+  "errors": [],
+  "arms": [
+    {
+      "arm": "fixed",
+      "controller": "fixed",
+      "phases": 8,
+      "green_overrun_mean_ms": 7.3,
+      "green_overrun_max_ms": 13.0,
+      "green_selected_mean": 24.0,
+      "green_selected_min": 24.0,
+      "green_selected_max": 24.0,
+      "green_at_lower_bound": 0,
+      "green_at_upper_bound": 8,
+      "green_distribution": {
+        "24.0": 8
+      },
+      "green_p05": 24.0,
+      "green_p95": 24.0,
+      "release_lateness_mean_ms": 0.3,
+      "release_lateness_p99_ms": 2.9,
+      "release_lateness_max_ms": 3.6,
+      "fps_mean": 62.24,
+      "fps_min": 61.71,
+      "fps_p05": 62.01,
+      "fps_windows": 247,
+      "last_crossing_sec": 248.4056,
+      "duration_sec": 249.93
+    },
+    {
+      "arm": "priority",
+      "controller": "priority",
+      "phases": 12,
+      "green_overrun_mean_ms": 3.7,
+      "green_overrun_max_ms": 12.2,
+      "green_selected_mean": 15.0,
+      "green_selected_min": 6.0,
+      "green_selected_max": 24.0,
+      "green_at_lower_bound": 4,
+      "green_at_upper_bound": 4,
+      "green_distribution": {
+        "6.0": 4,
+        "9.0": 1,
+        "15.0": 1,
+        "17.0": 1,
+        "19.0": 1,
+        "24.0": 4
+      },
+      "green_p05": 6.0,
+      "green_p95": 24.0,
+      "release_lateness_mean_ms": 0.3,
+      "release_lateness_p99_ms": 2.9,
+      "release_lateness_max_ms": 3.5,
+      "fps_mean": 62.25,
+      "fps_min": 61.78,
+      "fps_p05": 62.02,
+      "fps_windows": 251,
+      "last_crossing_sec": 252.4168,
+      "duration_sec": 253.94
+    }
+  ],
+  "contrasts": [
+    {
+      "baseline": "fixed",
+      "arm": "priority",
+      "matched_vehicles": 500,
+      "release_gap_mean_ms": 0.4,
+      "release_gap_max_ms": 3.5,
+      "phases_compared": 8,
+      "phase_order_identical": false,
+      "phase_onset_gap_max_ms": null,
+      "fps_window_gap_max_pct": 0.87,
+      "fps_window_gap_p95_pct": 0.63,
+      "clearance_gap_sec": 4.011
+    }
+  ]
+}
