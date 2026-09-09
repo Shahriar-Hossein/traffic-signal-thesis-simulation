@@ -61,6 +61,8 @@ class ReplayValidityTests(unittest.TestCase):
                 writer.writerows(arm['rows'])
             (folder / 'run_meta.json').write_text(json.dumps(arm['meta']))
             (folder / 'run_signal.csv').write_text('timestamp,direction\n2026-09-10,right\n')
+            (folder / 'run_phases.csv').write_text(
+                'round_index,phase_index,direction,green_start_sec\n0,0,right,10.0\n')
 
     def result(self):
         return analyze_pair(str(self.directory), write=False, baseline='fixed')
@@ -79,6 +81,10 @@ class ReplayValidityTests(unittest.TestCase):
         self.assertIsNone(result['paired'][0]['wilcoxon_p_value'])
         batch = analyze_batch(str(self.root), write=False, baseline='fixed')
         self.assertEqual(batch['per_contrast']['fixed_vs_priority']['plans'], 1)
+
+    def test_sidecar_logs_are_not_mistaken_for_vehicle_logs(self):
+        result = self.result()
+        self.assertTrue(result['valid'], result['invalid_reasons'])
 
     def test_missing_fps_series_is_rejected(self):
         del self.arms['fixed']['meta']['fps_windows']

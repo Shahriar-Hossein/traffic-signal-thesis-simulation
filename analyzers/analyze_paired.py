@@ -61,9 +61,11 @@ def _load_arm(arm_dir):
     """Load one arm's vehicle log, signal log and metadata sidecar."""
     arm = os.path.basename(arm_dir.rstrip(os.sep))
 
+    # Sidecar logs live beside the vehicle log and share its stem, so match
+    # by suffix rather than by substring.
     logs = [
         p for p in sorted(glob.glob(os.path.join(arm_dir, "*.csv")))
-        if "signal" not in os.path.basename(p)
+        if not p.endswith(("_signal.csv", "_phases.csv"))
     ]
     if not logs:
         return {"arm": arm, "error": "no vehicle log found"}
@@ -92,12 +94,14 @@ def _load_arm(arm_dir):
     if os.path.exists(signal_path):
         signal_changes = len(read_csv_rows(signal_path))
 
+    phase_path = log_path.replace(".csv", "_phases.csv")
     return {
         "arm": arm,
         "log_path": log_path,
         "rows": read_csv_rows(log_path),
         "meta": meta,
         "signal_changes": signal_changes,
+        "phases": read_csv_rows(phase_path) if os.path.exists(phase_path) else [],
     }
 
 
