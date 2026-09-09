@@ -111,13 +111,14 @@ def compare_timing(baseline, other, plan):
 
     base_phases, other_phases = phase_records(baseline), phase_records(other)
     aligned = min(len(base_phases), len(other_phases))
-    # Phase k against phase k. Under different controllers the two arms serve
-    # different directions, so this measures onset drift only when the served
-    # order matches; the direction agreement below says whether it does.
-    onset_gaps = [abs(other_phases[i]['start'] - base_phases[i]['start'])
-                  for i in range(aligned)]
     same_direction = sum(1 for i in range(aligned)
                          if other_phases[i]['direction'] == base_phases[i]['direction'])
+    # Phase k against phase k only means something when both arms served the
+    # same order. Two different controllers diverge by design, and reporting
+    # that divergence as clock drift would read as a timing fault.
+    identical_order = aligned > 0 and same_direction == aligned
+    onset_gaps = ([abs(other_phases[i]['start'] - base_phases[i]['start'])
+                   for i in range(aligned)] if identical_order else [])
 
     base_windows = (baseline.get('meta') or {}).get('fps_windows') or []
     other_windows = (other.get('meta') or {}).get('fps_windows') or []
@@ -132,7 +133,8 @@ def compare_timing(baseline, other, plan):
         'release_gap_mean_ms': round(statistics.fmean(release_gaps) * 1000, 1) if release_gaps else None,
         'release_gap_max_ms': round(max(release_gaps) * 1000, 1) if release_gaps else None,
         'phases_compared': aligned,
-        'phase_order_identical': same_direction == aligned,
+        'phase_order_identical': identical_order,
+        # None when the arms served different orders: not comparable, not zero.
         'phase_onset_gap_max_ms': round(max(onset_gaps) * 1000, 1) if onset_gaps else None,
         'fps_window_gap_max_pct': round(max(window_gaps) * 100, 2) if window_gaps else None,
         'fps_window_gap_p95_pct': round(percentile(window_gaps, 0.95) * 100, 2) if window_gaps else None,

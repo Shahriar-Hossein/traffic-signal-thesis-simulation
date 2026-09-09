@@ -64,6 +64,16 @@ class TimingReportTests(unittest.TestCase):
         self.assertTrue(contrast['phase_order_identical'])
         self.assertEqual(contrast['fps_window_gap_max_pct'], 50.0)
 
+    def test_onset_gap_is_withheld_when_orders_differ(self):
+        self.write_arm('a')
+        folder = self.directory / 'b'
+        self.write_arm('b')
+        rows = (folder / 'run_phases.csv').read_text().replace('right', 'left')
+        (folder / 'run_phases.csv').write_text(rows)
+        contrast = analyze_timing(str(self.directory), write=False)['contrasts'][0]
+        self.assertFalse(contrast['phase_order_identical'])
+        self.assertIsNone(contrast['phase_onset_gap_max_ms'])
+
     def test_missing_phase_log_does_not_crash(self):
         self.write_arm('a')
         self.write_arm('b')
