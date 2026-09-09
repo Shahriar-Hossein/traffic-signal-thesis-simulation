@@ -34,6 +34,7 @@ import statistics
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from core.controllers import NAMES as CONTROLLER_NAMES
 from core.plan import load_plan
 from core.provenance import fingerprint
 from collections import defaultdict
@@ -242,7 +243,7 @@ def check_validity(arms, plan, fps_tolerance, drift_tolerance_ms):
         for key, value in identity.items():
             if meta.get(key) != value:
                 reasons.append(f"{name}: {key} missing or mismatched")
-        if meta.get('controller') not in ('fixed', 'priority', 'fairness_priority'):
+        if meta.get('controller') not in CONTROLLER_NAMES:
             reasons.append(f"{name}: missing or unknown controller")
         for key in ('started_at', 'ended_at', 'plan_path'):
             if not isinstance(meta.get(key), str) or not meta[key]:
@@ -383,6 +384,20 @@ def bootstrap_ci(values, confidence=0.95, iterations=BOOTSTRAP_ITERATIONS):
     }
 
 
+def plans_needed(sd, half_width, confidence=0.95):
+    """
+    Plans required for a CI half-width of `half_width`, given a pilot `sd`.
+
+    Normal approximation, n = (z * sd / half_width)^2, rounded up. It is a
+    planning figure, not a guarantee: the pilot sd is itself estimated from
+    few plans, so treat it as a floor and re-check once more plans are in.
+    """
+    if not sd or half_width <= 0:
+        return None
+    z = 1.959964 if confidence == 0.95 else math.sqrt(2) * 1.0
+    return math.ceil((z * sd / half_width) ** 2)
+
+
 def contrast_summary(means):
     """Plan-level effect summary: the unit of inference is the plan."""
     return {
@@ -393,6 +408,11 @@ def contrast_summary(means):
             round(statistics.stdev(means), 3) if len(means) > 1 else None
         ),
         "plans_favouring_arm": sum(1 for m in means if m < 0),
+        # Planning figures for the next round, at two precisions.
+        "plans_for_half_width_1s": plans_needed(
+            statistics.stdev(means) if len(means) > 1 else None, 1.0),
+        "plans_for_half_width_0_5s": plans_needed(
+            statistics.stdev(means) if len(means) > 1 else None, 0.5),
         **bootstrap_ci(means),
         **{f"wilcoxon_{k}": v for k, v in wilcoxon_signed_rank(means).items()},
     }

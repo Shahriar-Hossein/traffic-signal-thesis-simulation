@@ -266,6 +266,15 @@ class IntervalTests(unittest.TestCase):
         self.assertEqual(summary['plans'], 8)
         self.assertEqual(summary['plans_favouring_arm'], 8)
 
+    def test_replication_count_grows_with_variability_and_precision(self):
+        from analyzers.analyze_paired import plans_needed
+        self.assertEqual(plans_needed(3, 1.0), 35)
+        # Halving the target half-width costs four times the plans.
+        self.assertEqual(plans_needed(3, 0.5), 139)
+        self.assertLess(plans_needed(1, 1.0), plans_needed(3, 1.0))
+        self.assertIsNone(plans_needed(None, 1.0))
+        self.assertIsNone(plans_needed(3, 0))
+
     def test_interval_spanning_zero_is_reported_as_such(self):
         from analyzers.analyze_paired import bootstrap_ci
         interval = bootstrap_ci([-1.0, 1.2, -0.4, 0.9, 0.1, -0.7])
