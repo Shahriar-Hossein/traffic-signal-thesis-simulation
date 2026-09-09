@@ -24,6 +24,7 @@ Two things happen, in this order:
 
 import argparse
 import csv
+import fnmatch
 import glob
 import json
 import math
@@ -618,14 +619,27 @@ def write_comparison(plan_dir, comparison):
 
 # --- Batch ---------------------------------------------------------------
 
+def plan_dirs_under(root, only=None):
+    """
+    Plan folders under `root`, optionally narrowed by a glob.
+
+    data/paired holds every kind of run — repeatability arms, pilots and
+    contrasts alike — so aggregating the whole root pools studies that were
+    never meant to be pooled.
+    """
+    names = sorted(
+        name for name in os.listdir(root)
+        if os.path.isdir(os.path.join(root, name))
+        and (only is None or fnmatch.fnmatch(name, only))
+    )
+    return [os.path.join(root, name) for name in names]
+
+
 def analyze_batch(root, fps_tolerance=DEFAULT_FPS_TOLERANCE,
                   drift_tolerance_ms=DEFAULT_DRIFT_TOLERANCE_MS, write=True,
-                  baseline=None):
-    """Analyze every plan folder under `root` and aggregate across pairs."""
-    plan_dirs = sorted(
-        os.path.join(root, name) for name in os.listdir(root)
-        if os.path.isdir(os.path.join(root, name))
-    )
+                  baseline=None, only=None):
+    """Analyze every selected plan folder under `root` and aggregate."""
+    plan_dirs = plan_dirs_under(root, only)
 
     pairs = [
         analyze_pair(d, fps_tolerance, drift_tolerance_ms, write=write,
@@ -652,6 +666,7 @@ def analyze_batch(root, fps_tolerance=DEFAULT_FPS_TOLERANCE,
 
     aggregate = {
         "root": os.path.abspath(root),
+        "selection": only or "*",
         "plans_total": len(pairs),
         "plans_valid": len(valid),
         "plans_invalid": [
@@ -677,7 +692,8 @@ def analyze_batch(root, fps_tolerance=DEFAULT_FPS_TOLERANCE,
         }
 
     if write:
-        path = os.path.join(root, "batch_comparison.json")
+        suffix = "" if only is None else "_" + only.replace("*", "all").replace("/", "_")
+        path = os.path.join(root, f"batch_comparison{suffix}.json")
         with open(path, "w") as f:
             json.dump(aggregate, f, indent=2)
             f.write("\n")
@@ -747,6 +763,8 @@ def main(argv=None):
                         help="A data/paired/{plan_id}/ folder.")
     parser.add_argument("--batch", metavar="DIR",
                         help="Analyze every plan folder under DIR and aggregate.")
+    parser.add_argument("--only", metavar="GLOB",
+                        help="With --batch, only plan folders matching this glob.")
     parser.add_argument("--fps-tolerance", type=float, default=DEFAULT_FPS_TOLERANCE,
                         help="Allowed relative spread in fps_mean across arms.")
     parser.add_argument("--drift-tolerance-ms", type=float,
@@ -759,11 +777,9 @@ def main(argv=None):
 
     if args.batch:
         aggregate = analyze_batch(args.batch, args.fps_tolerance,
-                                  args.drift_tolerance_ms, baseline=args.baseline)
-        for plan_dir in sorted(
-            os.path.join(args.batch, n) for n in os.listdir(args.batch)
-            if os.path.isdir(os.path.join(args.batch, n))
-        ):
+                                  args.drift_tolerance_ms, baseline=args.baseline,
+                                  only=args.only)
+        for plan_dir in plan_dirs_under(args.batch, args.only):
             print_pair(analyze_pair(plan_dir, args.fps_tolerance,
                                     args.drift_tolerance_ms, write=False,
                                     baseline=args.baseline))

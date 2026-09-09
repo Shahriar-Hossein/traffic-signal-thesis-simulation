@@ -81,6 +81,9 @@ class ReplayValidityTests(unittest.TestCase):
         self.assertIsNone(result['paired'][0]['wilcoxon_p_value'])
         batch = analyze_batch(str(self.root), write=False, baseline='fixed')
         self.assertEqual(batch['per_contrast']['fixed_vs_priority']['plans'], 1)
+        narrowed = analyze_batch(str(self.root), write=False, baseline='fixed',
+                                 only='nothing_*')
+        self.assertEqual(narrowed['plans_total'], 0)
         self.assertEqual(result['scenario'], 'even_3')
         self.assertIn('even_3', batch['per_scenario'])
         # One plan cannot support an interval; it must say so, not invent one.
