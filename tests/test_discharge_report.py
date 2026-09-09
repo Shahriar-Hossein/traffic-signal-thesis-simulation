@@ -9,16 +9,17 @@ from analyzers.analyze_discharge import analyze_discharge
 
 
 class DischargeTests(unittest.TestCase):
-    def build(self, crossings, phases):
+    def build(self, crossings, phases, fps=60.0):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         folder = Path(self.temp.name) / 'arm'
         folder.mkdir()
         with (folder / 'run.csv').open('w', newline='') as output:
             writer = csv.writer(output)
-            writer.writerow(['plan_seq', 'direction', 'lane', 'crossed_sec', 'wait_time_sec'])
+            writer.writerow(['plan_seq', 'direction', 'lane', 'crossed_sec',
+                             'wait_time_sec', 'vehicle_type'])
             for index, (direction, lane, moment) in enumerate(crossings):
-                writer.writerow([index, direction, lane, moment, 1.0])
+                writer.writerow([index, direction, lane, moment, 1.0, 'car'])
         with (folder / 'run_phases.csv').open('w', newline='') as output:
             writer = csv.writer(output)
             writer.writerow(['round_index', 'phase_index', 'direction',
@@ -27,7 +28,8 @@ class DischargeTests(unittest.TestCase):
             for index, (direction, start, length) in enumerate(phases):
                 writer.writerow([0, index, direction, start, length,
                                  start + length, start + length + 5])
-        (folder / 'run_meta.json').write_text(json.dumps({'controller': 'fixed'}))
+        (folder / 'run_meta.json').write_text(
+            json.dumps({'controller': 'fixed', 'fps_mean': fps}))
         return str(folder)
 
     def test_headways_are_measured_within_a_lane(self):
@@ -64,6 +66,24 @@ class DischargeTests(unittest.TestCase):
         self.assertEqual(report['startup_delay_mean_sec'], 2.0)
         # Discharging stopped 12s into a 20s green.
         self.assertEqual(report['green_utilisation_mean'], 0.6)
+
+    def test_measured_headway_is_reported_against_the_configured_geometry(self):
+        arm = self.build(
+            crossings=[('right', 0, 11.0), ('right', 0, 13.0)],
+            phases=[('right', 10.0, 24)],
+        )
+        report = analyze_discharge(arm)
+        self.assertEqual(report['headway_p05_by_leader'], {'car': 2.0})
+        # (54 px + 15 px gap) / (2.0 px/frame * 60 fps)
+        self.assertAlmostEqual(
+            report['headway_predicted_by_leader']['car'], 0.575, places=3)
+
+    def test_prediction_is_withheld_without_a_frame_rate(self):
+        arm = self.build(
+            crossings=[('right', 0, 11.0), ('right', 0, 13.0)],
+            phases=[('right', 10.0, 24)], fps=None,
+        )
+        self.assertEqual(analyze_discharge(arm)['headway_predicted_by_leader'], {})
 
     def test_missing_arm_reports_an_error(self):
         with tempfile.TemporaryDirectory() as empty:
