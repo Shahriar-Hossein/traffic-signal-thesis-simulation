@@ -172,6 +172,7 @@ def summarize_arm(arm):
         "signal_changes": arm["signal_changes"],
         "fps_mean": meta.get("fps_mean"),
         "fps_min": meta.get("fps_min"),
+        "fps_windows_recorded": len(meta.get("fps_windows") or []),
         "release_drift_mean_ms": meta.get("release_drift_mean_ms"),
         "release_drift_max_ms": meta.get("release_drift_max_ms"),
         "stop_reason": meta.get("stop_reason"),
@@ -196,6 +197,7 @@ def check_validity(arms, plan, fps_tolerance, drift_tolerance_ms):
     expected = {record['seq']: record for record in plan['vehicles']}
     n = header['target_vehicle_count']
     fps_values = []
+    worst_fps = []
     hashes = {'configuration_hash': set(), 'source_hash': set()}
     for arm in arms:
         name = arm['arm']
@@ -230,8 +232,18 @@ def check_validity(arms, plan, fps_tolerance, drift_tolerance_ms):
                     'release_drift_mean_ms', 'release_drift_max_ms'):
             if not finite_number(meta.get(key), positive=not key.startswith('release_')):
                 reasons.append(f"{name}: {key} missing, nonfinite or out of range")
+        windows = meta.get('fps_windows')
+        if (not isinstance(windows, list) or not windows
+                or not all(finite_number(value, positive=True) for value in windows)):
+            reasons.append(f"{name}: fps_windows missing or invalid")
+        elif not finite_number(meta.get('fps_window_sec'), positive=True):
+            reasons.append(f"{name}: fps_window_sec missing or invalid")
+        elif meta.get('fps_min') != min(windows):
+            reasons.append(f"{name}: fps_min does not match the recorded windows")
         if finite_number(meta.get('fps_mean'), positive=True):
             fps_values.append(meta['fps_mean'])
+        if finite_number(meta.get('fps_min'), positive=True):
+            worst_fps.append(meta['fps_min'])
         if (finite_number(meta.get('last_crossing_sec'), positive=True)
                 and finite_number(meta.get('duration_sec'), positive=True)
                 and meta['last_crossing_sec'] > meta['duration_sec']):
@@ -302,10 +314,13 @@ def check_validity(arms, plan, fps_tolerance, drift_tolerance_ms):
     for key, values in hashes.items():
         if len(values) > 1:
             reasons.append(f"{key} differs across arms")
-    if len(fps_values) == len(arms) and fps_values:
-        spread = (max(fps_values) - min(fps_values)) / max(fps_values)
-        if spread > fps_tolerance:
-            reasons.append(f"fps_mean spread {spread:.1%} exceeds {fps_tolerance:.1%}")
+    # Both the average and the worst window must agree: two arms can share a
+    # mean frame rate and still have stalled at different moments.
+    for label, values in (('fps_mean', fps_values), ('fps_min', worst_fps)):
+        if len(values) == len(arms) and values:
+            spread = (max(values) - min(values)) / max(values)
+            if spread > fps_tolerance:
+                reasons.append(f"{label} spread {spread:.1%} exceeds {fps_tolerance:.1%}")
     return reasons
 
 

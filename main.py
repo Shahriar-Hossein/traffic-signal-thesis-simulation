@@ -4,7 +4,6 @@ import argparse
 import pygame
 import sys
 import threading
-import time
 from datetime import datetime
 
 import state
@@ -259,27 +258,31 @@ class FpsTracker:
 
     def __init__(self):
         self.frames_total = 0
-        self._window_started_at = time.time()
+        self._window_started_at = runclock.elapsed()
         self._window_frames = 0
-        self._fps_min = None
+        # The whole series, not just its extremes: two arms can share a mean
+        # and still have run their physics at different rates at the moments
+        # that mattered.
+        self.windows = []
 
     def tick(self):
         self.frames_total += 1
         self._window_frames += 1
 
-        elapsed = time.time() - self._window_started_at
+        now = runclock.elapsed()
+        elapsed = now - self._window_started_at
         if elapsed >= FPS_SAMPLE_WINDOW_SEC:
-            window_fps = self._window_frames / elapsed
-            if self._fps_min is None or window_fps < self._fps_min:
-                self._fps_min = window_fps
-            self._window_started_at = time.time()
+            self.windows.append(round(self._window_frames / elapsed, 2))
+            self._window_started_at = now
             self._window_frames = 0
 
     def stats(self, elapsed):
         return {
             "frames_total": self.frames_total,
             "fps_mean": round(self.frames_total / elapsed, 2) if elapsed else None,
-            "fps_min": round(self._fps_min, 2) if self._fps_min is not None else None,
+            "fps_min": min(self.windows) if self.windows else None,
+            "fps_window_sec": FPS_SAMPLE_WINDOW_SEC,
+            "fps_windows": self.windows,
         }
 
 

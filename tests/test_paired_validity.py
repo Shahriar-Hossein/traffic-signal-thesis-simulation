@@ -43,6 +43,7 @@ class ReplayValidityTests(unittest.TestCase):
                 vehicles_generated=3, vehicles_crossed=3, duration_sec=60,
                 last_crossing_sec=58.5,
                 fps_mean=60, fps_min=59, frames_total=3600,
+                fps_window_sec=1.0, fps_windows=[60, 59, 61],
                 release_drift_mean_ms=1, release_drift_max_ms=2,
                 configuration={'speed': 2}, source_files={'main.py': 'abc'},
             )
@@ -78,6 +79,18 @@ class ReplayValidityTests(unittest.TestCase):
         self.assertIsNone(result['paired'][0]['wilcoxon_p_value'])
         batch = analyze_batch(str(self.root), write=False, baseline='fixed')
         self.assertEqual(batch['per_contrast']['fixed_vs_priority']['plans'], 1)
+
+    def test_missing_fps_series_is_rejected(self):
+        del self.arms['fixed']['meta']['fps_windows']
+        self.save()
+        self.assert_invalid('fps_windows missing or invalid')
+
+    def test_worst_window_disagreement_is_rejected(self):
+        meta = self.arms['priority']['meta']
+        meta['fps_windows'] = [60, 30, 61]
+        meta['fps_min'] = 30
+        self.save()
+        self.assert_invalid('fps_min spread')
 
     def test_crossing_before_release_is_rejected(self):
         row = self.arms['fixed']['rows'][0]
