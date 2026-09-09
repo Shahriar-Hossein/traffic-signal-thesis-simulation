@@ -1,0 +1,4 @@
+# Archived run output must keep the exact bytes the simulation wrote.
+# csv.writer emits CRLF; letting git normalise it would silently alter
+# evidence that other files reference by content.
+results/** -text
