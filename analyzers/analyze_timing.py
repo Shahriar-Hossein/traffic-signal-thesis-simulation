@@ -174,6 +174,11 @@ def analyze_timing(plan_dir, write=True):
     return report
 
 
+def show(value, unit=''):
+    """None means not measurable here, which is not the same as zero."""
+    return 'n/a' if value is None else f"{value}{unit}"
+
+
 def print_report(report):
     print(f"\n=== timing: {report['plan_id']} ===")
     for error in report['errors']:
@@ -182,19 +187,19 @@ def print_report(report):
         print(
             f"  {arm['arm']:14} {str(arm['controller']):8} "
             f"phases {arm['phases']:>4}  "
-            f"green mean {str(arm['green_selected_mean']):>6} "
+            f"green mean {show(arm['green_selected_mean']):>6} "
             f"(low {arm['green_at_lower_bound']}, high {arm['green_at_upper_bound']})  "
-            f"overrun max {str(arm['green_overrun_max_ms']):>8}ms  "
-            f"release late max {str(arm['release_lateness_max_ms']):>8}ms  "
-            f"fps {str(arm['fps_mean']):>6}/{str(arm['fps_p05']):>6}"
+            f"overrun max {show(arm['green_overrun_max_ms']):>8}ms  "
+            f"release late max {show(arm['release_lateness_max_ms']):>8}ms  "
+            f"fps {show(arm['fps_mean']):>6}/{show(arm['fps_p05']):>6}"
         )
     for contrast in report['contrasts']:
         print(
             f"  {contrast['baseline']} -> {contrast['arm']}: "
-            f"release gap max {str(contrast['release_gap_max_ms'])}ms  "
-            f"phase onset gap max {str(contrast['phase_onset_gap_max_ms'])}ms  "
+            f"release gap max {show(contrast['release_gap_max_ms'], 'ms')}  "
+            f"phase onset gap max {show(contrast['phase_onset_gap_max_ms'], 'ms')}  "
             f"order identical {contrast['phase_order_identical']}  "
-            f"fps window gap p95 {str(contrast['fps_window_gap_p95_pct'])}%  "
+            f"fps window gap p95 {show(contrast['fps_window_gap_p95_pct'], '%')}  "
             f"clearance Δ {contrast['clearance_gap_sec']}s"
         )
 
