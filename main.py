@@ -17,6 +17,7 @@ from core.initializer import initialize
 from core.generator import generateVehicles
 from core.plan import load_plan, check_plan_against_config
 from core import runclock
+from core.controllers import NAMES as CONTROLLER_NAMES
 
 from models.traffic_signal import signals
 
@@ -58,7 +59,7 @@ def parse_args(argv=None):
     )
     parser.add_argument(
         "--controller",
-        choices=["fixed", "priority", "fairness_priority"],
+        choices=list(CONTROLLER_NAMES),
         help="Signal controller to run (default: state.currentMode).",
     )
     parser.add_argument("--pair-id", help="Paired-run identity; sends logs to data/paired/.")

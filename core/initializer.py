@@ -1,9 +1,7 @@
 # core/initializer.py
 from models.traffic_signal import TrafficSignal, signals
 import state
-from core.cycle_fixed import fixed_traffic_cycle
-from core.cycle_priority import control_traffic_cycle
-from core.cycle_fairness_priority import fairness_control_traffic_cycle
+from core.controllers import resolve
 from config import (
     defaultRed, defaultYellow, defaultGreen
 )
@@ -22,9 +20,6 @@ def initialize():
     signals.extend([ts1, ts2, ts3, ts4])
 
     print(f"[DEBUG] state.currentMode = '{state.currentMode}'")
-    if state.currentMode == "priority":
-        control_traffic_cycle()
-    elif state.currentMode == "fairness_priority":
-        fairness_control_traffic_cycle()
-    else:
-        fixed_traffic_cycle()
+    # An unknown name raises rather than falling back to fixed: a silent
+    # fallback would report fixed-24 results under another controller's name.
+    resolve(state.currentMode)()
