@@ -286,8 +286,9 @@ def load_plan(path):
     if 'uneven_mode' not in header or (header['uneven_mode'] is not None
                                        and not isinstance(header['uneven_mode'], str)):
         raise ValueError(f"Plan {path}: missing or invalid uneven_mode.")
-    if 'pinned_condition' not in header:
-        raise ValueError(f"Plan {path}: missing pinned_condition.")
+    # Absent means unpinned: plans written before this field existed encode
+    # "switches conditions" by omission. Retrofitting the key would change
+    # their content hash and so break the archive it is meant to protect.
     rates = header.get('traffic_conditions')
     if not isinstance(rates, dict) or not rates or any(
         not isinstance(key, str) or type(rate) not in (int, float)
@@ -309,10 +310,12 @@ def load_plan(path):
         last_offset = offset
     if timeline[0]['t_offset_sec'] != 0:
         raise ValueError(f"Plan {path}: condition timeline must start at zero.")
-    pinned = header['pinned_condition']
+    pinned = header.get('pinned_condition')
     if pinned is not None:
         if pinned not in rates:
             raise ValueError(f"Plan {path}: unknown pinned_condition {pinned!r}.")
+        if not isinstance(pinned, str):
+            raise ValueError(f"Plan {path}: invalid pinned_condition.")
         if any(event['condition'] != pinned for event in timeline):
             raise ValueError(f"Plan {path}: timeline contradicts pinned_condition.")
 

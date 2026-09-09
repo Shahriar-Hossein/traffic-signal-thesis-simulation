@@ -45,6 +45,18 @@ class DemandRegimeTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             build_plan(5, 40, 'evne')
 
+    def test_plan_without_the_field_loads_as_unpinned(self):
+        # Plans written before pinned_condition existed must stay readable:
+        # adding the key would change their content hash.
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root) / 'plan.json'
+            write_plan(build_plan(5, 40, 'even'), str(path))
+            stored = json.loads(path.read_text())
+            del stored['header']['pinned_condition']
+            stored['header']['content_hash'] = content_hash(stored)
+            path.write_text(json.dumps(stored))
+            self.assertIsNone(load_plan(str(path))['header'].get('pinned_condition'))
+
     def test_pinned_plan_round_trips_through_load(self):
         with tempfile.TemporaryDirectory() as root:
             path = Path(root) / 'plan.json'
