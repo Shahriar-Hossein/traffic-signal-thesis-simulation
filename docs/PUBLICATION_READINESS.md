@@ -104,6 +104,47 @@ three repeats.
 | Green utilisation | 0.81 | — |
 | Crossings outside any green | 17 of 500 (3.4%) | — |
 
+### Why discharge is too fast — traced to two parameters
+
+The headway is not emergent; it is arithmetic. A vehicle follows at a fixed
+pixel distance, so its headway is `(length + movingGap) / (speed × FPS)`:
+
+| Type | Length px | Speed px/s | Spacing px | Predicted headway | Time gap kept |
+| --- | --- | --- | --- | --- | --- |
+| car | 54 | 124.4 | 69 | 0.56 s | 0.12 s |
+| bus | 76 | 108.9 | 91 | 0.84 s | 0.14 s |
+| truck | 62 | 93.3 | 77 | 0.83 s | 0.16 s |
+| bike | 38 | 140.0 | 53 | 0.38 s | 0.11 s |
+
+Those predictions bracket what was measured (median 0.82 s, p05 0.53 s), so
+the discharge rate is fully explained by geometry. Taking a car to be 4.5 m
+long fixes the scale at **1 px ≈ 0.083 m**, which makes the car speed
+**10.4 m/s ≈ 37 km/h** — entirely reasonable for an urban approach. The speed
+is not the problem. Two other things are:
+
+1. **The following gap is a fixed distance, not a time.** `movingGap = 15 px`
+   is about **1.25 m**, a time gap of **0.12 s** at car speed. Real
+   car-following keeps something near 1.5–2 s. This single parameter is what
+   makes greens roughly twice as productive here as in reality. Reaching a
+   1.9 s saturation headway at the current speed needs a spacing of about
+   236 px (≈ 19.7 m), i.e. `movingGap ≈ 182 px` rather than 15.
+2. **There is no acceleration.** A vehicle moves at full speed on the frame
+   the signal turns green, and the queue's lead vehicle waits 10 px from the
+   stop line, which is why startup delay measured 0.08 s. A real approach
+   loses roughly 2 s per phase to start-up. Every green here is therefore
+   worth about two seconds more than its nominal length.
+
+Both push the same way: greens are cheaper than they should be. That is
+exactly the direction that flatters a controller whose advantage comes from
+allocating green.
+
+**What fixing it would cost.** Raising `movingGap` to ~182 px stretches queues
+by roughly 3.4×, which collides with the unlimited-storage assumption and
+would need the spawn geometry re-examined. Adding acceleration changes the
+vehicle model itself. Neither is a tuning tweak, and both would invalidate
+every number collected so far, including the pilot above. This is a decision
+to take deliberately before the real collection, not during it.
+
 **Reading:** the intersection discharges roughly 2.3× faster per lane than a
 real one and has almost no startup lost time. This is the single largest
 threat to any efficiency claim: greens are cheaper here than in reality, which
