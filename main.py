@@ -17,6 +17,7 @@ from config import (
 from core.initializer import initialize
 from core.generator import generateVehicles
 from core.plan import load_plan, check_plan_against_config
+from core import runclock
 
 from models.traffic_signal import signals
 
@@ -171,6 +172,9 @@ def start_simulation_threads():
     Starts initialization and vehicle generation in separate threads.
     """
     init_logger(state.duration, state.uneven_mode)
+    # Origin for every timestamp in this run; must precede the threads that
+    # read it.
+    runclock.start()
     threading.Thread(
         target=initialize, name="InitializationThread", daemon=True
     ).start()
@@ -313,21 +317,20 @@ def main(argv=None):
             f"| controller = {state.currentMode} | load = {state.uneven_mode}"
         )
 
-    start_time = time.time()
     started_at = datetime.now()
     target_reached_at = None
     fps = FpsTracker()
 
     while True:
         # Check whether the run is over
-        elapsed_time = time.time() - start_time
+        elapsed_time = runclock.elapsed()
         stop_reason = should_stop(elapsed_time)
 
         if stop_reason == 'target_reached':
             # Let in-flight turns finish before closing the window
             if target_reached_at is None:
-                target_reached_at = time.time()
-            elif time.time() - target_reached_at >= COUNT_MODE_DRAIN_SEC:
+                target_reached_at = elapsed_time
+            elif elapsed_time - target_reached_at >= COUNT_MODE_DRAIN_SEC:
                 shutdown(stop_reason, elapsed_time, started_at,
                          fps.stats(elapsed_time))
         elif stop_reason is not None:

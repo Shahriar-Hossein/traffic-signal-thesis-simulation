@@ -2,6 +2,7 @@
 import state
 import random
 import time
+from core import runclock
 from models.vehicle import Vehicle
 from core.plan import (
     sample_vehicle, pick_traffic_condition, DIRECTIONS,
@@ -89,7 +90,7 @@ def replay_vehicles(plan):
     Release the vehicles of a pre-written plan instead of drawing new ones.
 
     Each vehicle is released against an *absolute* deadline
-    (`run_start + t_offset_sec`) on a monotonic clock rather than by sleeping
+    (`t_offset_sec` on the shared run clock) rather than by sleeping
     the gap between consecutive vehicles.  Cumulative sleeps let the overshoot
     of every `time.sleep` compound over a run; deadline sleeps let a late
     release be absorbed by the next one, so drift self-corrects instead of
@@ -105,7 +106,6 @@ def replay_vehicles(plan):
         f"{len(records)} vehicles"
     )
 
-    run_start = time.monotonic()
     drift_sum_ms = 0.0
     drift_max_ms = 0.0
 
@@ -113,11 +113,11 @@ def replay_vehicles(plan):
         if not state.running:
             break
 
-        deadline = run_start + record['t_offset_sec']
+        deadline = record['t_offset_sec']
 
         # Sleep toward the deadline in slices so a quit is noticed quickly.
         while state.running:
-            remaining = deadline - time.monotonic()
+            remaining = deadline - runclock.elapsed()
             if remaining <= 0:
                 break
             time.sleep(min(remaining, REPLAY_SLEEP_SLICE))
@@ -125,7 +125,7 @@ def replay_vehicles(plan):
         if not state.running:
             break
 
-        lateness_ms = (time.monotonic() - deadline) * 1000.0
+        lateness_ms = (runclock.elapsed() - deadline) * 1000.0
         drift_sum_ms += lateness_ms
         drift_max_ms = max(drift_max_ms, lateness_ms)
 
