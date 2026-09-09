@@ -37,7 +37,7 @@ class ProvenanceTests(unittest.TestCase):
         record = plan['vehicles'][0]
         vehicle = SimpleNamespace(
             actual_wait_time=2.12, vehicleClass=record['vehicle_type'],
-            plan_seq=0, **{key: record[key] for key in (
+            plan_seq=0, released_sec=1.5, crossed_sec=9.25, **{key: record[key] for key in (
                 'direction', 'lane', 'will_turn', 'turn_direction', 'target_turn_lane')},
         )
         with tempfile.TemporaryDirectory() as root, patch.object(logger, 'state', state), patch.object(logger, 'BASE_DATA_DIR', root):
@@ -50,6 +50,8 @@ class ProvenanceTests(unittest.TestCase):
                 rows = list(csv.DictReader(handle))
             for key in ('lane', 'will_turn', 'turn_direction', 'target_turn_lane'):
                 self.assertEqual(rows[0][key], str(record[key]))
+            self.assertEqual(rows[0]['released_sec'], '1.5')
+            self.assertEqual(rows[0]['crossed_sec'], '9.25')
             state.pair_id = None
             logger.init_logger(60, 'even')
             logger.log_vehicle(vehicle)

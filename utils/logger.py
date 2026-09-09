@@ -31,6 +31,7 @@ VEHICLE_LOG_COLUMNS = [
 # of an older analyzer — it should not, but it is cheap insurance.
 PAIRED_EXTRA_COLUMNS = [
     "plan_seq", "lane", "will_turn", "turn_direction", "target_turn_lane",
+    "released_sec", "crossed_sec",
 ]
 
 
@@ -128,6 +129,8 @@ def log_vehicle(vehicle):
         log_entry.extend([
             vehicle.plan_seq, vehicle.lane, vehicle.will_turn,
             vehicle.turn_direction, vehicle.target_turn_lane,
+            round(vehicle.released_sec, 4) if vehicle.released_sec is not None else None,
+            round(vehicle.crossed_sec, 4) if vehicle.crossed_sec is not None else None,
         ])
 
     with open(log_filename, mode="a", newline="") as file:

@@ -27,6 +27,8 @@ class ReplayValidityTests(unittest.TestCase):
             for vehicle in self.plan['vehicles']:
                 rows.append({
                     'plan_seq': str(vehicle['seq']), 'wait_time_sec': '1.25', 'mode': name,
+                    'released_sec': f"{vehicle['t_offset_sec']:.4f}",
+                    'crossed_sec': f"{vehicle['t_offset_sec'] + 12:.4f}",
                     **{key: str(vehicle[key]) for key in (
                         'vehicle_type', 'direction', 'lane', 'will_turn',
                         'turn_direction', 'target_turn_lane')},
@@ -39,6 +41,7 @@ class ReplayValidityTests(unittest.TestCase):
                 started_at='2026-09-10 00:00:00', ended_at='2026-09-10 00:01:00',
                 vehicles_planned=3, target_vehicle_count=3, vehicles_released=3,
                 vehicles_generated=3, vehicles_crossed=3, duration_sec=60,
+                last_crossing_sec=58.5,
                 fps_mean=60, fps_min=59, frames_total=3600,
                 release_drift_mean_ms=1, release_drift_max_ms=2,
                 configuration={'speed': 2}, source_files={'main.py': 'abc'},
@@ -75,6 +78,29 @@ class ReplayValidityTests(unittest.TestCase):
         self.assertIsNone(result['paired'][0]['wilcoxon_p_value'])
         batch = analyze_batch(str(self.root), write=False, baseline='fixed')
         self.assertEqual(batch['per_contrast']['fixed_vs_priority']['plans'], 1)
+
+    def test_crossing_before_release_is_rejected(self):
+        row = self.arms['fixed']['rows'][0]
+        row['crossed_sec'] = str(float(row['released_sec']) - 1)
+        self.save()
+        self.assert_invalid('crossed before it was released')
+
+    def test_release_ahead_of_plan_is_rejected(self):
+        rows = self.arms['fixed']['rows']
+        late = max(rows, key=lambda row: float(row['released_sec']))
+        late['released_sec'] = '0.0'
+        self.save()
+        self.assert_invalid('released before its planned offset')
+
+    def test_last_crossing_after_run_end_is_rejected(self):
+        self.arms['fixed']['meta']['last_crossing_sec'] = 61
+        self.save()
+        self.assert_invalid('last crossing falls after the run ended')
+
+    def test_missing_last_crossing_is_rejected(self):
+        del self.arms['priority']['meta']['last_crossing_sec']
+        self.save()
+        self.assert_invalid('last_crossing_sec missing')
 
     def test_duplicate_ids_zero_shared_reproduction(self):
         for name, seq in (('fixed', '0'), ('priority', '1')):

@@ -123,6 +123,7 @@ def summarize_arm(arm):
     meta = arm["meta"]
 
     waits = []
+    travels = []
     by_direction = defaultdict(list)
     by_type = defaultdict(list)
 
@@ -134,8 +135,15 @@ def summarize_arm(arm):
         waits.append(wait)
         by_direction[row["direction"]].append(wait)
         by_type[row["vehicle_type"]].append(wait)
+        # Entry to stop line. Spawn distance depends on the queue ahead, so
+        # this is reported next to stopped delay rather than folded into it.
+        try:
+            travels.append(float(row["crossed_sec"]) - float(row["released_sec"]))
+        except (KeyError, TypeError, ValueError):
+            pass
 
     duration = meta.get("duration_sec")
+    clearance = meta.get("last_crossing_sec") or duration
 
     return {
         "controller": meta.get("controller"),
@@ -145,10 +153,15 @@ def summarize_arm(arm):
         "wait_median": round(statistics.median(waits), 2) if waits else None,
         "wait_p90": round(percentile(waits, 0.90), 2) if waits else None,
         "wait_max": round(max(waits), 2) if waits else None,
-        # Finite-workload clearance rate; derived from duration, not a separate
-        # capacity estimate. Duration still includes the display drain.
+        "travel_mean": round(statistics.fmean(travels), 2) if travels else None,
+        "travel_p90": round(percentile(travels, 0.90), 2) if travels else None,
+        # Clearance is measured to the last crossing; duration_sec also
+        # covers the display drain that follows it.
+        "last_crossing_sec": meta.get("last_crossing_sec"),
+        # Finite-workload clearance rate, a transformation of clearance time,
+        # not a separate capacity estimate.
         "throughput_per_min": (
-            round(len(rows) / duration * 60, 2) if duration else None
+            round(len(rows) / clearance * 60, 2) if clearance else None
         ),
         "wait_mean_by_direction": {
             d: round(statistics.fmean(v), 2) for d, v in sorted(by_direction.items())
@@ -213,12 +226,16 @@ def check_validity(arms, plan, fps_tolerance, drift_tolerance_ms):
                     'vehicles_generated', 'vehicles_crossed'):
             if type(meta.get(key)) is not int or meta[key] != n:
                 reasons.append(f"{name}: {key} must equal planned count {n}")
-        for key in ('duration_sec', 'fps_mean', 'fps_min', 'frames_total',
+        for key in ('duration_sec', 'last_crossing_sec', 'fps_mean', 'fps_min', 'frames_total',
                     'release_drift_mean_ms', 'release_drift_max_ms'):
             if not finite_number(meta.get(key), positive=not key.startswith('release_')):
                 reasons.append(f"{name}: {key} missing, nonfinite or out of range")
         if finite_number(meta.get('fps_mean'), positive=True):
             fps_values.append(meta['fps_mean'])
+        if (finite_number(meta.get('last_crossing_sec'), positive=True)
+                and finite_number(meta.get('duration_sec'), positive=True)
+                and meta['last_crossing_sec'] > meta['duration_sec']):
+            reasons.append(f"{name}: last crossing falls after the run ended")
         drift = meta.get('release_drift_max_ms')
         if finite_number(drift) and drift > drift_tolerance_ms:
             reasons.append(f"{name}: release_drift_max_ms={drift} exceeds {drift_tolerance_ms}")
@@ -266,6 +283,19 @@ def check_validity(arms, plan, fps_tolerance, drift_tolerance_ms):
                 wait = None
             if not finite_number(wait):
                 reasons.append(f"{name}: seq {key} wait must be finite and nonnegative")
+            times = {}
+            for column in ('released_sec', 'crossed_sec'):
+                try:
+                    times[column] = float(row[column])
+                except (KeyError, TypeError, ValueError):
+                    times[column] = None
+                if not finite_number(times[column]):
+                    reasons.append(f"{name}: seq {key} {column} must be finite and nonnegative")
+            if all(value is not None for value in times.values()):
+                if times['crossed_sec'] < times['released_sec']:
+                    reasons.append(f"{name}: seq {key} crossed before it was released")
+                if times['released_sec'] + 0.001 < record['t_offset_sec']:
+                    reasons.append(f"{name}: seq {key} released before its planned offset")
         missing = sorted(set(expected) - seen)
         if missing:
             reasons.append(f"{name}: missing {len(missing)} planned crossings (first IDs: {missing[:20]})")
@@ -562,9 +592,10 @@ def print_pair(comparison):
     for name, summary in comparison.get("arms", {}).items():
         print(
             f"  {name:18} {summary['vehicles_logged']:>5} veh  "
-            f"{str(summary['duration_sec']):>8}s  "
+            f"clear {str(summary['last_crossing_sec']):>8}s  "
             f"wait mean {str(summary['wait_mean']):>7}  "
             f"p90 {str(summary['wait_p90']):>7}  "
+            f"travel {str(summary['travel_mean']):>7}  "
             f"thr {str(summary['throughput_per_min']):>7}/min  "
             f"fps {str(summary['fps_mean']):>6}"
         )

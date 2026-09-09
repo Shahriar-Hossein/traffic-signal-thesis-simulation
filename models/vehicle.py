@@ -13,6 +13,7 @@ import state
 
 from core.plan import sample_turn
 
+from core import runclock
 from utils.logger import log_vehicle
 
 
@@ -39,6 +40,9 @@ class Vehicle(pygame.sprite.Sprite):
         self.direction = direction
 
         self.created_at = datetime.now()
+        # Run-clock times, so release and crossing sit on one timeline.
+        self.released_sec = runclock.elapsed()
+        self.crossed_sec = None
         self.wait_start_time = None  # When it first had to stop
         self.actual_wait_time = 0    # Total time spent waiting
         self.is_waiting = False      # Whether it's currently waiting
@@ -414,6 +418,8 @@ class Vehicle(pygame.sprite.Sprite):
                 (self.direction == 'up' and self.y < stopLines[self.direction])
             ):
                 self.crossed = 1
+                self.crossed_sec = runclock.elapsed()
+                state.last_crossing_sec = self.crossed_sec
                 state.vehicles_crossed += 1
                 log_vehicle(self)
 

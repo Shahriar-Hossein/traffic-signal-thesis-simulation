@@ -225,6 +225,12 @@ def shutdown(reason, elapsed, started_at, fps_stats=None):
             vehicles_generated=state.vehicles_generated,
             vehicles_crossed=state.vehicles_crossed,
             duration_sec=round(elapsed, 2),
+            # duration_sec still includes COUNT_MODE_DRAIN_SEC of rendering
+            # after the final crossing; this is the run's real end.
+            last_crossing_sec=(
+                round(state.last_crossing_sec, 4)
+                if state.last_crossing_sec is not None else None
+            ),
             stop_reason=reason,
             started_at=started_at.strftime("%Y-%m-%d %H:%M:%S"),
             ended_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),

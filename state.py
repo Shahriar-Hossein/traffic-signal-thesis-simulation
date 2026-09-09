@@ -71,6 +71,9 @@ vehicles_generated = 0
 release_count = 0
 release_drift_sum_ms = 0.0
 release_drift_max_ms = 0.0
+# Run-clock time of the most recent crossing. Reported separately from the
+# run duration, which also covers the display drain after the last crossing.
+last_crossing_sec = None
 # Owned by the main/render thread only (incremented where a vehicle crosses).
 # Each counter has a single writer, so no lock is needed.
 vehicles_crossed = 0
