@@ -671,13 +671,27 @@ def analyze_batch(root, fps_tolerance=DEFAULT_FPS_TOLERANCE,
     # One mean difference per plan; never pool interacting vehicles as replicates.
     pooled = defaultdict(list)
     stratified = defaultdict(lambda: defaultdict(list))
+    # Safeguards are aggregated alongside the primary endpoint. A mean gain
+    # bought with a worse tail, or by starving one approach, has to be visible
+    # at the same level the headline number is read.
+    safeguards = defaultdict(lambda: defaultdict(list))
     for pair in valid:
+        arms = pair.get("arms", {})
         for block in pair.get("paired", []):
             key = f"{block['baseline']}_vs_{block['arm']}"
             if block["delta_wait_mean"] is not None:
                 pooled[key].append(block["delta_wait_mean"])
                 stratified[pair.get("scenario", "unknown")][key].append(
                     block["delta_wait_mean"])
+
+            base = arms.get(block["baseline"], {})
+            other = arms.get(block["arm"], {})
+            for label, field in (("wait_p95", "wait_p95"),
+                                 ("worst_approach_wait", "worst_direction_wait_mean"),
+                                 ("approach_service_gap", "direction_service_gap"),
+                                 ("clearance_sec", "last_crossing_sec")):
+                if base.get(field) is not None and other.get(field) is not None:
+                    safeguards[key][label].append(other[field] - base[field])
 
     invalid_by_scenario = defaultdict(int)
     for pair in pairs:
@@ -709,6 +723,17 @@ def analyze_batch(root, fps_tolerance=DEFAULT_FPS_TOLERANCE,
     for scenario, contrasts in sorted(stratified.items()):
         aggregate["per_scenario"][scenario] = {
             key: contrast_summary(means) for key, means in sorted(contrasts.items())
+        }
+
+    for key, endpoints in safeguards.items():
+        aggregate["per_contrast"][key]["safeguards"] = {
+            label: {
+                "plans": len(deltas),
+                "mean_of_plan_deltas": round(statistics.fmean(deltas), 3),
+                "plans_worse_under_arm": sum(1 for delta in deltas if delta > 0),
+                **bootstrap_ci(deltas),
+            }
+            for label, deltas in sorted(endpoints.items())
         }
 
     if write:
@@ -773,6 +798,12 @@ def print_contrasts(label, contrasts):
             f"over {block['plans']} plans, "
             f"{block['plans_favouring_arm']} favouring"
         )
+        for name, guard in (block.get("safeguards") or {}).items():
+            print(
+                f"      {name}: {guard['mean_of_plan_deltas']:+} "
+                f"95% CI [{guard['ci_low']}, {guard['ci_high']}], "
+                f"worse on {guard['plans_worse_under_arm']}/{guard['plans']} plans"
+            )
 
 
 def main(argv=None):

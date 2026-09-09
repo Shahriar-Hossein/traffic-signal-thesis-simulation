@@ -84,6 +84,16 @@ class ReplayValidityTests(unittest.TestCase):
         narrowed = analyze_batch(str(self.root), write=False, baseline='fixed',
                                  only='nothing_*')
         self.assertEqual(narrowed['plans_total'], 0)
+
+        # Safeguards travel with the headline number, not separately from it.
+        guards = batch['per_contrast']['fixed_vs_priority']['safeguards']
+        self.assertEqual(
+            set(guards),
+            {'wait_p95', 'worst_approach_wait', 'approach_service_gap', 'clearance_sec'},
+        )
+        # Both fixture arms log identical waits, so every safeguard is flat.
+        self.assertEqual(guards['wait_p95']['mean_of_plan_deltas'], 0.0)
+        self.assertEqual(guards['wait_p95']['plans_worse_under_arm'], 0)
         self.assertEqual(result['scenario'], 'even_3')
         self.assertIn('even_3', batch['per_scenario'])
         # One plan cannot support an interval; it must say so, not invent one.
