@@ -244,6 +244,50 @@ comparator now matter more than further replication of fixed-versus-priority.**
 Replicating a comparison against a baseline nobody would deploy adds precision
 to the wrong number.
 
+### Ablation under strong skew: the benefit is duration, not ordering
+
+This is the result the whole design was built to obtain. Both development
+seeds of the strong-skew, near-capacity cell, N=500, six arms each, all valid.
+`abl_fixed` is the baseline every other arm is compared against; the `fixed`
+row is an independent replicate of it and serves as the noise-floor control.
+
+| Arm | Order | Green duration | Δ mean delay, seed 401 | seed 402 |
+| --- | --- | --- | --- | --- |
+| `fixed` (replicate) | fixed | 24 s | −0.005 s | −0.001 s |
+| `abl_ord` | **demand-ordered** | 24 s | **+0.836 s** | **+0.747 s** |
+| `abl_dur` | fixed | **demand-sized** | **−81.860 s** | **−77.805 s** |
+| `abl_both` (= `priority`) | demand-ordered | demand-sized | −82.052 s | −78.069 s |
+
+**Demand-sized greens account for 99.8% and 99.7% of the effect. Demand
+ordering accounts for none of it, and is very slightly harmful** — its win
+rates are 0.35 and 0.31, so reordering makes most vehicles marginally worse
+while leaving the mean essentially unchanged.
+
+The green distributions explain why. `abl_dur` chooses exactly the same greens
+as `priority` (`{6 s: 19, 17 s: 1, 24 s: 4}`), and `abl_ord` chooses exactly
+the same greens as `fixed` (`{24 s: 20}`). When every green is 24 s, changing
+the *order* of four phases of equal length leaves the cycle the same length,
+so every approach still waits a full cycle and nothing improves.
+
+The replicate control is worth noting on its own: an independent `fixed` run
+placed in the same folder reproduced the baseline to 0.005 s and 0.001 s, so
+the ablation harness itself is not introducing the difference.
+
+**What this means for the thesis.** The contribution as currently framed —
+serving the largest queue first — is not what produces the measured benefit.
+What produces it is sizing green to demand, which is the older and much more
+widely known idea. The honest framings available are:
+
+- report the ordering rule as **not** beneficial in these scenarios, which is
+  a real and publishable negative result, and make the duration rule the
+  subject; or
+- find the conditions, if any, under which ordering *does* pay — the
+  balanced and changing-demand cells are the remaining candidates, and are
+  running now.
+
+Either way, the earlier [historical review](THESIS_IMPROVEMENT_PLAN.md)
+suspicion is now confirmed by direct experiment rather than inference.
+
 ### Grid slice: the effect depends strongly on the cell
 
 Three cells, two development seeds each (401, 402), N=500, all six pairs
