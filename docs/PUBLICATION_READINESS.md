@@ -135,13 +135,28 @@ result. Delay is measured in a simulation that discharges vehicles about
 the grid — balanced demand — which the recorded hypothesis expects to be among
 the *weaker* cases.
 
-**A caveat the mean hides.** On two of the eight plans (`seed303`, `seed308`)
-fewer than half the vehicles improved — win rates 0.446 and 0.454, with median
-differences of +5.67 s and +0.78 s — while the mean still improved by 6.9 s
-and 8.9 s. The gain there comes from relieving a badly delayed tail while the
-typical vehicle is slightly worse off. Both p95 delay and the worst-served
-approach did improve, so this is not a fairness regression, but the effect is
-not "every vehicle waits less" and must not be described that way.
+**What the mean hides, and what the safeguards show.** On two of the eight
+plans (`seed303`, `seed308`) fewer than half the vehicles improved — win rates
+0.446 and 0.454, with median differences of +5.67 s and +0.78 s — while the
+mean still improved by 6.9 s and 8.9 s. So the effect is *not* "every vehicle
+waits less" and must not be described that way.
+
+The pooled safeguards say what is happening instead:
+
+| Endpoint | Δ (plan means) | 95% CI | Worse under `priority` |
+| --- | --- | --- | --- |
+| Mean stopped delay | −11.42 s | [−15.09, −8.12] | 0 of 8 |
+| p95 stopped delay | −17.66 s | [−28.97, −7.73] | 0 of 8 |
+| Worst-served approach | −19.79 s | [−23.57, −14.68] | 0 of 8 |
+| Gap between best and worst approach | −12.30 s | [−20.08, −4.32] | 2 of 8 |
+| Clearance time | −20.89 s | [−31.99, −9.29] | 1 of 8 |
+
+The tail improves *more* than the mean, and the worst-served approach improves
+most of all. The mechanism is a reallocation: lightly delayed vehicles give up
+a little so heavily delayed ones gain a lot. That is a defensible result and a
+more interesting one than a uniform speed-up — but it is a claim about
+distribution, so it has to be reported with the tail figures beside the mean,
+never by the mean alone.
 
 ### Ablation, and what it suggests
 
