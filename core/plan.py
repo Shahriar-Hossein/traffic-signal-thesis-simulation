@@ -58,9 +58,26 @@ DIRECTION_WEIGHTS = {
 UNIFORM_WEIGHTS = [0.25, 0.25, 0.25, 0.25]
 
 
+# 'even' and None both mean uniform; every other name must be a real skew.
+UNIFORM_MODES = (None, 'even', 'uniform')
+
+
 def direction_weights(uneven_mode):
-    """Direction probabilities for a demand skew ('even'/None -> uniform)."""
-    return DIRECTION_WEIGHTS.get(uneven_mode, UNIFORM_WEIGHTS)
+    """
+    Direction probabilities for a demand skew ('even'/None -> uniform).
+
+    An unrecognised name used to fall back to uniform, so a typo produced a
+    balanced plan labelled as a skewed one — and nothing said so.
+    """
+    if uneven_mode in UNIFORM_MODES:
+        return UNIFORM_WEIGHTS
+    try:
+        return DIRECTION_WEIGHTS[uneven_mode]
+    except KeyError:
+        raise ValueError(
+            f"unknown uneven_mode {uneven_mode!r}; expected one of "
+            f"{sorted(DIRECTION_WEIGHTS)} or one of {list(UNIFORM_MODES)}"
+        ) from None
 
 
 def pick_traffic_condition(previous=None, rng=random):
@@ -129,7 +146,7 @@ def git_rev():
         return None
 
 
-def build_plan(seed, count, uneven_mode, plan_id=None):
+def build_plan(seed, count, uneven_mode, plan_id=None, condition=None):
     """
     Generate a full replay plan on a *virtual* clock.
 
@@ -139,10 +156,21 @@ def build_plan(seed, count, uneven_mode, plan_id=None):
     The drift is deliberately not modelled: it is a property of the machine on
     the day, not of the traffic, and both replay arms re-impose their own.
 
+    `condition` pins one traffic condition for the whole plan instead of
+    switching between them. That is what gives a scenario a single demand
+    regime — below capacity, near it, or over it — rather than a mixture of
+    all three. Left None, the condition switches as it always has.
+
     Uses a private `random.Random(seed)`; never the global module, so nothing
     else in the process can perturb the sequence.
     """
+    if condition is not None and condition not in trafficConditions:
+        raise ValueError(
+            f"unknown traffic condition {condition!r}; "
+            f"expected one of {sorted(trafficConditions)}"
+        )
     rng = random.Random(seed)
+    pinned = condition
 
     vehicles = []
     timeline = []
@@ -155,7 +183,10 @@ def build_plan(seed, count, uneven_mode, plan_id=None):
         # Mirrors generator.py: the condition is picked *before* the vehicle
         # draws, so the rng sequence lines up with the live path.
         if condition is None or t - condition_started_at >= trafficConditionInterval:
-            condition = pick_traffic_condition(condition, rng)
+            # A pinned condition is chosen once and never drawn, so it costs
+            # no rng draws and cannot shift the vehicle sequence relative to
+            # an unpinned plan of the same seed.
+            condition = pinned or pick_traffic_condition(condition, rng)
             condition_started_at = t
             timeline.append({
                 't_offset_sec': round(t, 6),
@@ -189,6 +220,10 @@ def build_plan(seed, count, uneven_mode, plan_id=None):
         'turn_probability': turnProbability,
         'traffic_conditions': dict(trafficConditions),
         'traffic_condition_interval': trafficConditionInterval,
+        # None means the plan switches conditions; a name means it holds that
+        # one throughout. Part of the content hash, so the two are distinct
+        # plans even at the same seed.
+        'pinned_condition': pinned,
         'schema_version': SCHEMA_VERSION,
     }
 
@@ -199,8 +234,11 @@ def build_plan(seed, count, uneven_mode, plan_id=None):
     }
 
 
-def default_plan_id(uneven_mode, count, seed):
-    return f"{uneven_mode}_{count}_seed{seed:02d}"
+def default_plan_id(uneven_mode, count, seed, condition=None):
+    """Folder-safe identity. The condition is part of it: two plans that
+    differ only in demand regime must not collide."""
+    label = f"{uneven_mode}_{count}_seed{seed:02d}"
+    return label if condition is None else f"{uneven_mode}_{condition}_{count}_seed{seed:02d}"
 
 
 def content_hash(plan):
@@ -248,6 +286,8 @@ def load_plan(path):
     if 'uneven_mode' not in header or (header['uneven_mode'] is not None
                                        and not isinstance(header['uneven_mode'], str)):
         raise ValueError(f"Plan {path}: missing or invalid uneven_mode.")
+    if 'pinned_condition' not in header:
+        raise ValueError(f"Plan {path}: missing pinned_condition.")
     rates = header.get('traffic_conditions')
     if not isinstance(rates, dict) or not rates or any(
         not isinstance(key, str) or type(rate) not in (int, float)
@@ -269,6 +309,12 @@ def load_plan(path):
         last_offset = offset
     if timeline[0]['t_offset_sec'] != 0:
         raise ValueError(f"Plan {path}: condition timeline must start at zero.")
+    pinned = header['pinned_condition']
+    if pinned is not None:
+        if pinned not in rates:
+            raise ValueError(f"Plan {path}: unknown pinned_condition {pinned!r}.")
+        if any(event['condition'] != pinned for event in timeline):
+            raise ValueError(f"Plan {path}: timeline contradicts pinned_condition.")
 
     n = header.get('target_vehicle_count')
     if type(n) is not int or n <= 0 or not isinstance(plan['vehicles'], list) or len(plan['vehicles']) != n:
