@@ -28,6 +28,7 @@ import shutil
 ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
 
+from analyzers.analyze_timing import analyze_timing, print_report  # noqa: E402
 from analyzers.analyze_paired import (  # noqa: E402
     analyze_pair, analyze_batch, print_pair,
     DEFAULT_FPS_TOLERANCE, DEFAULT_DRIFT_TOLERANCE_MS,
@@ -157,6 +158,9 @@ def run_pair(plan_file, arms, timeout=None, fps_tolerance=DEFAULT_FPS_TOLERANCE,
         write_comparison(plan_dir, comparison)
 
     print_pair(comparison)
+    # Timing is reported for every pair, valid or not: when a pair is
+    # rejected, the clocks are usually where the reason is.
+    print_report(analyze_timing(plan_dir))
     return comparison
 
 
