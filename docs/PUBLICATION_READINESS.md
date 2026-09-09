@@ -209,6 +209,41 @@ every green pinned to the 6 s lower bound. It is recorded only because it
 points at the question the historical review already raised: whether the
 advantage is ordering or simply longer greens. The grid must answer it.
 
+### Strong skew: a very large effect, and why it should not be the headline
+
+One pair from the grid slice, `right_medium_500_seed401` — 85% of demand on a
+single approach, near capacity, N=500, valid:
+
+| | `fixed` | `priority` |
+| --- | --- | --- |
+| Mean stopped delay | 108.60 s | 26.64 s |
+| p95 stopped delay | 235.42 s | 56.57 s |
+| Clearance | 601.53 s | 362.88 s |
+| Δ mean stopped delay | | **−81.96 s**, win rate 0.846 |
+
+Seven times the balanced-demand effect. The green distributions say exactly
+where it comes from:
+
+- `fixed`: twenty phases, **every one 24 s**.
+- `priority`: **nineteen phases at the 6 s floor**, four at the 24 s ceiling.
+
+Under an 85/5/5/5 split, fixed-24 spends roughly seventy-two seconds of every
+cycle serving three nearly empty approaches. The proposed controller spends
+eighteen. Almost the whole gain is *not serving an empty approach for 24
+seconds*.
+
+**This is a finding about the baseline, not about queue ordering.** Any
+actuated controller — anything that gaps out when no one is waiting — would
+recover most of this, and so would `fixed_order_adaptive_duration`, which
+keeps the fixed rotation and changes only the duration rule. Reporting
+−81.96 s against fixed-24 as evidence for demand-ordered scheduling would be
+overclaiming, and a reviewer would say so immediately.
+
+It also reorders the remaining work: **the ablation arms and an actuated
+comparator now matter more than further replication of fixed-versus-priority.**
+Replicating a comparison against a baseline nobody would deploy adds precision
+to the wrong number.
+
 ### How many plans the real study needs
 
 From the pilot SD of 5.43 s, per scenario cell:
