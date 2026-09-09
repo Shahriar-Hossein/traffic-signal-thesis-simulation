@@ -138,6 +138,38 @@ counted per scenario in the batch summary.
 Failures are reported, not excluded. A scenario that fails often is a finding
 about that scenario.
 
+## How to run it
+
+```bash
+# 1. See the grid and the commands it expands to.
+python3 scripts/scenarios.py --list
+python3 scripts/scenarios.py --commands --arms fixed priority
+
+# 2. Run one pair. Arms run one per process, in the order given; the first
+#    is the baseline every other is compared against.
+python3 run_paired.py --seed 301 --count 500 --uneven-mode even \
+    --condition medium --arms fixed priority --timeout 3000
+
+# 3. Analyse. The driver already prints the pair and timing reports;
+#    these re-derive them, and aggregate across plans.
+python3 analyzers/analyze_paired.py data/paired/even_medium_500_seed301
+python3 analyzers/analyze_timing.py data/paired/even_medium_500_seed301
+python3 analyzers/analyze_discharge.py data/paired/even_medium_500_seed301/*/
+python3 analyzers/analyze_paired.py --batch data/paired --only "even_medium_500_seed*"
+
+# 4. Archive what will be cited.
+python3 scripts/export_results.py --name <package> data/paired/<plan_id> ...
+```
+
+Set `SDL_VIDEODRIVER=dummy` to run without a display. Runs are CPU-bound and
+render physics, so **do not run anything else heavy on the machine while
+collecting** — one arm rendering more slowly than its partner is exactly the
+confound the frame-rate gate exists to catch.
+
+Each arm writes into `data/paired/{plan_id}/{arm}/`, and the driver refuses to
+reuse an existing arm folder, so a rerun needs a fresh arm label or a fresh
+plan.
+
 ## Reproducibility
 
 Results are exported out of the gitignored `data/` tree with
