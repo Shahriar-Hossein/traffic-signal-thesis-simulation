@@ -9,6 +9,7 @@ import state
 log_filename = None
 signal_log_filename = None
 run_basename = None
+run_provenance = None
 
 
 # Base folder for all data
@@ -25,10 +26,12 @@ VEHICLE_LOG_COLUMNS = [
     "wait_time_sec",
 ]
 
-# Paired runs append one extra column.  Appending rather than inserting means
+# Paired runs append identity and planned-attribute columns. Appending means
 # the first six still parse positionally if a paired file ever ends up in front
 # of an older analyzer — it should not, but it is cheap insurance.
-PAIRED_EXTRA_COLUMNS = ["plan_seq"]
+PAIRED_EXTRA_COLUMNS = [
+    "plan_seq", "lane", "will_turn", "turn_direction", "target_turn_lane",
+]
 
 
 def is_paired_run():
@@ -49,7 +52,14 @@ def init_logger(duration_sec, uneven_mode=None):
     vehicles mode: data/logs_by_count/{uneven_mode}/{N}/{mode}_countlog_{N}_{ts}.csv
     paired replay: data/paired/{pair_id}/{arm}/{arm}_pairlog_{N}_{ts}.csv
     """
-    global log_filename, signal_log_filename, run_basename
+    global log_filename, signal_log_filename, run_basename, run_provenance
+
+    if is_paired_run():
+        import config
+        from core.plan import content_hash
+        from core.provenance import capture_provenance
+        run_provenance = capture_provenance(config, state.count_mode_timeout)
+        run_provenance['plan_hash'] = content_hash(state.vehicle_plan)
 
     mode_label = state.currentMode  # e.g., 'priority', 'fixed'
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -115,7 +125,10 @@ def log_vehicle(vehicle):
         # The pairing key.  id(vehicle) cannot serve as one — CPython reuses
         # addresses after a despawn, so joining the two arms on it would
         # silently mismatch vehicles.
-        log_entry.append(vehicle.plan_seq)
+        log_entry.extend([
+            vehicle.plan_seq, vehicle.lane, vehicle.will_turn,
+            vehicle.turn_direction, vehicle.target_turn_lane,
+        ])
 
     with open(log_filename, mode="a", newline="") as file:
         writer = csv.writer(file)
@@ -166,6 +179,7 @@ def write_run_meta(**fields):
         # The folder path stops being the only run metadata here: a paired
         # run records its own identity and its adherence to the plan, which
         # is what the validity gate reads.
+        meta.update(run_provenance or {})
         released = state.release_count
         meta.update({
             "generation_source": state.generation_source,
