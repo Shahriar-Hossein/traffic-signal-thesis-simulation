@@ -12,6 +12,7 @@ the draw logic they could drift apart and nothing would report it.
 
 import hashlib
 import json
+import math
 import os
 import random
 import subprocess
@@ -230,7 +231,9 @@ def load_plan(path):
     with open(path) as f:
         plan = json.load(f)
 
-    header = plan.get('header') or {}
+    if not isinstance(plan, dict) or not isinstance(plan.get('header'), dict):
+        raise ValueError(f"Plan {path} must contain a header object.")
+    header = plan['header']
     version = header.get('schema_version')
     if version != SCHEMA_VERSION:
         raise ValueError(
@@ -242,21 +245,71 @@ def load_plan(path):
         if key not in plan:
             raise ValueError(f"Plan {path} is missing the '{key}' section.")
 
+    if 'uneven_mode' not in header or (header['uneven_mode'] is not None
+                                       and not isinstance(header['uneven_mode'], str)):
+        raise ValueError(f"Plan {path}: missing or invalid uneven_mode.")
+    rates = header.get('traffic_conditions')
+    if not isinstance(rates, dict) or not rates or any(
+        not isinstance(key, str) or type(rate) not in (int, float)
+        or not math.isfinite(rate) or rate <= 0 for key, rate in rates.items()
+    ):
+        raise ValueError(f"Plan {path}: invalid traffic_conditions.")
+    timeline = plan['condition_timeline']
+    if not isinstance(timeline, list) or not timeline:
+        raise ValueError(f"Plan {path}: invalid condition_timeline.")
+    last_offset = -1
+    for event in timeline:
+        if not isinstance(event, dict):
+            raise ValueError(f"Plan {path}: invalid condition event.")
+        offset, condition = event.get('t_offset_sec'), event.get('condition')
+        if (type(offset) not in (int, float) or not math.isfinite(offset)
+                or offset < 0 or offset <= last_offset
+                or not isinstance(condition, str) or condition not in rates):
+            raise ValueError(f"Plan {path}: invalid condition event.")
+        last_offset = offset
+    if timeline[0]['t_offset_sec'] != 0:
+        raise ValueError(f"Plan {path}: condition timeline must start at zero.")
+
     n = header.get('target_vehicle_count')
-    if n is None or len(plan['vehicles']) != n:
+    if type(n) is not int or n <= 0 or not isinstance(plan['vehicles'], list) or len(plan['vehicles']) != n:
         raise ValueError(
             f"Plan {path} declares {n} vehicles but holds "
-            f"{len(plan['vehicles'])}."
+            f"an invalid vehicle list."
         )
 
     stored = header.get('content_hash')
     actual = content_hash(plan)
-    if stored is not None and stored != actual:
+    if not stored or stored != actual:
         raise ValueError(
             f"Plan {path} has been modified since it was written "
             f"(content_hash {stored} != {actual})."
         )
 
+    previous = -1.0
+    for seq, record in enumerate(plan['vehicles']):
+        if not isinstance(record, dict) or type(record.get('seq')) is not int or record['seq'] != seq:
+            raise ValueError(f"Plan {path}: vehicle IDs must be exactly 0..N-1 in order.")
+        offset = record.get('t_offset_sec')
+        if (type(offset) not in (int, float) or not math.isfinite(offset)
+                or offset < 0 or offset < previous):
+            raise ValueError(f"Plan {path}: invalid arrival time at seq {seq}.")
+        previous = offset
+        direction, lane = record.get('direction'), record.get('lane')
+        turning = record.get('will_turn')
+        target = record.get('target_turn_lane')
+        if (direction not in DIRECTIONS or type(lane) is not int or lane not in range(LANE_COUNT)
+                or record.get('vehicle_type') not in vehicleTypes.values()
+                or type(turning) is not bool or type(target) is not int
+                or target not in range(LANE_COUNT)
+                or not isinstance(record.get('condition'), str)
+                or record['condition'] not in rates):
+            raise ValueError(f"Plan {path}: invalid vehicle attributes at seq {seq}.")
+        expected_turn = turnDirections[direction][lane] if turning else direction
+        if (record.get('turn_direction') != expected_turn
+                or (turning and expected_turn == direction) or (not turning and target != 0)):
+            raise ValueError(f"Plan {path}: inconsistent turn at seq {seq}.")
+    if not isinstance(header.get('plan_id'), str) or not header['plan_id']:
+        raise ValueError(f"Plan {path}: missing plan_id.")
     return plan
 
 
