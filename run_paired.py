@@ -33,6 +33,8 @@ from analyzers.analyze_paired import (  # noqa: E402
     analyze_pair, analyze_batch, print_pair,
     DEFAULT_FPS_TOLERANCE, DEFAULT_DRIFT_TOLERANCE_MS,
 )
+from config import trafficConditions as TRAFFIC_CONDITIONS  # noqa: E402
+from core.controllers import NAMES as CONTROLLER_NAMES  # noqa: E402
 from core.plan import build_plan, write_plan, default_plan_id, load_plan  # noqa: E402
 from scripts.make_plan import plan_path  # noqa: E402
 
@@ -111,7 +113,7 @@ def run_pair(plan_file, arms, timeout=None, fps_tolerance=DEFAULT_FPS_TOLERANCE,
     for label, controller in arms:
         if os.path.basename(label) != label or label in ('', '.', '..'):
             raise ValueError('arm labels must be single folder names')
-        if controller not in ('fixed', 'priority', 'fairness_priority'):
+        if controller not in CONTROLLER_NAMES:
             raise ValueError(f'unknown controller: {controller}')
         folder = os.path.join(plan_dir, label)
         if os.path.exists(folder):
@@ -180,6 +182,9 @@ def main(argv=None):
                         help="Vehicles per plan (only with --seed).")
     parser.add_argument("--uneven-mode", default="even",
                         help="Demand skew for the generated plan (only with --seed).")
+    parser.add_argument("--condition", choices=sorted(TRAFFIC_CONDITIONS),
+                        help="Hold one demand regime for the generated plan "
+                             "(only with --seed).")
     parser.add_argument("--timeout", type=int,
                         help="Per-arm safety cap in seconds (default: state.py value).")
     parser.add_argument("--fps-tolerance", type=float, default=DEFAULT_FPS_TOLERANCE)
@@ -219,8 +224,9 @@ def main(argv=None):
         return
 
     if args.seed is not None:
-        plan_id = default_plan_id(args.uneven_mode, args.count, args.seed)
-        plan = build_plan(args.seed, args.count, args.uneven_mode, plan_id=plan_id)
+        plan_id = default_plan_id(args.uneven_mode, args.count, args.seed, args.condition)
+        plan = build_plan(args.seed, args.count, args.uneven_mode, plan_id=plan_id,
+                          condition=args.condition)
         plan_file = plan_path(plan_id)
         if os.path.exists(plan_file):
             parser.error(f'plan already exists: {plan_file}; use --plan or a fresh seed')

@@ -20,6 +20,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from config import trafficConditions  # noqa: E402
 from core.plan import build_plan, write_plan, default_plan_id  # noqa: E402
 
 BASE_DATA_DIR = os.path.join(
@@ -34,9 +35,9 @@ def plan_path(plan_id, out=None):
     return os.path.join(BASE_DATA_DIR, "paired", plan_id, "plan.json")
 
 
-def make_one(seed, count, uneven_mode, out=None, plan_id=None):
-    plan_id = plan_id or default_plan_id(uneven_mode, count, seed)
-    plan = build_plan(seed, count, uneven_mode, plan_id=plan_id)
+def make_one(seed, count, uneven_mode, out=None, plan_id=None, condition=None):
+    plan_id = plan_id or default_plan_id(uneven_mode, count, seed, condition)
+    plan = build_plan(seed, count, uneven_mode, plan_id=plan_id, condition=condition)
     path = write_plan(plan, plan_path(plan_id, out))
 
     last = plan['vehicles'][-1]['t_offset_sec']
@@ -62,6 +63,9 @@ def main(argv=None):
                         help="Number of vehicles in the plan.")
     parser.add_argument("--uneven-mode", default="even",
                         help="Demand skew the plan is drawn under.")
+    parser.add_argument("--condition", choices=sorted(trafficConditions),
+                        help="Hold one demand regime for the whole plan "
+                             "instead of switching between them.")
     parser.add_argument("--plans", type=int, default=1,
                         help="Emit this many plans, using consecutive seeds from --seed.")
     parser.add_argument("--plan-id",
@@ -81,6 +85,7 @@ def main(argv=None):
             uneven_mode=args.uneven_mode,
             out=args.out,
             plan_id=args.plan_id,
+            condition=args.condition,
         )
 
 
