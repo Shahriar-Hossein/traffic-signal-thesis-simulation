@@ -15,8 +15,8 @@ Two things happen, in this order:
      never quietly averaged in.
   2. The paired comparison itself.  Vehicle `plan_seq = k` in one arm and
      `plan_seq = k` in another are the *same arrival*, so their two wait times
-     form a matched pair and a signed-rank test applies.  That is the claim
-     this whole design exists to support.
+     form a descriptive matched difference. Inference uses independent plans,
+     because vehicles within an approach interact.
 
     python3 analyzers/analyze_paired.py data/paired/even_500_seed07
     python3 analyzers/analyze_paired.py --batch data/paired
@@ -29,6 +29,11 @@ import json
 import math
 import os
 import statistics
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from core.plan import load_plan
+from core.provenance import fingerprint
 from collections import defaultdict
 
 BASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
@@ -52,7 +57,7 @@ def read_csv_rows(path):
         return list(csv.DictReader(f))
 
 
-def load_arm(arm_dir):
+def _load_arm(arm_dir):
     """Load one arm's vehicle log, signal log and metadata sidecar."""
     arm = os.path.basename(arm_dir.rstrip(os.sep))
 
@@ -96,6 +101,13 @@ def load_arm(arm_dir):
     }
 
 
+def load_arm(arm_dir):
+    try:
+        return _load_arm(arm_dir)
+    except (OSError, ValueError, csv.Error) as error:
+        return {'arm': os.path.basename(arm_dir), 'error': f'cannot read arm: {error}'}
+
+
 def percentile(values, q):
     """Nearest-rank percentile; no numpy dependency for one number."""
     if not values:
@@ -133,8 +145,8 @@ def summarize_arm(arm):
         "wait_median": round(statistics.median(waits), 2) if waits else None,
         "wait_p90": round(percentile(waits, 0.90), 2) if waits else None,
         "wait_max": round(max(waits), 2) if waits else None,
-        # Throughput is the meaningful cross-arm number here: the vehicle count
-        # is fixed by the plan, so a faster run is a better controller.
+        # Finite-workload clearance rate; derived from duration, not a separate
+        # capacity estimate. Duration still includes the display drain.
         "throughput_per_min": (
             round(len(rows) / duration * 60, 2) if duration else None
         ),
@@ -155,67 +167,115 @@ def summarize_arm(arm):
 
 # --- Validity gate -------------------------------------------------------
 
-def check_validity(arms, planned_count, fps_tolerance, drift_tolerance_ms):
-    """Return the list of reasons this pair may not be reported. Empty = valid."""
-    reasons = []
+def finite_number(value, positive=False):
+    return (type(value) in (int, float) and math.isfinite(value)
+            and (value > 0 if positive else value >= 0))
 
+
+def check_validity(arms, plan, fps_tolerance, drift_tolerance_ms):
+    """Fail closed: only a complete, attributable replay can be compared."""
+    reasons = []
+    if not finite_number(fps_tolerance) or not finite_number(drift_tolerance_ms):
+        return ["gate tolerances must be finite and nonnegative"]
+    if not isinstance(plan, dict):
+        return ["verified plan is required"]
+    header = plan['header']
+    expected = {record['seq']: record for record in plan['vehicles']}
+    n = header['target_vehicle_count']
+    fps_values = []
+    hashes = {'configuration_hash': set(), 'source_hash': set()}
     for arm in arms:
-        name = arm["arm"]
-        if arm.get("error"):
+        name = arm['arm']
+        if arm.get('error'):
             reasons.append(f"{name}: {arm['error']}")
             continue
-
-        meta = arm["meta"]
-        if not meta:
-            reasons.append(f"{name}: no _meta.json, cannot verify the run completed")
+        meta = arm.get('meta')
+        if not isinstance(meta, dict) or not meta:
+            reasons.append(f"{name}: missing or invalid metadata")
             continue
-
-        if meta.get("generation_source") != "plan":
-            reasons.append(
-                f"{name}: generation_source={meta.get('generation_source')!r}, "
-                "this arm did not replay the plan"
-            )
-
-        if meta.get("stop_reason") != "target_reached":
-            reasons.append(f"{name}: stop_reason={meta.get('stop_reason')!r}")
-
-        if planned_count is not None:
-            if meta.get("vehicles_released") not in (None, planned_count):
-                reasons.append(
-                    f"{name}: released {meta.get('vehicles_released')} of "
-                    f"{planned_count} planned vehicles"
-                )
-            if len(arm["rows"]) != planned_count:
-                reasons.append(
-                    f"{name}: logged {len(arm['rows'])} crossings, "
-                    f"expected {planned_count}"
-                )
-
-        drift = meta.get("release_drift_max_ms")
-        if drift is not None and drift > drift_tolerance_ms:
-            reasons.append(
-                f"{name}: release_drift_max_ms={drift} exceeds "
-                f"{drift_tolerance_ms}"
-            )
-
-    # Frame rate is compared *between* arms, not against an absolute floor:
-    # what invalidates the comparison is one arm running its physics faster
-    # than the other, whatever the absolute number was.
-    fps_values = [
-        a["meta"].get("fps_mean") for a in arms
-        if not a.get("error") and a.get("meta", {}).get("fps_mean") is not None
-    ]
-    if len(fps_values) == len([a for a in arms if not a.get("error")]) and fps_values:
+        identity = {
+            'generation_source': 'plan', 'run_mode': 'vehicles',
+            'stop_reason': 'target_reached', 'plan_id': header['plan_id'],
+            'plan_hash': header['content_hash'], 'arm': name,
+            'uneven_mode': header['uneven_mode'], 'provenance_version': 1,
+            'vehicle_log': os.path.basename(arm['log_path']),
+            'signal_log': os.path.basename(arm['log_path']).replace('.csv', '_signal.csv'),
+        }
+        for key, value in identity.items():
+            if meta.get(key) != value:
+                reasons.append(f"{name}: {key} missing or mismatched")
+        if meta.get('controller') not in ('fixed', 'priority', 'fairness_priority'):
+            reasons.append(f"{name}: missing or unknown controller")
+        for key in ('started_at', 'ended_at', 'plan_path'):
+            if not isinstance(meta.get(key), str) or not meta[key]:
+                reasons.append(f"{name}: {key} missing or invalid")
+        for key in ('vehicles_planned', 'target_vehicle_count', 'vehicles_released',
+                    'vehicles_generated', 'vehicles_crossed'):
+            if type(meta.get(key)) is not int or meta[key] != n:
+                reasons.append(f"{name}: {key} must equal planned count {n}")
+        for key in ('duration_sec', 'fps_mean', 'fps_min', 'frames_total',
+                    'release_drift_mean_ms', 'release_drift_max_ms'):
+            if not finite_number(meta.get(key), positive=not key.startswith('release_')):
+                reasons.append(f"{name}: {key} missing, nonfinite or out of range")
+        if finite_number(meta.get('fps_mean'), positive=True):
+            fps_values.append(meta['fps_mean'])
+        drift = meta.get('release_drift_max_ms')
+        if finite_number(drift) and drift > drift_tolerance_ms:
+            reasons.append(f"{name}: release_drift_max_ms={drift} exceeds {drift_tolerance_ms}")
+        mean_drift = meta.get('release_drift_mean_ms')
+        if finite_number(mean_drift) and finite_number(drift) and mean_drift > drift:
+            reasons.append(f"{name}: mean release drift exceeds maximum")
+        for payload, key in (('configuration', 'configuration_hash'), ('source_files', 'source_hash')):
+            value = meta.get(payload)
+            try:
+                matches = isinstance(value, dict) and bool(value) and fingerprint(value) == meta.get(key)
+            except (ValueError, TypeError):
+                matches = False
+            if not matches:
+                reasons.append(f"{name}: {payload} missing or fingerprint mismatch")
+            else:
+                hashes[key].add(meta[key])
+        if not arm.get('signal_changes'):
+            reasons.append(f"{name}: no signal changes recorded")
+        rows = arm['rows']
+        if len(rows) != n:
+            reasons.append(f"{name}: logged {len(rows)} crossings, expected {n}")
+        seen = set()
+        for index, row in enumerate(rows):
+            try:
+                key = int(row.get('plan_seq', ''))
+            except (TypeError, ValueError):
+                reasons.append(f"{name}: row {index} has missing or invalid plan_seq")
+                continue
+            if key in seen:
+                reasons.append(f"{name}: duplicate plan_seq {key}")
+            seen.add(key)
+            record = expected.get(key)
+            if record is None:
+                reasons.append(f"{name}: unexpected plan_seq {key}")
+                continue
+            for attribute in ('vehicle_type', 'direction', 'lane', 'will_turn',
+                              'turn_direction', 'target_turn_lane'):
+                if row.get(attribute) != str(record[attribute]):
+                    reasons.append(f"{name}: seq {key} {attribute} differs from plan")
+            if row.get('mode') != meta.get('controller'):
+                reasons.append(f"{name}: seq {key} controller differs from metadata")
+            try:
+                wait = float(row['wait_time_sec'])
+            except (KeyError, TypeError, ValueError):
+                wait = None
+            if not finite_number(wait):
+                reasons.append(f"{name}: seq {key} wait must be finite and nonnegative")
+        missing = sorted(set(expected) - seen)
+        if missing:
+            reasons.append(f"{name}: missing {len(missing)} planned crossings (first IDs: {missing[:20]})")
+    for key, values in hashes.items():
+        if len(values) > 1:
+            reasons.append(f"{key} differs across arms")
+    if len(fps_values) == len(arms) and fps_values:
         spread = (max(fps_values) - min(fps_values)) / max(fps_values)
         if spread > fps_tolerance:
-            reasons.append(
-                f"fps_mean spread {spread:.1%} across arms exceeds "
-                f"{fps_tolerance:.0%} — physics runs in the renderer, so the "
-                "slower arm had slower vehicles"
-            )
-    elif arms:
-        reasons.append("fps_mean missing for at least one arm, cannot gate on frame rate")
-
+            reasons.append(f"fps_mean spread {spread:.1%} exceeds {fps_tolerance:.1%}")
     return reasons
 
 
@@ -330,7 +390,9 @@ def compare_arms(baseline, other):
         f"win_rate_{other['arm']}": round(wins / len(deltas), 4) if deltas else None,
         "tied": ties,
     }
-    result.update({f"wilcoxon_{k}": v for k, v in wilcoxon_signed_rank(deltas).items()})
+    # Vehicles interact within a plan; no inferential vehicle-level p-value.
+    result['inference_unit'] = 'plan'
+    result['wilcoxon_p_value'] = None
 
     if only_baseline or only_other:
         result["unmatched_plan_seqs"] = {
@@ -354,7 +416,10 @@ def arm_sort_key(arm):
     fairness_priority`, and every delta would be reported against the wrong
     reference.  Falls back to the arm name when a sidecar is missing.
     """
-    started_at = (arm.get("meta") or {}).get("started_at")
+    meta = arm.get("meta")
+    started_at = meta.get("started_at") if isinstance(meta, dict) else None
+    if not isinstance(started_at, str):
+        started_at = None
     return (started_at is None, started_at or "", arm["arm"])
 
 
@@ -365,13 +430,15 @@ def analyze_pair(plan_dir, fps_tolerance=DEFAULT_FPS_TOLERANCE,
     plan_dir = os.path.abspath(plan_dir)
     plan_id = os.path.basename(plan_dir.rstrip(os.sep))
 
+    plan = None
+    plan_errors = []
     planned_count = None
-    plan_path = os.path.join(plan_dir, "plan.json")
-    if os.path.exists(plan_path):
-        with open(plan_path) as f:
-            header = json.load(f).get("header", {})
-        plan_id = header.get("plan_id", plan_id)
-        planned_count = header.get("target_vehicle_count")
+    try:
+        plan = load_plan(os.path.join(plan_dir, 'plan.json'))
+        plan_id = plan['header']['plan_id']
+        planned_count = plan['header']['target_vehicle_count']
+    except (OSError, ValueError, TypeError, KeyError, AttributeError) as error:
+        plan_errors.append(f"cannot verify plan.json: {error}")
 
     arm_dirs = sorted(
         os.path.join(plan_dir, name) for name in os.listdir(plan_dir)
@@ -389,29 +456,21 @@ def analyze_pair(plan_dir, fps_tolerance=DEFAULT_FPS_TOLERANCE,
         "arm_names": [a["arm"] for a in arms],
     }
 
+    reasons = plan_errors + check_validity(arms, plan, fps_tolerance, drift_tolerance_ms)
+    if baseline is not None and baseline not in comparison['arm_names']:
+        reasons.append(f"requested baseline {baseline!r} is missing")
     if len(arms) < 2:
-        comparison["valid"] = False
-        comparison["invalid_reasons"] = [
-            f"found {len(arms)} arm folder(s); a pair needs at least 2"
-        ]
-        comparison["arms"] = {
-            a["arm"]: summarize_arm(a) for a in arms if not a.get("error")
-        }
-        if write:
-            write_comparison(plan_dir, comparison)
-        return comparison
-
-    reasons = check_validity(arms, planned_count, fps_tolerance, drift_tolerance_ms)
+        reasons.append(f"found {len(arms)} arms; at least 2 required")
     comparison["valid"] = not reasons
     comparison["invalid_reasons"] = reasons
 
     comparison["arms"] = {
-        a["arm"]: summarize_arm(a) for a in arms if not a.get("error")
+        a["arm"]: summarize_arm(a) for a in arms if not reasons and not a.get("error")
     }
 
     # Every other arm is compared against the first, so K arms produce K-1
     # matched comparisons rather than assuming there are exactly two.
-    usable = [a for a in arms if not a.get("error")]
+    usable = [a for a in arms if not reasons and not a.get("error")]
     baseline_arm = usable[0] if usable else None
     comparison["baseline_arm"] = baseline_arm["arm"] if baseline_arm else None
     comparison["paired"] = [
@@ -427,7 +486,7 @@ def write_comparison(plan_dir, comparison):
     """comparison.json is written here and by the driver — never by the simulation."""
     path = os.path.join(plan_dir, "comparison.json")
     with open(path, "w") as f:
-        json.dump(comparison, f, indent=2)
+        json.dump(comparison, f, indent=2, allow_nan=False)
         f.write("\n")
     return path
 
@@ -450,8 +509,7 @@ def analyze_batch(root, fps_tolerance=DEFAULT_FPS_TOLERANCE,
     ]
     valid = [p for p in pairs if p.get("valid")]
 
-    # The aggregate test pools every matched vehicle across valid plans; the
-    # per-plan means are reported alongside so one dominant plan is visible.
+    # One mean difference per plan; never pool interacting vehicles as replicates.
     pooled = defaultdict(list)
     for pair in valid:
         for block in pair.get("paired", []):
