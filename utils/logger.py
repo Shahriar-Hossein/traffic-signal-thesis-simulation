@@ -8,6 +8,7 @@ import state
 
 log_filename = None
 signal_log_filename = None
+phase_log_filename = None
 run_basename = None
 run_provenance = None
 
@@ -34,6 +35,15 @@ PAIRED_EXTRA_COLUMNS = [
     "released_sec", "crossed_sec",
 ]
 
+# One row per served green, written only for paired runs so the existing
+# signal-log analyzer keeps the schema it expects. This is what makes a
+# controller's decisions reconstructable after the fact.
+PHASE_LOG_COLUMNS = [
+    "round_index", "phase_index", "direction", "green_start_sec",
+    "green_selected_sec", "green_end_sec", "phase_end_sec",
+    "decision_weight", "decision_counts", "queue_counts",
+]
+
 
 def is_paired_run():
     """A run is 'paired' exactly when the driver gave it a pair identity."""
@@ -53,7 +63,8 @@ def init_logger(duration_sec, uneven_mode=None):
     vehicles mode: data/logs_by_count/{uneven_mode}/{N}/{mode}_countlog_{N}_{ts}.csv
     paired replay: data/paired/{pair_id}/{arm}/{arm}_pairlog_{N}_{ts}.csv
     """
-    global log_filename, signal_log_filename, run_basename, run_provenance
+    global log_filename, signal_log_filename, phase_log_filename
+    global run_basename, run_provenance
 
     if is_paired_run():
         import config
@@ -96,6 +107,13 @@ def init_logger(duration_sec, uneven_mode=None):
 
     log_filename = os.path.join(log_dir, f"{run_basename}.csv")
     signal_log_filename = os.path.join(signal_dir, f"{run_basename}_signal.csv")
+    phase_log_filename = (
+        os.path.join(log_dir, f"{run_basename}_phases.csv")
+        if is_paired_run() else None
+    )
+    if phase_log_filename:
+        with open(phase_log_filename, mode="w", newline="") as file:
+            csv.writer(file).writerow(PHASE_LOG_COLUMNS)
 
     # Write CSV headers
     columns = list(VEHICLE_LOG_COLUMNS)
@@ -157,6 +175,24 @@ def log_signal_change(green_direction):
         ])
 
 
+def log_phase(**fields):
+    """Record one served green. No-op outside paired runs."""
+    if not phase_log_filename:
+        return
+
+    row = dict.fromkeys(PHASE_LOG_COLUMNS)
+    row.update(fields)
+    for key in ("decision_counts", "queue_counts"):
+        if isinstance(row[key], dict):
+            row[key] = json.dumps(row[key], sort_keys=True)
+    for key in ("green_start_sec", "green_end_sec", "phase_end_sec", "decision_weight"):
+        if isinstance(row[key], float):
+            row[key] = round(row[key], 4)
+
+    with open(phase_log_filename, mode="a", newline="") as file:
+        csv.writer(file).writerow([row[key] for key in PHASE_LOG_COLUMNS])
+
+
 def write_run_meta(**fields):
     """
     Write a per-run metadata sidecar next to the vehicle log.
@@ -177,6 +213,8 @@ def write_run_meta(**fields):
         "vehicle_log": os.path.basename(log_filename),
         "signal_log": os.path.basename(signal_log_filename),
     }
+    if phase_log_filename:
+        meta["phase_log"] = os.path.basename(phase_log_filename)
 
     if is_paired_run():
         # The folder path stops being the only run metadata here: a paired

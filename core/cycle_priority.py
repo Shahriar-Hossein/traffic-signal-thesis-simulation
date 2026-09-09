@@ -8,7 +8,8 @@ from config import (
 )
 from typing import List, Dict
 from utils.counters import get_weighted_vehicle_counts
-from utils.logger import log_signal_change
+from utils.logger import log_signal_change, log_phase
+from core import runclock
 from utils.counters import get_vehicle_counts
 from core.updater import update_signal_timers
 
@@ -35,6 +36,7 @@ def control_traffic_cycle():
             signals[i].red = max(0, signals[i].red - 1)
         time.sleep(1)
 
+    round_index = 0
     while state.running:
         # Sort signal priority by current vehicle count
         vehicle_counts_snapshot = get_weighted_vehicle_counts()
@@ -45,12 +47,17 @@ def control_traffic_cycle():
         ]
         print(f"evaluated signal order: {[directionNumbers[idx] for idx in signal_order]}")
         # Cycle through chosen order
+        phase_index = 0
         while signal_order:
             green_index = signal_order.pop(0)
             state.currentGreen = green_index
-            log_signal_change(directionNumbers[green_index])
+            direction = directionNumbers[green_index]
+            log_signal_change(direction)
 
-            vehicle_count = get_weighted_vehicle_counts()[directionNumbers[green_index]]
+            weights = get_weighted_vehicle_counts()
+            queues = get_vehicle_counts()
+            green_start = runclock.elapsed()
+            vehicle_count = weights[direction]
             lanes = 3
             avg_headway = 2.0   # seconds per car per lane
             startup_loss = 1    # seconds lost when signal turns green
@@ -66,6 +73,8 @@ def control_traffic_cycle():
                 update_signal_timers(green_index, yellow=False)
                 time.sleep(1)
 
+            green_end = runclock.elapsed()
+
             state.currentYellow = 1
             for i in range(3):
                 for vehicle in state.vehicles[directionNumbers[green_index]][i]:
@@ -76,6 +85,16 @@ def control_traffic_cycle():
                 update_signal_timers(green_index, yellow=True)
                 time.sleep(1)
             state.currentYellow = 0
+
+            log_phase(
+                round_index=round_index, phase_index=phase_index,
+                direction=direction, green_start_sec=green_start,
+                green_selected_sec=green_time, green_end_sec=green_end,
+                phase_end_sec=runclock.elapsed(),
+                decision_weight=vehicle_count,
+                decision_counts=weights, queue_counts=queues,
+            )
+            phase_index += 1
 
             # Reset signal timers
             signals[green_index].green = defaultGreen[green_index]
@@ -94,3 +113,4 @@ def control_traffic_cycle():
                 )
                 print(f"Re-evaluated signal order: {[directionNumbers[idx] for idx in signal_order]}")
                 
+        round_index += 1

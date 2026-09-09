@@ -6,7 +6,9 @@ from config import (
     defaultRed, defaultYellow, defaultGreen,
     directionNumbers, noOfSignals, defaultStop
 )
-from utils.logger import log_signal_change
+from utils.logger import log_signal_change, log_phase
+from utils.counters import get_vehicle_counts, get_weighted_vehicle_counts
+from core import runclock
 from core.updater import update_signal_timers
 
 def fixed_traffic_cycle():
@@ -34,11 +36,16 @@ def fixed_traffic_cycle():
         time.sleep(1)
 
 
+    round_index = 0
     while state.running:
-        for green_index in fixed_order:
+        for phase_index, green_index in enumerate(fixed_order):
             state.currentGreen = green_index
-            log_signal_change(directionNumbers[green_index])
+            direction = directionNumbers[green_index]
+            log_signal_change(direction)
 
+            weights = get_weighted_vehicle_counts()
+            queues = get_vehicle_counts()
+            green_start = runclock.elapsed()
             green_time = defaultGreen[green_index]
             signals[green_index].green = green_time
             signals[green_index].yellow = defaultYellow
@@ -48,6 +55,8 @@ def fixed_traffic_cycle():
             for _ in range(green_time):
                 update_signal_timers(green_index, yellow=False)
                 time.sleep(1)
+
+            green_end = runclock.elapsed()
 
             # Yellow phase
             state.currentYellow = 1
@@ -59,7 +68,17 @@ def fixed_traffic_cycle():
                 time.sleep(1)
             state.currentYellow = 0
 
+            log_phase(
+                round_index=round_index, phase_index=phase_index,
+                direction=direction, green_start_sec=green_start,
+                green_selected_sec=green_time, green_end_sec=green_end,
+                phase_end_sec=runclock.elapsed(),
+                decision_weight=weights[direction],
+                decision_counts=weights, queue_counts=queues,
+            )
+
             # Reset signal timers
             signals[green_index].green = defaultGreen[green_index]
             signals[green_index].yellow = defaultYellow
             signals[green_index].red = defaultRed
+        round_index += 1
