@@ -101,6 +101,63 @@ invalidate absolute throughput and delay figures, and it may change the sign
 of an ordering effect near capacity. Calibrating headway and startup loss is
 now the top model task, ahead of collecting results.
 
+### First replicated controller result — balanced demand, N=500
+
+Eight independent plans (development seeds 301–308), `fixed` against
+`priority`, balanced demand, mixed load regime. All eight pairs passed the
+validity gate. Archived at
+[`results/pilot_even_500_2026_09_10`](../results/pilot_even_500_2026_09_10).
+
+| Quantity | Result |
+| --- | --- |
+| Δ mean stopped delay | **−11.42 s**, 95% CI **[−15.09, −8.12]** |
+| Plans favouring `priority` | 8 of 8 |
+| SD of plan-level effects | 5.43 s |
+| Δ median of plan means | −8.81 s |
+
+**Reading:** the effect is real *within this model* — about a thousand times
+the 0.01 s replay noise floor, consistent in sign across every plan, and the
+interval excludes zero comfortably. Two things stop it being a headline
+result. Delay is measured in a simulation that discharges vehicles about
+2.3× too fast, so the *magnitude* is not transferable. And this is one cell of
+the grid — balanced demand — which the recorded hypothesis expects to be among
+the *weaker* cases.
+
+**A caveat the mean hides.** On two of the eight plans (`seed303`, `seed308`)
+fewer than half the vehicles improved — win rates 0.446 and 0.454, with median
+differences of +5.67 s and +0.78 s — while the mean still improved by 6.9 s
+and 8.9 s. The gain there comes from relieving a badly delayed tail while the
+typical vehicle is slightly worse off. Both p95 delay and the worst-served
+approach did improve, so this is not a fairness regression, but the effect is
+not "every vehicle waits less" and must not be described that way.
+
+### Ablation, and what it suggests
+
+A four-arm smoke run (N=20, one plan, over-capacity) exercised the new
+`fixed_order_adaptive_duration` and `adaptive_order_fixed_duration` arms. The
+duration arm captured almost all of the benefit and the ordering arm almost
+none. **This is not evidence yet** — twenty vehicles and three phases, with
+every green pinned to the 6 s lower bound. It is recorded only because it
+points at the question the historical review already raised: whether the
+advantage is ordering or simply longer greens. The grid must answer it.
+
+### How many plans the real study needs
+
+From the pilot SD of 5.43 s, per scenario cell:
+
+| Target CI half-width | Plans per cell | Pairs over 12 cells | Approx. 2-arm runtime |
+| --- | --- | --- | --- |
+| ±1 s | 114 | 1,368 | ~365 h |
+| ±2 s | 29 | 348 | ~93 h |
+| ±3 s | 13 | 156 | ~42 h |
+| ±5 s | 5 | 60 | ~16 h |
+
+At an effect size near 11 s, ±3 s resolves sign and rough magnitude per cell;
+±1 s is not affordable at N=500 on this machine. Four arms roughly double
+these figures. This is a multi-day compute budget and should be planned as
+one, or N reduced — but N is also what makes clearance meaningful, so reducing
+it is not free.
+
 ## Implementation checkpoint — 10 September 2026
 
 **First step completed.** `python3 -m unittest discover -s tests -v` passes 16 tests, including duplicate/missing IDs, malformed plans/metadata, attribute mismatches, nonfinite measurements, provenance changes, ordinary-log compatibility and driver preflight. Sampler equivalence still passes all 36 combinations. Two sequential real simulator processes completed an N=1 fixed/fixed smoke test using SDL's dummy display; their logs passed the gate with one matched vehicle. Temporary fixtures/smoke outputs were written under `/tmp`; historical `data/` was not inspected or modified. This is a logging check, **not** timing or model validation.
