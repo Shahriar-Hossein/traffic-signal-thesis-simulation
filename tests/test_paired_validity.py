@@ -85,6 +85,10 @@ class ReplayValidityTests(unittest.TestCase):
         self.assertIn('even_3', batch['per_scenario'])
         # One plan cannot support an interval; it must say so, not invent one.
         self.assertIsNone(batch['per_contrast']['fixed_vs_priority']['ci_low'])
+        arm = result['arms']['fixed']
+        self.assertEqual(arm['wait_p95'], 1.25)
+        self.assertIn(arm['worst_direction'], ('right', 'down', 'left', 'up'))
+        self.assertEqual(arm['direction_service_gap'], 0.0)
 
     def test_sidecar_logs_are_not_mistaken_for_vehicle_logs(self):
         result = self.result()

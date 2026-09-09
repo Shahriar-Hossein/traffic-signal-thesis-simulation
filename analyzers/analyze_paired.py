@@ -147,6 +147,13 @@ def summarize_arm(arm):
         except (KeyError, TypeError, ValueError):
             pass
 
+    direction_means = {
+        d: statistics.fmean(v) for d, v in by_direction.items() if v
+    }
+    worst_direction = (
+        max(direction_means, key=direction_means.get) if direction_means else None
+    )
+
     duration = meta.get("duration_sec")
     clearance = meta.get("last_crossing_sec") or duration
 
@@ -157,7 +164,17 @@ def summarize_arm(arm):
         "wait_mean": round(statistics.fmean(waits), 2) if waits else None,
         "wait_median": round(statistics.median(waits), 2) if waits else None,
         "wait_p90": round(percentile(waits, 0.90), 2) if waits else None,
+        # Tail delay and the worst-served approach are the safeguards: a mean
+        # gain paid for by one starved approach is not an improvement.
+        "wait_p95": round(percentile(waits, 0.95), 2) if waits else None,
         "wait_max": round(max(waits), 2) if waits else None,
+        "worst_direction": worst_direction,
+        "worst_direction_wait_mean": round(direction_means[worst_direction], 2) if worst_direction else None,
+        # Spread between the best- and worst-served approach.
+        "direction_service_gap": (
+            round(max(direction_means.values()) - min(direction_means.values()), 2)
+            if direction_means else None
+        ),
         "travel_mean": round(statistics.fmean(travels), 2) if travels else None,
         "travel_p90": round(percentile(travels, 0.90), 2) if travels else None,
         # Clearance is measured to the last crossing; duration_sec also
@@ -685,7 +702,9 @@ def print_pair(comparison):
             f"  {name:18} {summary['vehicles_logged']:>5} veh  "
             f"clear {str(summary['last_crossing_sec']):>8}s  "
             f"wait mean {str(summary['wait_mean']):>7}  "
-            f"p90 {str(summary['wait_p90']):>7}  "
+            f"p95 {str(summary['wait_p95']):>7}  "
+            f"worst {str(summary['worst_direction']):>5} "
+            f"{str(summary['worst_direction_wait_mean']):>7}  "
             f"travel {str(summary['travel_mean']):>7}  "
             f"thr {str(summary['throughput_per_min']):>7}/min  "
             f"fps {str(summary['fps_mean']):>6}"
@@ -708,6 +727,16 @@ def print_pair(comparison):
                 f"{block['unmatched_in_baseline']}, {block['arm']}: "
                 f"{block['unmatched_in_arm']} (a vehicle never crossed)"
             )
+
+
+def print_contrasts(label, contrasts):
+    for key, block in contrasts.items():
+        print(
+            f"  [{label}] {key}: Δwait {block['delta_wait_mean_of_plan_means']} "
+            f"95% CI [{block['ci_low']}, {block['ci_high']}] "
+            f"over {block['plans']} plans, "
+            f"{block['plans_favouring_arm']} favouring"
+        )
 
 
 def main(argv=None):
@@ -739,13 +768,12 @@ def main(argv=None):
                                     args.drift_tolerance_ms, write=False,
                                     baseline=args.baseline))
         print(f"\n{aggregate['plans_valid']}/{aggregate['plans_total']} plans valid")
-        for key, block in aggregate["per_contrast"].items():
-            p = block["wilcoxon_p_value"]
-            print(
-                f"  {key}: Δwait mean of plan means "
-                f"{block['delta_wait_mean_of_plan_means']} over {block['plans']} plans, "
-                f"p={'n/a' if p is None else f'{p:.2e}'}"
-            )
+        print_contrasts("overall", aggregate["per_contrast"])
+        for scenario, contrasts in aggregate["per_scenario"].items():
+            print_contrasts(scenario, contrasts)
+        if aggregate["invalid_by_scenario"]:
+            print("  invalid pairs by scenario: "
+                  + ", ".join(f"{k}={v}" for k, v in aggregate["invalid_by_scenario"].items()))
         return
 
     plan_dir = args.plan_dir or PAIRED_ROOT
