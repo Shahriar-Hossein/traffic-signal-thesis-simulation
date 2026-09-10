@@ -51,11 +51,23 @@ crosses demand **skew** with demand **regime**:
 | Axis | Levels |
 | --- | --- |
 | Skew | balanced (0.25 each), moderate (0.35/0.35/0.15/0.15), strong (0.85/0.05/0.05/0.05) |
-| Regime | below capacity (0.5 veh/s), near capacity (2 veh/s), over capacity (4 veh/s), changing (switching every 120 s) |
+| Regime | offered 0.5 veh/s, offered 2 veh/s, offered 4 veh/s, changing (switching every 120 s) |
 
-Twelve cells. Regimes are placed against **measured** capacity: fixed-24
-cleared 500 vehicles in 248 s on `even_500_seed201`, about 2.0 veh/s through
-the intersection.
+Twelve cells. The regimes are **offered arrival rates**, and nothing more.
+
+They were previously named below / near / over capacity, from fixed-24
+clearing 500 vehicles in 248 s on `even_500_seed201` — about 2.0 veh/s. That
+is `N / clearance_time` for one finite workload, which this document says
+below is *not* a capacity estimate; it cannot be one here either. It averages
+over the fill and drain of a queue that never reached steady state, and a
+balanced aggregate cannot certify capacity for an 85/5/5/5 allocation under
+every controller.
+
+**Capacity is not yet established.** Doing so needs sustained demand held
+against a queue criterion, measured per approach and per control policy, and
+no such measurement exists in this project. Whether a cell is saturated is
+therefore a hypothesis, recorded below with the others, and no
+calibrated-traffic claim should be read out of the pilot.
 
 Pinning a regime changes only arrival times **among the three pinned
 regimes**: at one seed, the low, medium and high cells draw the identical

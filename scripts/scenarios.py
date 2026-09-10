@@ -9,16 +9,27 @@ proposed controller — so this file is meant to be read in a diff.
 Two axes:
 
   skew    how demand is spread across the four approaches
-  regime  how much demand there is, relative to measured capacity
+  regime  how much demand is offered, in vehicles per second
 
-Capacity is not assumed. The fixed-24 baseline cleared 500 vehicles in 248 s
-on plan `even_500_seed201`, i.e. about 2.0 vehicles per second through the
-intersection. The three regimes are placed against that measurement:
+The regimes are **offered arrival rates**, not capacity levels:
 
-  low     0.5 veh/s   about a quarter of capacity, clearly below
-  medium  2   veh/s   about capacity
-  high    4   veh/s   about twice capacity, clearly overloaded
+  low     0.5 veh/s
+  medium  2   veh/s
+  high    4   veh/s
   mixed   switching   all three in turn, the changing-demand case
+
+These were previously labelled below / at / over capacity, on the grounds
+that fixed-24 cleared 500 vehicles in 248 s on `even_500_seed201` — about 2.0
+veh/s. That figure is `N / clearance_time` for one finite workload, which the
+protocol elsewhere correctly says is not a capacity estimate: it averages
+over the fill and drain of a queue that never reached a steady state, and one
+balanced aggregate cannot certify capacity for an 85/5/5/5 allocation under
+every controller anyway.
+
+Establishing capacity needs sustained demand and a queue criterion, measured
+per approach and per control policy. Until that is done these stay offered
+rates, and whether a cell is saturated is a hypothesis recorded in the
+protocol rather than a property of its name. The grid itself is unchanged.
 
 Seeds are split so that tuning can never touch the evaluation set:
 
@@ -42,11 +53,12 @@ SKEWS = {
     'strong': 'right',             # 0.85 / 0.05 / 0.05 / 0.05
 }
 
-# None means the plan switches conditions instead of holding one.
+# Named for the rate offered, not for a capacity status that has not been
+# measured. None means the plan switches conditions instead of holding one.
 REGIMES = {
-    'below': 'low',
-    'near': 'medium',
-    'over': 'high',
+    'low': 'low',        # 0.5 veh/s
+    'medium': 'medium',  # 2 veh/s
+    'high': 'high',      # 4 veh/s
     'changing': None,
 }
 
