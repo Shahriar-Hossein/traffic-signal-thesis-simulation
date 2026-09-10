@@ -3,6 +3,7 @@
 import csv
 import json
 import os
+import threading
 from datetime import datetime
 import state
 
@@ -38,11 +39,29 @@ PAIRED_EXTRA_COLUMNS = [
 # One row per served green, written only for paired runs so the existing
 # signal-log analyzer keeps the schema it expects. This is what makes a
 # controller's decisions reconstructable after the fact.
+#
+# `status` and `termination` are appended rather than inserted: a phase whose
+# green was cut short by shutdown is a *censored* record, not a short green,
+# and a report that cannot tell the two apart deletes exactly the phase that
+# completed the workload.
 PHASE_LOG_COLUMNS = [
     "round_index", "phase_index", "direction", "green_start_sec",
     "green_selected_sec", "green_end_sec", "phase_end_sec",
     "decision_weight", "decision_counts", "queue_counts",
+    "status", "termination",
 ]
+
+# Phase statuses.  A reader that does not recognise a status must treat the
+# record as unusable rather than as complete.
+PHASE_COMPLETE = "complete"
+PHASE_CENSORED = "censored"
+
+# The phase currently being served, and the lock that makes writing it a
+# once-only operation.  The controller runs on a daemon thread and shutdown
+# runs on the main thread; without this, the run either loses its final phase
+# (the thread is killed before it writes) or writes it twice.
+_phase_lock = threading.Lock()
+_active_phase = None
 
 
 def is_paired_run():
@@ -112,6 +131,9 @@ def init_logger(duration_sec, uneven_mode=None):
         if is_paired_run() else None
     )
     if phase_log_filename:
+        with _phase_lock:
+            global _active_phase
+            _active_phase = None
         with open(phase_log_filename, mode="w", newline="") as file:
             csv.writer(file).writerow(PHASE_LOG_COLUMNS)
 
@@ -173,6 +195,67 @@ def log_signal_change(green_direction):
             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             green_direction
         ])
+
+
+def begin_phase(**fields):
+    """
+    Open the record for the green that is about to be served.
+
+    Called *before* the green is exposed, so the decision that authorised it
+    exists on disk-bound state from the moment it takes effect.  Nothing is
+    written yet: the row is completed by `complete_phase`, or censored by
+    `finalize_phase` if the run ends first.
+    """
+    global _active_phase
+    if not phase_log_filename:
+        return
+    with _phase_lock:
+        _active_phase = dict(fields)
+
+
+def mark_green_end(green_end_sec, termination):
+    """Note when and why the green ended, while the phase is still open."""
+    with _phase_lock:
+        if _active_phase is not None:
+            _active_phase["green_end_sec"] = green_end_sec
+            _active_phase["termination"] = termination
+
+
+def complete_phase(phase_end_sec):
+    """Write the open phase as a completed record and close it."""
+    return _close_phase(phase_end_sec, PHASE_COMPLETE)
+
+
+def finalize_phase(phase_end_sec):
+    """
+    Write whatever phase was still open when the run ended.
+
+    Called once from the shutdown path on the main thread.  The controller
+    thread is a daemon and is killed where it stands, so without this the
+    phase that served the last vehicles simply disappears from the log.  The
+    record is marked censored: its green may have been cut short, and a
+    duration computed from it is not a granted duration.
+    """
+    return _close_phase(phase_end_sec, PHASE_CENSORED)
+
+
+def _close_phase(phase_end_sec, status):
+    global _active_phase
+    with _phase_lock:
+        fields = _active_phase
+        _active_phase = None
+    if fields is None:
+        return None
+    fields["phase_end_sec"] = phase_end_sec
+    fields["status"] = status
+    if status == PHASE_CENSORED:
+        fields["termination"] = "shutdown"
+        # The green never ended on its own terms; the run end is the only
+        # bound on it that was actually observed.
+        if fields.get("green_end_sec") is None:
+            fields["green_end_sec"] = phase_end_sec
+    log_phase(**fields)
+    return fields
 
 
 def log_phase(**fields):

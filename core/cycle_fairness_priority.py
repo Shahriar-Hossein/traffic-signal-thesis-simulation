@@ -1,104 +1,44 @@
 # core/cycle_fairness_priority.py
-from models.traffic_signal import signals
+"""
+Demand ordering with a lower ceiling and an early exit.
+
+Two differences from the proposed controller: greens are sized with a smaller
+coefficient and capped at 18 seconds rather than 24, and a green ends early
+once the approach has almost drained.  The order is decided once per round
+here and not re-ranked between phases.
+"""
 import state
-import time
-from utils.counters import get_vehicle_counts, get_weighted_vehicle_counts
-from config import (
-    defaultRed, defaultYellow, defaultGreen,
-    directionNumbers, noOfSignals, defaultStop
+from core.phase import (
+    FIXED_ORDER, all_red_start, decide, rank_by_demand, run_phase,
 )
-from typing import List, Dict
-from utils.logger import log_signal_change, log_phase
-from core import runclock
-from core.updater import update_signal_timers
+from core.policy import fairness_green
+from utils.counters import get_weighted_vehicle_counts
+
+# Below this many vehicles per lane, and after this many seconds of green, the
+# approach has effectively drained and the rest of its green is waste.
+DRAINED_PER_LANE = 1
+EARLIEST_EXIT_SEC = 6
+
+
+def _drained(direction, second):
+    lane_counts = [len(state.vehicles[direction][lane]) for lane in range(3)]
+    if second >= EARLIEST_EXIT_SEC and all(count <= DRAINED_PER_LANE
+                                           for count in lane_counts):
+        print("EXIT EARLY: Few vehicles remain, ending green phase early.")
+        return True
+    return False
+
 
 def fairness_control_traffic_cycle():
-    """
-    Main traffic signal cycle controller that runs forever.
-    Prioritizes lanes based on dynamic vehicle queue.
-    """
-
-    # Initially keep all signals red for 10 seconds
-    for signal in signals:
-        signal.red = 10  # or set to 10 seconds if you want fixed red
-        signal.green = 0
-        signal.yellow = 0
-
-    state.currentGreen = -1  # No green yet
-    state.currentYellow = 0
-
-    print("Initial all-red phase for 10 seconds to accumulate vehicles.")
-    for _ in range(10):
-        # Just update timers for red signals (they remain red)
-        for i in range(noOfSignals):
-            signals[i].red = max(0, signals[i].red - 1)
-        time.sleep(1)
+    """Serve every approach once per round, in demand order, with a lower cap."""
+    all_red_start()
 
     round_index = 0
     while state.running:
-        # Sort signal priority by current vehicle count
-        vehicle_counts_snapshot = get_weighted_vehicle_counts()
-        signal_queue = sorted(vehicle_counts_snapshot.items(), key=lambda x: x[1], reverse=True)
-        signal_order: List[int] = [
-            list(directionNumbers.keys())[list(directionNumbers.values()).index(direction)]
-            for direction, _ in signal_queue
-        ]
+        order = rank_by_demand(list(FIXED_ORDER), get_weighted_vehicle_counts())
 
-        # Cycle through chosen order
-        for phase_index, green_index in enumerate(signal_order):
-            state.currentGreen = green_index
-            direction = directionNumbers[green_index]
-            log_signal_change(direction)
-
-            weights = get_weighted_vehicle_counts()
-            queues = get_vehicle_counts()
-            green_start = runclock.elapsed()
-            vehicle_count = weights[direction]
-            lanes = 3
-            avg_headway = 2.0   # seconds per car per lane
-            startup_loss = 1    # seconds lost when signal turns green
-
-            # vehicle_required_time = (vehicle_count / lanes) * avg_headway + startup_loss
-            vehicle_required_time = vehicle_count * 0.67
-            green_time = max(6, min( int( vehicle_required_time ), 18 ) )
-
-            # yellow_time = int(min(vehicle_count * 0.3 + 4, 6))
-
-            signals[green_index].green = green_time
-            signals[green_index].yellow = defaultYellow  # keep yellow fixed for simplicity
-            signals[green_index].red = green_time + defaultYellow + 1
-            for t in range(green_time):
-                lane_vehicle_counts = [len(state.vehicles[directionNumbers[green_index]][i]) for i in range(3)]
-                if all(count <= 1 for count in lane_vehicle_counts) and t >= 6:
-                    print("EXIT EARLY: Few vehicles remain, ending green phase early.")
-                    break
-                update_signal_timers(green_index, yellow=False)
-                time.sleep(1)
-
-            green_end = runclock.elapsed()
-
-            state.currentYellow = 1
-            for i in range(3):
-                for vehicle in state.vehicles[directionNumbers[green_index]][i]:
-                    vehicle.stop = defaultStop[directionNumbers[green_index]]
-            
-            # use yellow_time for dynamic yellow, defaultYellow for fixed
-            for _ in range(defaultYellow):
-                update_signal_timers(green_index, yellow=True)
-                time.sleep(1)
-            state.currentYellow = 0
-
-            log_phase(
-                round_index=round_index, phase_index=phase_index,
-                direction=direction, green_start_sec=green_start,
-                green_selected_sec=green_time, green_end_sec=green_end,
-                phase_end_sec=runclock.elapsed(),
-                decision_weight=vehicle_count,
-                decision_counts=weights, queue_counts=queues,
-            )
-
-            # Reset signal timers
-            signals[green_index].green = defaultGreen[green_index]
-            signals[green_index].yellow = defaultYellow
-            signals[green_index].red = defaultRed
+        for phase_index, green_index in enumerate(order):
+            weights, queues, weight = decide(green_index)
+            run_phase(green_index, fairness_green(weight), round_index,
+                      phase_index, weights, queues, early_exit=_drained)
         round_index += 1

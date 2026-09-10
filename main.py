@@ -22,7 +22,7 @@ from core.controllers import NAMES as CONTROLLER_NAMES
 from models.traffic_signal import signals
 
 from utils.counters import get_vehicle_counts
-from utils.logger import init_logger, write_run_meta
+from utils.logger import finalize_phase, init_logger, write_run_meta
 from utils.draw import (
     draw_traffic_signals,
     draw_all_vehicles,
@@ -214,6 +214,13 @@ def shutdown(reason, elapsed, started_at, fps_stats=None):
     state.stop_reason = reason
     state.running = False
 
+    # The controller is a daemon thread: it is killed where it stands, which
+    # is usually inside the very phase that served the last vehicles.  That
+    # phase is written here, once, marked censored — otherwise every run loses
+    # its final green, and every crossing served by it looks like a crossing
+    # that happened outside any green.
+    censored = finalize_phase(round(elapsed, 4))
+
     if state.run_mode == 'vehicles':
         print(
             f"Simulation ended ({reason}): "
@@ -232,6 +239,10 @@ def shutdown(reason, elapsed, started_at, fps_stats=None):
                 if state.last_crossing_sec is not None else None
             ),
             stop_reason=reason,
+            # Whether the log's last phase is a completed green or one the
+            # run ended in the middle of.  A duration report that cannot tell
+            # them apart is reporting a granted green that was never granted.
+            final_phase_censored=censored is not None,
             started_at=started_at.strftime("%Y-%m-%d %H:%M:%S"),
             ended_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             # Frame rate is only recorded for paired runs.  An ordinary count
