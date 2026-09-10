@@ -122,6 +122,16 @@ def _load_arm(arm_dir):
                 meta = json.load(f)
         except (OSError, ValueError) as e:
             return {"arm": arm, "error": f"could not read {os.path.basename(meta_path)}: {e}"}
+        # Syntactically valid JSON that is not an object is not metadata. It
+        # was returned as-is, so the gate rejected the pair correctly while
+        # every other analyzer called .get() on a scalar and raised — the
+        # diagnostics crashed on exactly the arms they existed to explain.
+        if not isinstance(meta, dict):
+            return {
+                "arm": arm,
+                "error": f"{os.path.basename(meta_path)} is "
+                         f"{type(meta).__name__}, not a JSON object",
+            }
 
     signal_changes = 0
     if os.path.exists(signal_path):
@@ -585,10 +595,19 @@ def plans_needed(sd, half_width, confidence=0.95):
     Normal approximation, n = (z * sd / half_width)^2, rounded up. It is a
     planning figure, not a guarantee: the pilot sd is itself estimated from
     few plans, so treat it as a floor and re-check once more plans are in.
+
+    The quantile comes from the standard library rather than a table with one
+    entry: the parameter previously accepted any confidence and silently used
+    an unrelated constant for all but 0.95, so a request for 99% returned a
+    smaller number of plans than a request for 95%.
     """
-    if not sd or half_width <= 0:
+    if sd is None or not finite_number(sd) or not finite_number(half_width, positive=True):
         return None
-    z = 1.959964 if confidence == 0.95 else math.sqrt(2) * 1.0
+    if not sd:
+        return None
+    if not finite_number(confidence) or not 0 < confidence < 1:
+        raise ValueError(f"confidence must lie strictly between 0 and 1, not {confidence!r}")
+    z = statistics.NormalDist().inv_cdf((1 + confidence) / 2)
     return math.ceil((z * sd / half_width) ** 2)
 
 

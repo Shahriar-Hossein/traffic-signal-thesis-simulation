@@ -1,30 +1,49 @@
 """
 Discharge behaviour of the simulated intersection.
 
-Traffic-model validation, not controller comparison: it joins each crossing
-to the green phase that released it and reports headways, saturation flow and
-startup lost time — the quantities a real intersection is calibrated against.
-Green utilisation and residual queues come from the same join.
+Traffic-model validation, not controller comparison: it joins each crossing to
+the green phase that released it and reports the headways between successive
+crossings in a lane, together with how much of each green saw traffic move.
 
     python3 analyzers/analyze_discharge.py data/paired/even_500_seed201/r1
 
-Headways are measured between successive crossings on the same approach
-within one green. Cross-green gaps are excluded: they measure the signal, not
-the discharge.
+Two things this report deliberately does not claim.
+
+  * These are not saturation-flow and startup-lost-time measurements. Both of
+    those are defined against a *standing queue*, and nothing here observes
+    queue length at green onset. What is observable from a crossing log is
+    named for what it is: the delay to the first crossing (which includes the
+    leading vehicle's approach travel when nobody was queued), and crossings
+    per second of green on greens that served several vehicles.
+  * There is no residual-queue measure. Reporting one would need per-lane
+    occupancy at green end, which is not logged.
+
+Headways are measured between successive crossings on the same approach and
+lane within one green. Cross-green gaps are excluded: they measure the signal,
+not the discharge.
 """
 import argparse
+import hashlib
 import json
 import os
 import statistics
 import sys
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from analyzers.analyze_paired import load_arm, percentile  # noqa: E402
 from analyzers.analyze_timing import numeric, phase_records  # noqa: E402
-from config import movingGap, speeds  # noqa: E402
 
-# Sprite lengths along the direction of travel, from images/.
+ROOT = Path(__file__).resolve().parents[1]
+
+# Sprite lengths along the direction of travel, measured from images/. They
+# are a property of those image files, so a report says whether the files the
+# run recorded are still the files these numbers came from.
 VEHICLE_LENGTH_PX = {'car': 54, 'bus': 76, 'truck': 62, 'bike': 38}
+
+# A green that served fewer than this cannot say anything about sustained
+# discharge. It is a floor on evidence, not a definition of saturation.
+MIN_CROSSINGS_FOR_RATE = 3
 
 
 def crossings(arm):
@@ -39,24 +58,61 @@ def crossings(arm):
     return events
 
 
-def predicted_headways(fps):
+def sprites_unchanged(meta):
     """
-    Headway the configuration implies, per leading vehicle type.
+    Whether the sprite files this run recorded are still the ones on disk.
+
+    The lengths above were measured from those files. If the images have
+    changed since, the geometry the prediction assumes is not the geometry the
+    run had, and the prediction is withheld rather than quietly restated.
+    """
+    recorded = (meta or {}).get('source_files')
+    if not isinstance(recorded, dict):
+        return None
+    images = {name: digest for name, digest in recorded.items()
+              if name.startswith('images/')}
+    if not images:
+        return None
+    for name, digest in images.items():
+        path = ROOT / name
+        if not path.exists():
+            return False
+        if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+            return False
+    return True
+
+
+def predicted_headways(meta, fps):
+    """
+    The headway *this run's* configuration implies, per leading vehicle type.
 
     Following distance is a fixed number of pixels, so a headway is just
     `(length + movingGap) / (speed * FPS)` — arithmetic, not emergent. Printing
     it beside the measured value turns "the model discharges too fast" into a
     statement about named parameters, and catches the case where the two stop
     agreeing because something other than car-following is limiting flow.
+
+    The gap and speeds come from the configuration the run captured at
+    startup, never from the live `config` module: recalibrating the project
+    must not change what an archived run is reported to have predicted.
     """
-    if not fps:
-        return {}
+    configuration = (meta or {}).get('configuration')
+    if not isinstance(configuration, dict) or not fps:
+        return {}, 'no captured configuration'
+
+    gap = configuration.get('movingGap')
+    speeds = configuration.get('speeds')
+    if not isinstance(gap, (int, float)) or not isinstance(speeds, dict):
+        return {}, 'captured configuration has no movingGap/speeds'
+    if sprites_unchanged(meta) is False:
+        return {}, 'sprite geometry has changed since the run'
+
     predicted = {}
     for name, speed in speeds.items():
         length = VEHICLE_LENGTH_PX.get(name)
-        if length and speed:
-            predicted[name] = round((length + movingGap) / (speed * fps), 3)
-    return predicted
+        if length and isinstance(speed, (int, float)) and speed:
+            predicted[name] = round((length + gap) / (speed * fps), 3)
+    return predicted, None
 
 
 def assign_to_phases(arm):
@@ -87,27 +143,40 @@ def assign_to_phases(arm):
 def analyze_discharge(arm_dir):
     arm = load_arm(arm_dir)
     if arm.get('error'):
-        return {'arm_dir': arm_dir, 'error': arm['error']}
+        return {'arm_dir': os.path.abspath(arm_dir), 'error': arm['error']}
 
-    fps = (arm.get('meta') or {}).get('fps_mean')
+    meta = arm.get('meta') or {}
+    fps = meta.get('fps_mean')
     phases, unattributed = assign_to_phases(arm)
+
+    # A green the run ended in the middle of served real vehicles, but its
+    # duration is not a granted duration. It counts towards what was served
+    # and is excluded from everything normalised by green length.
+    complete = [phase for phase in phases if phase['status'] != 'censored']
+    censored = len(phases) - len(complete)
+
     served = [len(phase['crossings']) for phase in phases]
 
     headways = []
     by_leader = {}
-    startup = []
-    utilisation = []
+    first_crossing_delay = []
+    span_fraction = []
     for phase in phases:
-        moments = [moment for moment, _, _ in phase['crossings']]
+        moments = sorted(moment for moment, _, _ in phase['crossings'])
         if moments:
-            # Time from green onset to the first crossing: startup lost time
-            # plus the distance the leading vehicle had to cover.
-            startup.append(moments[0] - phase['start'])
-            # Fraction of the green that discharged vehicles at all.
-            utilisation.append(
+            # Green onset to the first crossing. This is *not* startup lost
+            # time: with no queue at onset it is mostly approach travel.
+            first_crossing_delay.append(moments[0] - phase['start'])
+        if phase['status'] != 'censored' and phase['actual'] > 0:
+            # The share of the green between onset and the last crossing.
+            # Empty greens count as zero — excluding them would report the
+            # utilisation of greens that happened to be used, which is not
+            # the utilisation of the signal.
+            span_fraction.append(
                 min(1.0, (moments[-1] - phase['start']) / phase['actual'])
-                if phase['actual'] > 0 else None
+                if moments else 0.0
             )
+
         # Headways are per lane. The three lanes of an approach discharge in
         # parallel, so an approach-wide gap is not a headway at all — it
         # reads as near zero whenever two lanes release together.
@@ -123,15 +192,22 @@ def analyze_discharge(arm_dir):
                 # length and speed set the gap the follower can close to.
                 by_leader.setdefault(leader, []).append(gap)
 
-    utilisation = [value for value in utilisation if value is not None]
-    saturating = [len(phase['crossings']) / phase['actual']
-                  for phase in phases if phase['actual'] > 0 and len(phase['crossings']) >= 3]
+    rates = [len(phase['crossings']) / phase['actual'] for phase in complete
+             if phase['actual'] > 0
+             and len(phase['crossings']) >= MIN_CROSSINGS_FOR_RATE]
+
+    served_spans = [value for value in span_fraction if value > 0]
+    predicted, prediction_error = predicted_headways(meta, fps)
 
     return {
         'arm_dir': os.path.abspath(arm_dir),
         'arm': arm['arm'],
-        'controller': (arm.get('meta') or {}).get('controller'),
+        'controller': meta.get('controller'),
         'phases': len(phases),
+        # A censored final phase is normal; more than one means the log is
+        # not describing the run.
+        'phases_censored': censored,
+        'phase_log_complete': censored <= 1 and bool(phases),
         'crossings_total': len(arm['rows']),
         # Crossings during no green at all. Yellow-time crossings land here,
         # so a small share is expected; a large one means the join is wrong.
@@ -144,18 +220,38 @@ def analyze_discharge(arm_dir):
         'headway_p05_sec': round(percentile(headways, 0.05), 3) if headways else None,
         'headway_p95_sec': round(percentile(headways, 0.95), 3) if headways else None,
         'headways_measured': len(headways),
-        'startup_delay_mean_sec': round(statistics.fmean(startup), 3) if startup else None,
-        'green_utilisation_mean': round(statistics.fmean(utilisation), 3) if utilisation else None,
-        # Vehicles per second of green on a green that actually had a queue.
-        'discharge_rate_mean_vps': round(statistics.fmean(saturating), 3) if saturating else None,
-        'discharge_rate_max_vps': round(max(saturating), 3) if saturating else None,
+        # Green onset to first crossing, including approach travel. Named for
+        # what it measures; it is not startup lost time.
+        'first_crossing_delay_mean_sec': (
+            round(statistics.fmean(first_crossing_delay), 3)
+            if first_crossing_delay else None
+        ),
+        # Onset to last crossing as a share of the green, over every complete
+        # green including the empty ones. This is the span in which discharge
+        # happened, not the fraction of green spent discharging.
+        'discharge_span_fraction_mean': (
+            round(statistics.fmean(span_fraction), 3) if span_fraction else None
+        ),
+        'discharge_span_fraction_mean_served_greens': (
+            round(statistics.fmean(served_spans), 3) if served_spans else None
+        ),
+        # Crossings per second of green, on greens that served at least
+        # MIN_CROSSINGS_FOR_RATE vehicles. A queue was not observed, so this
+        # is a throughput rate under unknown demand, not saturation capacity.
+        'crossings_per_green_second_mean': (
+            round(statistics.fmean(rates), 3) if rates else None
+        ),
+        'crossings_per_green_second_max': round(max(rates), 3) if rates else None,
+        'greens_qualifying_for_rate': len(rates),
         'headway_p05_by_leader': {
             kind: round(percentile(gaps, 0.05), 3)
             for kind, gaps in sorted(by_leader.items()) if gaps
         },
-        # What the configuration says the saturated headway should be. The
-        # measured p05 is the closest thing to a saturated observation.
-        'headway_predicted_by_leader': predicted_headways(fps),
+        # What this run's own captured configuration implies the saturated
+        # headway should be, under the stated following assumptions.
+        'headway_predicted_by_leader': predicted,
+        'headway_prediction_withheld': prediction_error,
+        'residual_queue_measured': False,
     }
 
 
@@ -164,7 +260,8 @@ def print_report(report):
         print(f"⛔ {report['arm_dir']}: {report['error']}")
         return
     print(f"\n=== discharge: {report['arm']} ({report['controller']}) ===")
-    print(f"  phases {report['phases']}, crossings {report['crossings_total']}, "
+    print(f"  phases {report['phases']} (censored {report['phases_censored']}), "
+          f"crossings {report['crossings_total']}, "
           f"outside green {report['crossings_outside_green']}, "
           f"empty greens {report['greens_serving_nobody']}")
     print(f"  served/green  mean {report['served_per_green_mean']} "
@@ -173,14 +270,20 @@ def print_report(report):
           f"median {report['headway_median_sec']} "
           f"p05 {report['headway_p05_sec']} p95 {report['headway_p95_sec']} "
           f"n={report['headways_measured']}")
-    print(f"  startup delay {report['startup_delay_mean_sec']}s, "
-          f"green utilisation {report['green_utilisation_mean']}")
-    print(f"  discharge     mean {report['discharge_rate_mean_vps']} veh/s "
-          f"max {report['discharge_rate_max_vps']} veh/s")
+    print(f"  first crossing after onset {report['first_crossing_delay_mean_sec']}s "
+          f"(includes approach travel), discharge span "
+          f"{report['discharge_span_fraction_mean']} of green")
+    print(f"  crossings/green-second mean {report['crossings_per_green_second_mean']} "
+          f"max {report['crossings_per_green_second_max']} "
+          f"over {report['greens_qualifying_for_rate']} greens serving "
+          f"{MIN_CROSSINGS_FOR_RATE}+ (queue not observed)")
     measured = report['headway_p05_by_leader']
     predicted = report['headway_predicted_by_leader']
-    if measured and predicted:
-        print("  saturated headway by leading vehicle (measured p05 vs config):")
+    if report['headway_prediction_withheld']:
+        print(f"  prediction withheld: {report['headway_prediction_withheld']}")
+    elif measured and predicted:
+        print("  saturated headway by leading vehicle "
+              "(measured p05 vs this run's config):")
         for kind in sorted(set(measured) | set(predicted)):
             print(f"    {kind:6} measured {str(measured.get(kind)):>6}s  "
                   f"predicted {str(predicted.get(kind)):>6}s")
