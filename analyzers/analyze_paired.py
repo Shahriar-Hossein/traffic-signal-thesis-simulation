@@ -52,6 +52,12 @@ DEFAULT_DRIFT_TOLERANCE_MS = 250.0  # worst single release lateness, per arm
 # test is not trustworthy and the p-value is reported as None.
 MIN_PAIRS_FOR_TEST = 10
 
+# Bumped whenever the meaning of a reported number changes, so a derived
+# artifact can say which analysis produced it.  2: scenario keys carry the
+# demand regime, safeguards are reported per stratum, and cohorts are checked
+# before pooling.
+ANALYSIS_SCHEMA_VERSION = 2
+
 # Allowances for cross-field checks.  Every one of these exists because two
 # recorded quantities are measured by different code at different moments; a
 # check without an allowance would reject coherent runs, and a check without a
@@ -64,10 +70,17 @@ MIN_PAIRS_FOR_TEST = 10
 #   WAIT_TRAVEL       stopped delay is still accumulated on the wall clock
 #                     while release and crossing are on the run clock
 #   FPS_RECONCILE     frames/duration against the reported mean frame rate
+#   FPS_COVERAGE_MIN  the share of the run the frame-rate series must span.
+#                     Not 100%: the tracker starts after the display is up and
+#                     its final window is cut off by shutdown, so a few
+#                     seconds are unmeasured in every run by construction.
+#                     Provisional, and recorded as such in the experiment
+#                     protocol — it is a floor on evidence, not a measurement.
 ROUNDING_TOLERANCE_SEC = 0.01
 RELEASE_CONSTRUCTION_ALLOWANCE_MS = 100.0
 WAIT_TRAVEL_ALLOWANCE_SEC = 0.10
 FPS_RECONCILE_TOLERANCE = 0.05
+FPS_COVERAGE_MIN = 0.95
 
 
 # --- Reading one arm -----------------------------------------------------
@@ -288,10 +301,11 @@ def reconcile_summary(name, meta, crossed_times, lateness_sec, drift_tolerance_m
             and finite_number(duration, positive=True)):
         covered = len(windows) * window_sec
         # Telemetry that covers a fraction of the run cannot speak for the
-        # rest of it.  The last window may be partial; nothing else may be.
-        if covered < duration - window_sec:
+        # rest of it.
+        if covered < FPS_COVERAGE_MIN * duration:
             reasons.append(
-                f"{name}: fps telemetry covers {covered:.1f}s of a {duration}s run"
+                f"{name}: fps telemetry covers {covered:.1f}s of a {duration}s "
+                f"run, below the {FPS_COVERAGE_MIN:.0%} floor"
             )
 
     return reasons
@@ -458,6 +472,74 @@ def check_validity(arms, plan, fps_tolerance, drift_tolerance_ms):
             if spread > fps_tolerance:
                 reasons.append(f"{label} spread {spread:.1%} exceeds {fps_tolerance:.1%}")
     return reasons
+
+
+# --- Scenario identity ---------------------------------------------------
+
+# A plan written before the demand regime could be pinned switches between
+# regimes. That is a regime — the changing-demand case — not a missing value,
+# and naming it here does not touch the plan or its hash.
+MIXED_REGIME = 'mixed'
+
+
+def scenario_identity(header):
+    """
+    The stratum a plan belongs to, as its three axes.
+
+    The grid varies skew *and* demand regime, so a key built from skew and
+    workload alone collapses low, medium, high and mixed into one another: a
+    twelve-cell grid reports three strata, each an average over four regimes
+    that describes none of them.
+    """
+    if not isinstance(header, dict):
+        return None
+    return {
+        'skew': header.get('uneven_mode'),
+        'regime': header.get('pinned_condition') or MIXED_REGIME,
+        'workload': header.get('target_vehicle_count'),
+    }
+
+
+def scenario_label(identity):
+    """The stratum key used for grouping and for reporting."""
+    if not identity:
+        return 'unknown'
+    return f"{identity['skew']}_{identity['regime']}_{identity['workload']}"
+
+
+# --- Cohort identity -----------------------------------------------------
+
+def cohort_identity(arms, header):
+    """
+    What must match before two plans may be pooled into one interval.
+
+    Provenance is checked *within* a pair by the gate; that says nothing about
+    whether two pairs came from the same experiment. Two pairs can each be
+    internally consistent and still differ in the code that ran them, the
+    configuration they ran under, or which controller the arm named `priority`
+    actually was. Pooling those is not replication.
+
+    The scenario is deliberately not part of this: a grid is one cohort with
+    several strata, not several cohorts.
+    """
+    controllers = {}
+    configuration = set()
+    source = set()
+    for arm in arms:
+        meta = arm.get('meta') if isinstance(arm.get('meta'), dict) else {}
+        controllers[arm['arm']] = meta.get('controller')
+        configuration.add(meta.get('configuration_hash'))
+        source.add(meta.get('source_hash'))
+    return {
+        'controllers': controllers,
+        'configuration_hash': sorted(h for h in configuration if h),
+        'source_hash': sorted(h for h in source if h),
+        'schema_version': (header or {}).get('schema_version'),
+    }
+
+
+def cohort_label(identity):
+    return json.dumps(identity, sort_keys=True)
 
 
 # --- Interval estimation -------------------------------------------------
@@ -702,14 +784,16 @@ def analyze_pair(plan_dir, fps_tolerance=DEFAULT_FPS_TOLERANCE,
         arms.sort(key=lambda a: a["arm"] != baseline)
 
     header = plan['header'] if plan else {}
+    identity = scenario_identity(header) if plan else None
     comparison = {
         "plan_id": plan_id,
         # The stratum this plan belongs to. Effects are reported per scenario
         # because a mean pooled across demand regimes describes none of them.
-        "scenario": (
-            f"{header.get('uneven_mode')}_{header.get('target_vehicle_count')}"
-            if plan else "unknown"
-        ),
+        "scenario": scenario_label(identity),
+        "scenario_fields": identity,
+        # The replicate's identity, and what a batch may pool it with.
+        "plan_hash": header.get('content_hash'),
+        "cohort": cohort_identity(arms, header),
         "planned_vehicle_count": planned_count,
         "arm_names": [a["arm"] for a in arms],
     }
@@ -767,6 +851,77 @@ def plan_dirs_under(root, only=None):
     return [os.path.join(root, name) for name in names]
 
 
+def contrast_block(pairs):
+    """
+    Summarize one group of plans: the primary endpoint and its safeguards.
+
+    Primary and safeguard endpoints are computed here, from the same list of
+    plans, so a stratum cannot report a headline effect without the
+    safeguards that qualify it. A mean gain bought with a worse tail, or by
+    starving one approach, has to be visible wherever the headline is read.
+    """
+    primary = defaultdict(list)
+    safeguards = defaultdict(lambda: defaultdict(list))
+
+    for pair in pairs:
+        arms = pair.get("arms", {})
+        for block in pair.get("paired", []):
+            key = f"{block['baseline']}_vs_{block['arm']}"
+            if block["delta_wait_mean"] is not None:
+                primary[key].append(block["delta_wait_mean"])
+
+            base = arms.get(block["baseline"], {})
+            other = arms.get(block["arm"], {})
+            for label, field in (("wait_p95", "wait_p95"),
+                                 ("worst_approach_wait", "worst_direction_wait_mean"),
+                                 ("approach_service_gap", "direction_service_gap"),
+                                 ("clearance_sec", "last_crossing_sec")):
+                if base.get(field) is not None and other.get(field) is not None:
+                    safeguards[key][label].append(other[field] - base[field])
+
+    summaries = {}
+    for key, means in sorted(primary.items()):
+        summaries[key] = contrast_summary(means)
+        summaries[key]["safeguards"] = {
+            label: {
+                "plans": len(deltas),
+                "mean_of_plan_deltas": round(statistics.fmean(deltas), 3),
+                "plans_worse_under_arm": sum(1 for delta in deltas if delta > 0),
+                **bootstrap_ci(deltas),
+            }
+            for label, deltas in sorted(safeguards[key].items())
+        }
+    return summaries
+
+
+def partition_cohorts(pairs):
+    """
+    Split valid pairs into cohorts, and drop plans that are not replicates.
+
+    Two things are refused here. A plan folder copied under a second name is
+    the same run twice: its archived content hash has already been seen, and
+    counting it as a second plan halves the width of every interval for free.
+    And pairs whose code, configuration or controller mapping differ came
+    from different experiments; pooling them is not replication either.
+    """
+    cohorts = defaultdict(list)
+    duplicates = []
+    seen = {}
+    for pair in pairs:
+        digest = pair.get("plan_hash")
+        if digest and digest in seen:
+            duplicates.append({
+                "plan_id": pair["plan_id"],
+                "duplicate_of": seen[digest],
+                "plan_hash": digest,
+            })
+            continue
+        if digest:
+            seen[digest] = pair["plan_id"]
+        cohorts[cohort_label(pair.get("cohort"))].append(pair)
+    return dict(cohorts), duplicates
+
+
 def analyze_batch(root, fps_tolerance=DEFAULT_FPS_TOLERANCE,
                   drift_tolerance_ms=DEFAULT_DRIFT_TOLERANCE_MS, write=True,
                   baseline=None, only=None):
@@ -780,30 +935,8 @@ def analyze_batch(root, fps_tolerance=DEFAULT_FPS_TOLERANCE,
     ]
     valid = [p for p in pairs if p.get("valid")]
 
-    # One mean difference per plan; never pool interacting vehicles as replicates.
-    pooled = defaultdict(list)
-    stratified = defaultdict(lambda: defaultdict(list))
-    # Safeguards are aggregated alongside the primary endpoint. A mean gain
-    # bought with a worse tail, or by starving one approach, has to be visible
-    # at the same level the headline number is read.
-    safeguards = defaultdict(lambda: defaultdict(list))
-    for pair in valid:
-        arms = pair.get("arms", {})
-        for block in pair.get("paired", []):
-            key = f"{block['baseline']}_vs_{block['arm']}"
-            if block["delta_wait_mean"] is not None:
-                pooled[key].append(block["delta_wait_mean"])
-                stratified[pair.get("scenario", "unknown")][key].append(
-                    block["delta_wait_mean"])
-
-            base = arms.get(block["baseline"], {})
-            other = arms.get(block["arm"], {})
-            for label, field in (("wait_p95", "wait_p95"),
-                                 ("worst_approach_wait", "worst_direction_wait_mean"),
-                                 ("approach_service_gap", "direction_service_gap"),
-                                 ("clearance_sec", "last_crossing_sec")):
-                if base.get(field) is not None and other.get(field) is not None:
-                    safeguards[key][label].append(other[field] - base[field])
+    cohorts, duplicates = partition_cohorts(valid)
+    pooled = [pair for group in cohorts.values() for pair in group]
 
     invalid_by_scenario = defaultdict(int)
     for pair in pairs:
@@ -813,50 +946,78 @@ def analyze_batch(root, fps_tolerance=DEFAULT_FPS_TOLERANCE,
     aggregate = {
         "root": os.path.abspath(root),
         "selection": only or "*",
+        # The settings the numbers below were produced under. An export or a
+        # re-run that assumes the defaults is not reproducing this analysis.
+        "analysis": {
+            "baseline": baseline,
+            "fps_tolerance": fps_tolerance,
+            "drift_tolerance_ms": drift_tolerance_ms,
+            "schema_version": ANALYSIS_SCHEMA_VERSION,
+        },
         "plans_total": len(pairs),
         "plans_valid": len(valid),
         "plans_invalid": [
             {"plan_id": p["plan_id"], "reasons": p["invalid_reasons"]}
             for p in pairs if not p.get("valid")
         ],
+        # Repeated runs of one plan are not independent replicates, however
+        # their folders are named.
+        "duplicate_plans": duplicates,
         # Failures are reported by scenario, not dropped: a scenario that
         # fails often is a finding about that scenario.
         "invalid_by_scenario": dict(sorted(
             (scenario, count) for scenario, count in invalid_by_scenario.items()
         )),
         "inference_unit": "plan",
+        "cohorts": {
+            label: sorted(pair["plan_id"] for pair in group)
+            for label, group in sorted(cohorts.items())
+        },
+        "cohort_errors": [],
         "per_contrast": {},
         "per_scenario": {},
+        "per_cohort": {},
     }
 
-    for key, means in pooled.items():
-        aggregate["per_contrast"][key] = contrast_summary(means)
-
-    for scenario, contrasts in sorted(stratified.items()):
-        aggregate["per_scenario"][scenario] = {
-            key: contrast_summary(means) for key, means in sorted(contrasts.items())
+    if len(cohorts) > 1:
+        # Refusing to pool is the finding. Each cohort is still summarized,
+        # labelled by what makes it its own cohort, so the incompatibility is
+        # visible rather than averaged away.
+        aggregate["cohort_errors"].append(
+            f"{len(cohorts)} incompatible cohorts among {len(pooled)} valid "
+            f"plans; pooled estimates are withheld. Cohorts differ in "
+            f"controller mapping, configuration or source revision."
+        )
+        aggregate["per_cohort"] = {
+            label: contrast_block(group) for label, group in sorted(cohorts.items())
         }
+        if write:
+            write_batch(root, only, aggregate)
+        return aggregate
 
-    for key, endpoints in safeguards.items():
-        aggregate["per_contrast"][key]["safeguards"] = {
-            label: {
-                "plans": len(deltas),
-                "mean_of_plan_deltas": round(statistics.fmean(deltas), 3),
-                "plans_worse_under_arm": sum(1 for delta in deltas if delta > 0),
-                **bootstrap_ci(deltas),
-            }
-            for label, deltas in sorted(endpoints.items())
-        }
+    aggregate["per_contrast"] = contrast_block(pooled)
+
+    by_scenario = defaultdict(list)
+    for pair in pooled:
+        by_scenario[pair.get("scenario", "unknown")].append(pair)
+    aggregate["per_scenario"] = {
+        scenario: contrast_block(group)
+        for scenario, group in sorted(by_scenario.items())
+    }
 
     if write:
-        suffix = "" if only is None else "_" + only.replace("*", "all").replace("/", "_")
-        path = os.path.join(root, f"batch_comparison{suffix}.json")
-        with open(path, "w") as f:
-            json.dump(aggregate, f, indent=2)
-            f.write("\n")
-        print(f"✅ Batch summary saved to: {path}")
-
+        write_batch(root, only, aggregate)
     return aggregate
+
+
+def write_batch(root, only, aggregate):
+    suffix = "" if only is None else "_" + only.replace("*", "all").replace("/", "_")
+    path = os.path.join(root, f"batch_comparison{suffix}.json")
+    with open(path, "w") as f:
+        json.dump(aggregate, f, indent=2)
+        f.write("\n")
+    print(f"✅ Batch summary saved to: {path}")
+    return path
 
 
 # --- Reporting -----------------------------------------------------------

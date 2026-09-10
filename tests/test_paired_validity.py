@@ -21,6 +21,11 @@ class ReplayValidityTests(unittest.TestCase):
         self.directory = self.root / 'fixture'
         self.plan = build_plan(7, 3, 'even', plan_id='fixture')
         write_plan(self.plan, str(self.directory / 'plan.json'))
+        self.build_arms()
+        self.save()
+
+    def build_arms(self):
+        """Two coherent arms for `self.plan`, in `self.directory`."""
         self.arms = {}
         # A coherent arm, not just a complete one: every summary field is
         # derived from the rows it summarises, so a negative case can be made
@@ -52,12 +57,15 @@ class ReplayValidityTests(unittest.TestCase):
             windows = [61, 59] * math.ceil(duration / fps_window_sec / 2)
             meta = dict(
                 generation_source='plan', run_mode='vehicles', stop_reason='target_reached',
-                plan_id='fixture', plan_hash=self.plan['header']['content_hash'], arm=name,
-                uneven_mode='even', provenance_version=1, controller=name,
+                plan_id=self.plan['header']['plan_id'],
+                plan_hash=self.plan['header']['content_hash'], arm=name,
+                uneven_mode=self.plan['header']['uneven_mode'],
+                provenance_version=1, controller=name,
                 vehicle_log='run.csv', signal_log='run_signal.csv', plan_path='plan.json',
                 started_at='2026-09-10 00:00:00', ended_at='2026-09-10 00:01:00',
-                vehicles_planned=3, target_vehicle_count=3, vehicles_released=3,
-                vehicles_generated=3, vehicles_crossed=3, duration_sec=duration,
+                vehicles_planned=len(rows), target_vehicle_count=len(rows),
+                vehicles_released=len(rows), vehicles_generated=len(rows),
+                vehicles_crossed=len(rows), duration_sec=duration,
                 last_crossing_sec=last_crossing,
                 fps_mean=60, fps_min=min(windows), frames_total=round(60 * duration),
                 fps_window_sec=fps_window_sec, fps_windows=windows,
@@ -68,7 +76,6 @@ class ReplayValidityTests(unittest.TestCase):
             meta['configuration_hash'] = fingerprint(meta['configuration'])
             meta['source_hash'] = fingerprint(meta['source_files'])
             self.arms[name] = {'rows': rows, 'meta': meta}
-        self.save()
 
     def save(self):
         for name, arm in self.arms.items():
@@ -124,8 +131,20 @@ class ReplayValidityTests(unittest.TestCase):
         # Both fixture arms log identical waits, so every safeguard is flat.
         self.assertEqual(guards['wait_p95']['mean_of_plan_deltas'], 0.0)
         self.assertEqual(guards['wait_p95']['plans_worse_under_arm'], 0)
-        self.assertEqual(result['scenario'], 'even_3')
-        self.assertIn('even_3', batch['per_scenario'])
+        # The stratum carries the demand regime, not just skew and workload.
+        self.assertEqual(result['scenario'], 'even_mixed_3')
+        self.assertEqual(result['scenario_fields'],
+                         {'skew': 'even', 'regime': 'mixed', 'workload': 3})
+        self.assertIn('even_mixed_3', batch['per_scenario'])
+        # Safeguards are reported per stratum, at the level the headline
+        # number for that stratum is read.
+        self.assertEqual(
+            set(batch['per_scenario']['even_mixed_3']['fixed_vs_priority']['safeguards']),
+            set(guards),
+        )
+        self.assertEqual(batch['analysis']['baseline'], 'fixed')
+        self.assertEqual(batch['cohort_errors'], [])
+        self.assertEqual(len(batch['cohorts']), 1)
         # One plan cannot support an interval; it must say so, not invent one.
         self.assertIsNone(batch['per_contrast']['fixed_vs_priority']['ci_low'])
         arm = result['arms']['fixed']
