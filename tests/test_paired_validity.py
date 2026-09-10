@@ -2,6 +2,7 @@
 import copy
 import csv
 import json
+import math
 from pathlib import Path
 import tempfile
 import unittest
@@ -9,6 +10,7 @@ import unittest
 from analyzers.analyze_paired import analyze_pair, analyze_batch
 from core.plan import build_plan, write_plan, load_plan
 from core.provenance import fingerprint
+from utils.logger import PHASE_LOG_COLUMNS
 
 
 class ReplayValidityTests(unittest.TestCase):
@@ -20,19 +22,34 @@ class ReplayValidityTests(unittest.TestCase):
         self.plan = build_plan(7, 3, 'even', plan_id='fixture')
         write_plan(self.plan, str(self.directory / 'plan.json'))
         self.arms = {}
+        # A coherent arm, not just a complete one: every summary field is
+        # derived from the rows it summarises, so a negative case can be made
+        # by mutating exactly one thing and nothing else has to move.
+        release_lateness = 0.002   # the run clock, a couple of ms behind plan
+        travel = 12.0              # release to stop line
+        wait = 1.25                # stopped delay, necessarily below travel
+        drain = 1.5                # rendering after the final crossing
+        fps_window_sec = 5.0
         for name in ('fixed', 'priority'):
             folder = self.directory / name
             folder.mkdir()
             rows = []
             for vehicle in self.plan['vehicles']:
+                released = vehicle['t_offset_sec'] + release_lateness
                 rows.append({
-                    'plan_seq': str(vehicle['seq']), 'wait_time_sec': '1.25', 'mode': name,
-                    'released_sec': f"{vehicle['t_offset_sec']:.4f}",
-                    'crossed_sec': f"{vehicle['t_offset_sec'] + 12:.4f}",
+                    'plan_seq': str(vehicle['seq']), 'wait_time_sec': f'{wait:.2f}',
+                    'mode': name,
+                    'released_sec': f"{released:.4f}",
+                    'crossed_sec': f"{released + travel:.4f}",
                     **{key: str(vehicle[key]) for key in (
                         'vehicle_type', 'direction', 'lane', 'will_turn',
                         'turn_direction', 'target_turn_lane')},
                 })
+            last_crossing = round(max(float(row['crossed_sec']) for row in rows), 4)
+            duration = round(last_crossing + drain, 2)
+            # 61/59 alternating: mean 60, worst window 59, and enough windows
+            # to cover the whole run rather than its first few seconds.
+            windows = [61, 59] * math.ceil(duration / fps_window_sec / 2)
             meta = dict(
                 generation_source='plan', run_mode='vehicles', stop_reason='target_reached',
                 plan_id='fixture', plan_hash=self.plan['header']['content_hash'], arm=name,
@@ -40,11 +57,12 @@ class ReplayValidityTests(unittest.TestCase):
                 vehicle_log='run.csv', signal_log='run_signal.csv', plan_path='plan.json',
                 started_at='2026-09-10 00:00:00', ended_at='2026-09-10 00:01:00',
                 vehicles_planned=3, target_vehicle_count=3, vehicles_released=3,
-                vehicles_generated=3, vehicles_crossed=3, duration_sec=60,
-                last_crossing_sec=58.5,
-                fps_mean=60, fps_min=59, frames_total=3600,
-                fps_window_sec=1.0, fps_windows=[60, 59, 61],
+                vehicles_generated=3, vehicles_crossed=3, duration_sec=duration,
+                last_crossing_sec=last_crossing,
+                fps_mean=60, fps_min=min(windows), frames_total=round(60 * duration),
+                fps_window_sec=fps_window_sec, fps_windows=windows,
                 release_drift_mean_ms=1, release_drift_max_ms=2,
+                final_phase_censored=False,
                 configuration={'speed': 2}, source_files={'main.py': 'abc'},
             )
             meta['configuration_hash'] = fingerprint(meta['configuration'])
@@ -61,8 +79,20 @@ class ReplayValidityTests(unittest.TestCase):
                 writer.writerows(arm['rows'])
             (folder / 'run_meta.json').write_text(json.dumps(arm['meta']))
             (folder / 'run_signal.csv').write_text('timestamp,direction\n2026-09-10,right\n')
-            (folder / 'run_phases.csv').write_text(
-                'round_index,phase_index,direction,green_start_sec\n0,0,right,10.0\n')
+            # A complete phase record: the columns a run actually writes,
+            # with a status that says this green ended on its own terms.
+            with (folder / 'run_phases.csv').open('w', newline='') as output:
+                writer = csv.DictWriter(output, fieldnames=PHASE_LOG_COLUMNS)
+                writer.writeheader()
+                writer.writerow({
+                    'round_index': 0, 'phase_index': 0, 'direction': 'right',
+                    'green_start_sec': 10.0, 'green_selected_sec': 24,
+                    'green_end_sec': 34.0, 'phase_end_sec': 39.0,
+                    'decision_weight': 3.0,
+                    'decision_counts': '{"down": 0, "left": 0, "right": 3, "up": 0}',
+                    'queue_counts': '{"down": 0, "left": 0, "right": 3, "up": 0}',
+                    'status': 'complete', 'termination': 'duration',
+                })
 
     def result(self):
         return analyze_pair(str(self.directory), write=False, baseline='fixed')
@@ -169,9 +199,14 @@ class ReplayValidityTests(unittest.TestCase):
                 self.save()
                 self.assertFalse(self.result()['valid'])
 
+    # Recorded by every run from now on, but absent from runs archived before
+    # the phase log gained a censoring status. Requiring it in the gate would
+    # invalidate the existing archive, which is evidence, not a defect.
+    OPTIONAL_METADATA = {'final_phase_censored'}
+
     def test_every_required_metadata_field(self):
         original = copy.deepcopy(self.arms)
-        for key in original['fixed']['meta']:
+        for key in set(original['fixed']['meta']) - self.OPTIONAL_METADATA:
             with self.subTest(key=key):
                 self.arms = copy.deepcopy(original)
                 del self.arms['fixed']['meta'][key]
@@ -254,6 +289,58 @@ class ReplayValidityTests(unittest.TestCase):
         self.save()
         (self.directory / 'fixed' / 'extra.csv').write_text('plan_seq\n0\n')
         self.assert_invalid('2 vehicle logs')
+
+    def test_summary_that_contradicts_the_rows_is_rejected(self):
+        """
+        Each field below is well-formed on its own and contradicts the rows.
+
+        Every one of these passed the gate before: the gate checked that the
+        fields existed and were finite, never that they described the run the
+        rows describe.
+        """
+        original = copy.deepcopy(self.arms)
+        cases = [
+            ('release far later than the tolerance allows',
+             lambda arm: arm['rows'][0].update(released_sec='5'),
+             'release lateness'),
+            ('a crossing after the run ended',
+             lambda arm: arm['rows'][0].update(crossed_sec='1000'),
+             'after the run ended'),
+            ('stopped delay longer than the whole journey',
+             lambda arm: arm['rows'][0].update(wait_time_sec='1000'),
+             'exceeds its release-to-crossing interval'),
+            ('one frame claimed as 60 fps for a minute',
+             lambda arm: arm['meta'].update(frames_total=1),
+             'not the reported'),
+            ('a clearance unrelated to the last crossing',
+             lambda arm: arm['meta'].update(last_crossing_sec=58.5),
+             'does not match the last logged crossing'),
+            ('drift the rows cannot account for',
+             lambda arm: arm['meta'].update(release_drift_max_ms=200),
+             'not supported by the logged releases'),
+            ('telemetry covering the first seconds only',
+             lambda arm: arm['meta'].update(fps_windows=[59], fps_min=59),
+             'fps telemetry covers'),
+        ]
+        for label, mutate, expected in cases:
+            with self.subTest(case=label):
+                self.arms = copy.deepcopy(original)
+                mutate(self.arms['fixed'])
+                self.save()
+                self.assert_invalid(expected)
+
+    def test_rounding_does_not_reject_a_coherent_arm(self):
+        """The allowances are for measurement, not for contradictions."""
+        meta = self.arms['fixed']['meta']
+        # Clearance rounded at the fourth decimal, frames a hair off 60 fps,
+        # stopped delay a rounding step above the travel time.
+        meta['last_crossing_sec'] = round(meta['last_crossing_sec'] + 0.002, 4)
+        meta['frames_total'] = round(meta['frames_total'] * 1.02)
+        row = self.arms['fixed']['rows'][0]
+        travel = float(row['crossed_sec']) - float(row['released_sec'])
+        row['wait_time_sec'] = f'{travel + 0.05:.2f}'
+        self.save()
+        self.assertTrue(self.result()['valid'], self.result()['invalid_reasons'])
 
     def test_missing_baseline_and_invalid_tolerances(self):
         self.assertFalse(analyze_pair(str(self.directory), write=False, baseline='absent')['valid'])

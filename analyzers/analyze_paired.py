@@ -52,6 +52,23 @@ DEFAULT_DRIFT_TOLERANCE_MS = 250.0  # worst single release lateness, per arm
 # test is not trustworthy and the p-value is reported as None.
 MIN_PAIRS_FOR_TEST = 10
 
+# Allowances for cross-field checks.  Every one of these exists because two
+# recorded quantities are measured by different code at different moments; a
+# check without an allowance would reject coherent runs, and a check without a
+# bound would accept contradictory ones.
+#
+#   ROUNDING          logged times are rounded to 4dp, waits to 2dp
+#   CONSTRUCTION      the generator measures release lateness *before* it
+#                     builds the Vehicle, which then stamps released_sec; the
+#                     recorded drift is therefore always the smaller number
+#   WAIT_TRAVEL       stopped delay is still accumulated on the wall clock
+#                     while release and crossing are on the run clock
+#   FPS_RECONCILE     frames/duration against the reported mean frame rate
+ROUNDING_TOLERANCE_SEC = 0.01
+RELEASE_CONSTRUCTION_ALLOWANCE_MS = 100.0
+WAIT_TRAVEL_ALLOWANCE_SEC = 0.10
+FPS_RECONCILE_TOLERANCE = 0.05
+
 
 # --- Reading one arm -----------------------------------------------------
 
@@ -210,6 +227,76 @@ def finite_number(value, positive=False):
             and (value > 0 if positive else value >= 0))
 
 
+def reconcile_summary(name, meta, crossed_times, lateness_sec, drift_tolerance_ms):
+    """
+    Check the sidecar's summary against the rows it claims to summarise.
+
+    Each field the gate reads is a *derived* quantity that the run recorded
+    separately from the rows.  Checking the fields one at a time establishes
+    that they are present and well-formed; it does not establish that they
+    mean what they say.  These are the relationships that do.
+    """
+    reasons = []
+
+    if crossed_times:
+        clearance = meta.get('last_crossing_sec')
+        latest = max(crossed_times)
+        if (finite_number(clearance, positive=True)
+                and abs(clearance - latest) > ROUNDING_TOLERANCE_SEC):
+            reasons.append(
+                f"{name}: last_crossing_sec={clearance} does not match the last "
+                f"logged crossing {latest:.4f}"
+            )
+
+    if lateness_sec:
+        latest_release_ms = max(lateness_sec) * 1000.0
+        allowed = drift_tolerance_ms + RELEASE_CONSTRUCTION_ALLOWANCE_MS
+        if latest_release_ms > allowed:
+            reasons.append(
+                f"{name}: worst logged release lateness {latest_release_ms:.1f}ms "
+                f"exceeds {allowed:.1f}ms"
+            )
+        recorded = meta.get('release_drift_max_ms')
+        # The generator times the deadline before it constructs the Vehicle
+        # that stamps released_sec, so the recorded figure is always the
+        # smaller of the two.  Recorded lateness that the rows cannot account
+        # for means the two are not describing the same releases.
+        if (finite_number(recorded)
+                and recorded > latest_release_ms + RELEASE_CONSTRUCTION_ALLOWANCE_MS):
+            reasons.append(
+                f"{name}: release_drift_max_ms={recorded} is not supported by the "
+                f"logged releases (worst {latest_release_ms:.1f}ms)"
+            )
+
+    frames, duration = meta.get('frames_total'), meta.get('duration_sec')
+    fps_mean = meta.get('fps_mean')
+    if type(frames) is not int:
+        reasons.append(f"{name}: frames_total must be a whole number of frames")
+    elif (finite_number(duration, positive=True)
+          and finite_number(fps_mean, positive=True)):
+        measured = frames / duration
+        if abs(measured - fps_mean) > FPS_RECONCILE_TOLERANCE * fps_mean:
+            reasons.append(
+                f"{name}: {frames} frames over {duration}s is {measured:.1f} fps, "
+                f"not the reported {fps_mean}"
+            )
+
+    windows = meta.get('fps_windows')
+    window_sec = meta.get('fps_window_sec')
+    if (isinstance(windows, list) and windows
+            and finite_number(window_sec, positive=True)
+            and finite_number(duration, positive=True)):
+        covered = len(windows) * window_sec
+        # Telemetry that covers a fraction of the run cannot speak for the
+        # rest of it.  The last window may be partial; nothing else may be.
+        if covered < duration - window_sec:
+            reasons.append(
+                f"{name}: fps telemetry covers {covered:.1f}s of a {duration}s run"
+            )
+
+    return reasons
+
+
 def check_validity(arms, plan, fps_tolerance, drift_tolerance_ms):
     """Fail closed: only a complete, attributable replay can be compared."""
     reasons = []
@@ -294,6 +381,11 @@ def check_validity(arms, plan, fps_tolerance, drift_tolerance_ms):
         if len(rows) != n:
             reasons.append(f"{name}: logged {len(rows)} crossings, expected {n}")
         seen = set()
+        # Derived from the rows themselves.  The sidecar's summary of a run is
+        # a claim about these; a gate that never compares the two accepts a
+        # summary that contradicts the evidence it summarises.
+        crossed_times = []
+        lateness_sec = []
         for index, row in enumerate(rows):
             try:
                 key = int(row.get('plan_seq', ''))
@@ -332,9 +424,29 @@ def check_validity(arms, plan, fps_tolerance, drift_tolerance_ms):
                     reasons.append(f"{name}: seq {key} crossed before it was released")
                 if times['released_sec'] + 0.001 < record['t_offset_sec']:
                     reasons.append(f"{name}: seq {key} released before its planned offset")
+                crossed_times.append(times['crossed_sec'])
+                lateness_sec.append(times['released_sec'] - record['t_offset_sec'])
+                # Stopped delay is time spent not moving between release and
+                # crossing; it cannot exceed that interval.
+                travel = times['crossed_sec'] - times['released_sec']
+                if (finite_number(wait)
+                        and wait > travel + WAIT_TRAVEL_ALLOWANCE_SEC):
+                    reasons.append(
+                        f"{name}: seq {key} stopped delay {wait} exceeds its "
+                        f"release-to-crossing interval {travel:.3f}"
+                    )
+                if (finite_number(meta.get('duration_sec'), positive=True)
+                        and times['crossed_sec'] > meta['duration_sec'] + ROUNDING_TOLERANCE_SEC):
+                    reasons.append(
+                        f"{name}: seq {key} crossed at {times['crossed_sec']} "
+                        f"after the run ended at {meta['duration_sec']}"
+                    )
         missing = sorted(set(expected) - seen)
         if missing:
             reasons.append(f"{name}: missing {len(missing)} planned crossings (first IDs: {missing[:20]})")
+
+        reasons.extend(reconcile_summary(name, meta, crossed_times, lateness_sec,
+                                         drift_tolerance_ms))
     for key, values in hashes.items():
         if len(values) > 1:
             reasons.append(f"{key} differs across arms")
