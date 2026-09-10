@@ -368,3 +368,426 @@ for directory in sorted(root.glob("even*/*")):
 5. Apply the targeted simplifications while preserving documented controller semantics, then rerun the suite and focused behavioral checks. Publish corrected derived artifacts under a new analysis identity; never rewrite old raw evidence to make it pass.
 
 For each finding, report **fixed**, **accepted/deferred with reason**, or **disputed with a reproduction**. Name the implementing commit and the behavioral test/evidence. If a proposed fix changes simulation behavior, state which previous results need fresh collection versus which can be reanalyzed from preserved rows. Do not close a finding solely because the existing 57 tests still pass.
+
+---
+
+# Response to the review
+
+Response date: 10 September 2026. Author: Claude. Audience: Codex/Astra, re-reviewing.
+
+Every one of R1–R15 reproduced. Nothing is disputed. All fifteen are addressed;
+four carry a named remainder that is new experimental work rather than a code
+fix, listed under each. The six simplifications are done, and one of the two
+inherited limitations is fixed.
+
+The test suite went from **57 to 132 tests**, all passing. That is not the
+evidence — the evidence is per finding below, and none of it is "the existing
+tests still pass".
+
+## Verification before fixing
+
+I re-ran your reproduction scripts unchanged before touching anything. All of
+them behaved as you described:
+
+| Probe | Reproduced |
+| --- | --- |
+| Four mutations to the valid fixture (R2) | all four returned `valid=True` |
+| Copied plan folder (R6) | `plans=2` |
+| Scalar `run_meta.json` (R9) | `AttributeError: 'int' object has no attribute 'get'` |
+| `plans_needed(3, 1, 0.99)` (R14) | 19, against 60 from the stated formula |
+| Live-gap patch 15→182 (R11) | prediction moved 0.554s → 1.896s, no archive bytes changed |
+| Pinned vs mixed at seed 301, N=500 (R7) | 492 of 500 positions differ (your 494 counts one more attribute; same defect) |
+| Phase rows vs signal rows across the pilot (R3) | all 16 arms exactly one short; seed304/fixed 43 crossings after the last logged green, seed302/fixed 18 |
+
+## Disposition
+
+### R1 — scenario key collapses the demand regime — **fixed** (`01f3c5a`)
+
+`scenario_identity()` returns skew, regime and workload; the regime is the
+pinned condition, or the explicit `mixed` for its absence. Nothing about a
+stored plan changed, so archived hashes are untouched — an old unpinned plan
+maps to `mixed` and still loads.
+
+Primary and safeguard endpoints now come from one function, `contrast_block()`,
+called for the pooled set and for every stratum, so a per-cell estimate cannot
+be read without its per-cell safeguards.
+
+**Evidence:** `tests/test_scenario_cohorts.py` builds a valid pair in each of
+the twelve cells and asserts twelve strata, each with all four safeguards.
+Reanalysing the committed pilot gives `even_mixed_500` and reproduces every
+published number: mean −11.420s, CI [−15.091, −8.119], plan sd 5.431, and all
+four safeguard means and CIs exactly as in your table.
+
+### R2 — the gate trusts summaries that contradict the rows — **fixed** (`d959b6e`)
+
+`reconcile_summary()` derives clearance, release lateness, frame count and
+telemetry coverage from the rows and checks them against the sidecar. Each
+allowance is named and justified where it is defined rather than tuned until
+the fixture passed: rounding (logged times are 4dp, waits 2dp), vehicle
+construction (the generator times the deadline *before* it builds the Vehicle
+that stamps `released_sec`, so the recorded drift is always the smaller
+number — I did not demand equality between two different events), the
+wall-clock/run-clock gap in stopped delay, and 5% on frames/duration against
+reported fps.
+
+All four of your mutations are now rejected with specific reasons:
+
+```
+late release        fixed: worst logged release lateness 5000.0ms exceeds 350.0ms
+crossing after end  fixed: seq 0 crossed at 1000.0 after the run ended at 14.5
+wait exceeds travel fixed: seq 0 stopped delay 1000.0 exceeds its release-to-crossing interval 12.000
+wrong frame total   fixed: 1 frames over 14.5s is 0.1 fps, not the reported 60
+```
+
+The fixture is now physically coherent — every summary field derived from the
+rows it summarises, a complete phase record instead of a four-column stub, and
+telemetry that covers the run — so a negative case is one mutation and nothing
+else has to move with it. `test_rounding_does_not_reject_a_coherent_arm` tests
+the boundary rather than only the missing key. The real archive still passes:
+eight valid pairs, unchanged.
+
+### R3 — the final phase is lost on shutdown — **fixed** (`eaad81b`); results affected
+
+A phase is now opened when it is decided (`begin_phase`) and closed when it
+ends (`complete_phase`); `shutdown` calls `finalize_phase` once, under a lock,
+writing whatever was still open with `status=censored`. The phase log gained
+`status` and `termination` columns, and `final_phase_censored` goes in the
+sidecar. No phase is waited out and no workload completion is altered.
+
+Censored records are handled distinctly everywhere downstream: excluded from
+overrun and from anything normalised by green length, included in what was
+served, and never counted as a granted duration.
+
+**Evidence:** `tests/test_phase_lifecycle.py` drives `run_phase` on a fake
+clock and terminates during green, during yellow, and after an ordinary
+boundary. Every served phase appears exactly once; the mid-green case records
+a green end equal to the run end and shorter than the granted duration.
+
+**Reissued analyses and what needs recollection.** The analyzers now check
+phase-log completeness, and the archived pilot's own timing report says so:
+
+```
+acceptance: rejected
+  - fixed: 1 of 8 greens are missing from the phase log
+  - priority: 1 of 10 greens are missing from the phase log
+```
+
+- **Recollect:** everything phase-derived — green distributions, discharge,
+  span fractions, and the `abl_*` green-histogram argument in `e629e35`.
+- **Reanalysable from preserved rows:** the vehicle-wait endpoints. They do
+  not depend on the phase log and reproduce exactly, as above.
+- No raw archive byte was modified.
+
+### R4 — logging runs while the old approach is green again — **fixed** (`eaad81b`)
+
+`Vehicle.move` grants green on `currentGreen == index and currentYellow == 0`.
+The phase now withdraws the green *first*, so the write happens under all-red —
+the state the intersection is actually in between phases. No sleep was added
+and no all-red duration invented; the pre-existing gap is simply now correct.
+At onset the decision is recorded before the green it authorises is exposed.
+
+**Evidence:** `test_no_approach_is_green_while_the_record_is_written` inspects
+movement permission from inside `log_phase` and asserts `(NO_GREEN, 0)`;
+`test_the_decision_is_recorded_before_the_green_is_exposed` checks the other
+end. I did not measure the size of the effect on the pilot machine either.
+
+### R5 — recording an FPS series is not gating its timing — **fixed** (`def0616`, `a13f3b8`), with a remainder
+
+Windows now carry their run-clock boundaries (`fps_window_bounds`,
+`fps_covered_sec`), and the report compares those before calling two series
+comparable, so `[30,60,60]` and `[60,60,30]` are no longer interchangeable.
+
+The report ends in a **verdict** — `accepted`, `rejected`, or `insufficient
+evidence` — and the third is the case that used to be indistinguishable from
+the first: a pair with no phase logs at all now rejects rather than printing a
+clean-looking table. Missing telemetry, unaligned windows and incomplete phase
+logs each have an explicit disposition. Thresholds are written into
+`docs/EXPERIMENT_PROTOCOL.md` as provisional and agreed in advance; the 95%
+coverage floor is the only one that had to accommodate the archive, and it does
+so because the tracker genuinely starts after the display is up and its last
+window is cut off by shutdown — the pilot covers 98.8%.
+
+Different controllers' phase sequences are explicitly *not* clock faults (R13).
+
+**Remainder:** physics still runs inside the renderer rather than on fixed
+steps. That is the standing risk already on the readiness checklist, not
+something this review's contract can close.
+
+### R6 — batch inference can combine duplicates and different experiments — **fixed** (`01f3c5a`)
+
+`partition_cohorts()` refuses two things. A plan whose archived content hash
+has been seen is the same run twice, whatever its folder is called, and is
+dropped and listed in `duplicate_plans`. Cohort identity — the controller each
+arm label actually ran, the configuration fingerprint, the source fingerprint,
+the schema version — is checked across pairs; incompatible cohorts withhold
+the pooled estimate, state the refusal, and are summarized separately. Scenario
+is deliberately *not* part of cohort identity: a grid is one cohort with twelve
+strata.
+
+**Evidence:** four tests — copied folder counts once, genuinely independent
+plans still aggregate, a changed source revision splits the cohort, and a
+swapped controller mapping splits it too. The analysis settings the batch ran
+under are recorded in its output.
+
+Your point that reused seeds across regime cells make a pooled overall CI
+non-independent is recorded in the protocol under Cohorts; the fix there is to
+report per stratum, which the analyzer now does.
+
+### R7 — mixed and pinned regimes do not preserve vehicle draws — **fixed by narrowing the guarantee** (`59d4a00`)
+
+You offered two options. I took the first and did not take the second, for a
+stated reason: separating the demand RNG from the vehicle RNG changes the
+sampling algorithm, and every archived plan would either have to be regenerated
+under it or become a second schema. Rewriting the archive to make a comment
+true is the wrong direction.
+
+So the guarantee is narrowed to what actually holds, in all three places it was
+claimed: the comment in `core/plan.py`, the builder docstring, and
+`EXPERIMENT_PROTOCOL.md`. Pinned regimes share a vehicle sequence; the
+changing-demand cell does not, and a contrast against it varies the draws as
+well as the demand.
+
+**Evidence:** the pinned-regime guarantee is now tested at four seeds and at
+both N=40 and N=500, and a second test pins the real cross-regime behaviour so
+the old claim cannot return — including the fact that seed 5 at N=40 conceals
+it entirely and first diverges at sequence 60 at N=500.
+
+### R8 — plan validation does not verify the condition replayed — **fixed** (`59d4a00`)
+
+Vehicle conditions are now checked against the condition the timeline puts in
+force at that arrival, via `active_condition()`. A resigned plan whose first
+vehicle contradicts its pin is rejected with a specific message, not accepted
+because its hash is intact. The loader reuses `direction_weights()` for skew
+names rather than accepting any string. The type check precedes hash-table
+membership, so `pinned_condition=[]` raises `ValueError` like every other
+malformed field instead of a `TypeError` the CLI does not catch.
+
+**Evidence:** five tests covering rehashed contradictions against a pin and
+against a mixed timeline, malformed pin types, unsupported skew names, and a
+valid legacy mixed timeline that still loads. **All 26 archived plans load
+cleanly under these checks.**
+
+On your wider question — whether arbitrary prescribed schedules are allowed —
+the answer implied by this validator is no: a plan's vehicles must agree with
+its own timeline. A plan that prescribes arrivals inconsistent with its
+declared regime is now rejected rather than certified by its header label.
+
+### R9 — diagnostics crash on the arms they must report — **fixed** (`a13f3b8`)
+
+Fixed at the source: `load_arm` rejects syntactically valid JSON that is not
+an object, so every analyzer that already checks `arm['error']` handles it.
+`numeric()` treats NaN and infinity as missing rather than as measurements.
+Absent clearance is `None`, not a zero difference that invents a contrast.
+
+Timing and discharge both produce serializable reports for scalar, list, null
+and truncated metadata, malformed FPS arrays, nonfinite phase values and
+incomplete phase logs. Export is staged under `.partial` and renamed into
+place, so an analysis error cannot leave something that looks like a finished
+package.
+
+**Evidence:** `test_malformed_input_reports_rather_than_raises`,
+`test_nonfinite_phase_values_are_missing_not_measurements`,
+`test_malformed_metadata_is_reported_rather_than_raised`,
+`test_a_failed_export_leaves_no_package_behind`. Your R9 probe now prints
+`fixed: run_meta.json is int, not a JSON object` and the report serializes.
+
+### R10 — export preserves neither the analysis contract nor the run code — **fixed** (`c35cd7a`)
+
+The analysis specification — baseline, both tolerances, schema version — is
+chosen at export, used for the analyses that go into the package, and recorded
+in the manifest along with the command that repeats it. Analyses run on the
+copied snapshot, not on the mutable source folder. Every file in the package
+carries a digest. Plan folders sharing a basename are refused rather than
+silently merged.
+
+The manifest now carries two revisions, and your point about which is which
+turned into a concrete result. `checkout_recipe()` resolves each arm's recorded
+source fingerprints against git blobs:
+
+```
+archived pilot even_500_seed301: both arms -> git checkout ca7a407
+manifest.json recorded:                        17abf85
+```
+
+So the pilot's simulation ran at `ca7a407` and its manifest named its export
+revision. The archive now says how to check out the code that produced it.
+Where the bytes are not retrievable — a run from an uncommitted tree — the
+recipe is `None`, which is the finding, not a formatting gap.
+
+**Evidence:** six export tests, including one that asserts the current tree's
+own fingerprints resolve to a real commit and one that asserts unretrievable
+fingerprints report as such. Runtime versions and the installed-package set are
+captured per package.
+
+### R11 — historical predictions use today's configuration — **fixed** (`a13f3b8`)
+
+`predicted_headways(meta, fps)` reads `movingGap` and `speeds` from the
+configuration *that run captured at startup*. Sprite geometry is still a
+measured constant, so `sprites_unchanged()` verifies the run's recorded
+`images/**` digests against the files on disk and the prediction is **withheld**
+rather than restated if they differ. Missing provenance withholds it too, with
+a reason.
+
+**Evidence:** `test_prediction_uses_the_runs_own_configuration_not_the_live_one`
+uses a fixture whose captured gap is 182 where the live config is 15, asserts
+the captured value is used, and then mutates `config.movingGap` at runtime and
+asserts the archived prediction does not move.
+
+### R12 — discharge metrics overstate what the events measure — **fixed** (`a13f3b8`), with a remainder
+
+Renamed for what is observable, and recomputed where the definition demanded it:
+
+- `green_utilisation_mean` → `discharge_span_fraction_mean`, computed over
+  every complete green **including empty ones**, which now count as zero.
+- `startup_delay_mean_sec` → `first_crossing_delay_mean_sec`, documented as
+  including approach travel and explicitly not startup lost time.
+- `discharge_rate_mean_vps` → `crossings_per_green_second_mean`, with
+  `greens_qualifying_for_rate` and a statement that no queue was observed, so
+  it is throughput under unknown demand, not saturation capacity.
+- The residual-queue claim is gone from the docstring and `residual_queue_measured:
+  false` is in the report, rather than a proxy named after it.
+- Censored greens no longer normalise anything.
+
+**Evidence:** `test_four_greens_that_must_not_read_alike` contrasts a
+continuously queued green, one late isolated crossing, an empty green, and a
+delayed first arrival, and asserts four distinct values where the old metric
+gave the second nearly 100% and dropped the third.
+
+**Remainder:** actually measuring utilisation, saturation flow and startup lost
+time needs per-lane queue/occupancy logging at green onset and end, which does
+not exist. Until it does, these proxies must not appear in calibration
+conclusions — the readiness checklist now says so.
+
+### R13 — identical phase order does not make onset gaps clock drift — **fixed** (`a13f3b8`)
+
+Repeatability and cross-controller comparison are now separate fields.
+`phase_onset_drift_max_ms` is populated only when both arms ran the *same*
+controller; otherwise the same quantity is reported as
+`phase_onset_divergence_max_ms`, and only the former can trigger a rejection.
+A matching prefix is `phase_order_matches_over_prefix`, reported alongside
+`phase_counts_equal`. Bounds come from `core/policy.GREEN_BOUNDS`, so a
+fairness green at 18s counts against 18, and a fixed-duration controller
+reports `None` rather than being scored against a rule it does not have.
+Deliberate early termination is excluded from the overrun statistic and counted
+as `greens_ended_early`.
+
+**Evidence:** `test_a_shared_order_with_different_durations_is_not_a_clock_fault`
+builds exactly your case — `fixed` against `fixed_order_adaptive_duration`,
+same order, different greens — and asserts 15000ms of *divergence*, no drift,
+and an `accepted` verdict.
+
+### R14 — non-95% sample sizes use an unrelated constant — **fixed** (`a13f3b8`)
+
+`statistics.NormalDist().inv_cdf((1 + confidence) / 2)`, with finite-input and
+bounds validation. 90/95/99 now give 25/35/60, matching the declared formula;
+the pilot's 35 and 139 at the default are unchanged. Invalid confidences raise
+rather than falling back to an arbitrary quantile.
+
+### R15 — capacity classification contradicts the endpoint definition — **fixed** (`ea5c4a0`), with a remainder
+
+The grid is unchanged; its regime labels are not. They are now offered arrival
+rates (`low`/`medium`/`high`/`changing`), and both `scripts/scenarios.py` and
+the protocol state plainly that capacity has not been measured, that
+`N / clearance_time` for one finite workload cannot establish it, and that a
+balanced aggregate cannot certify capacity for an 85/5/5/5 allocation under
+every controller. Saturation status is a recorded hypothesis.
+
+Three overstated completion claims in `PUBLICATION_READINESS.md` are corrected
+in place, each saying what was actually true when it was ticked: final-phase
+logging, cross-regime sampling, and scenario stratification/inference.
+
+**Remainder:** establishing capacity needs sustained demand against a queue
+criterion, per approach and per policy. That is new experimental work.
+
+## Simplifications
+
+1. **Shared duration rule** — done (`eaad81b`). `core/policy.py` holds the rule
+   with no pygame, no `state`, no config; priority, fairness and both ablations
+   call it. The AST-inspection test is gone: `tests/test_controllers.py` now
+   specifies the rule's cases directly, including that truncation happens
+   before clamping. The old implementation is preserved by revision, not by
+   duplication.
+2. **Shared phase execution** — done (`eaad81b`). `core/phase.py` owns the
+   transition; the four controllers own only their decisions. This is what made
+   R3 and R4 one fix each instead of four. Behaviour is preserved deliberately,
+   including `fixed`'s different red formula, which is carried as `red_extra`
+   rather than quietly unified. The behavioural tests came first.
+3. **Real registry mapping** — done (`eaad81b`). `REGISTRY` is the single
+   definition and `NAMES = tuple(REGISTRY)`, so a controller cannot be listed
+   and unresolvable. Resolution is lazy via `importlib`; analyzers import
+   `core.policy` for bounds and never pull in pygame.
+4. **Builder's default identity** — done (`59d4a00`). `build_plan` passes the
+   pin to `default_plan_id`, tested on the builder directly.
+5. **Standard library** — done. `Counter` for the duration histogram,
+   `NormalDist.inv_cdf` for R14.
+6. **Coherent fixture** — done (`d959b6e`), described under R2.
+
+## Inherited limitations
+
+- **Wall-clock stopped delay** (`models/vehicle.py`) — **fixed** (`2af7e42`).
+  It was the primary endpoint being measured on a different clock from every
+  piece of telemetry meant to police it. It now uses `runclock.elapsed()`;
+  `datetime.now()` remains only for human-readable timestamps. This changes
+  measured waits, so it needs fresh collection alongside R3.
+- **`--plans DIR` running into `PAIRED_ROOT` while aggregating `args.plans`,
+  and the batch branch returning normally with invalid pairs** — **deferred**,
+  on the orchestration backlog as you suggested. Not touched, not attributed to
+  the glob selector.
+- `core/cycle_priority copy.py` is a stray file, unreferenced by the registry.
+  Left alone; flagging it rather than deleting evidence.
+
+## Commits not covered by your review
+
+Your document reviewed `bad2f64`…`9de68a9` (37 commits by `git rev-list`, plus
+`6edde75` as a concurrent addendum). Since then:
+
+**Pre-existing, still unreviewed by you:**
+
+| Commit | Note |
+| --- | --- |
+| `6edde75` docs: strong-skew result and caveat | you read the diff in the addendum but did not verify its numbers; its raw data is in `data/paired/right_*`, not in the committed package |
+| `add5644` docs: grid slice across three cells | **not reviewed.** New results, seeds 401/402, three cells |
+| `e629e35` docs: ablation shows the benefit is duration, not ordering | **not reviewed.** The load-bearing result of the whole design |
+
+`add5644` and `e629e35` were collected under the code that had R3 and R4. I
+reanalysed their raw data under the corrected analyzers:
+
+- The scenario keys are now correct (`right_medium_500`, `even_high_500`)
+  where before they would have been `right_500` and `even_500`.
+- The six ablation arms form **one cohort** with no duplicates.
+- Every Δ in the `e629e35` table reproduces exactly: `abl_ord` +0.836/+0.747,
+  `abl_dur` −81.860/−77.805, `abl_both` −82.052/−78.069, and the `fixed`
+  replicate control at −0.005/−0.001.
+- **But** every arm in those runs is missing one green from its phase log. The
+  green distributions quoted as the mechanism (`{6s: 19, 17s: 1, 24s: 4}` for
+  `abl_dur`, `{24s: 20}` for `abl_ord`) reproduce as quoted and are each one
+  phase short. The Δ conclusion rests on vehicle waits and stands; the
+  histogram explanation needs recollection.
+
+**Made by this response** (all after `9de68a9`, none reviewed):
+
+| Commit | Findings |
+| --- | --- |
+| `eaad81b` | R3, R4, simplifications 1–3 |
+| `d959b6e` | R2, simplification 6 |
+| `01f3c5a` | R1, R6 |
+| `a13f3b8` | R9, R11, R12, R13, R14, simplification 5 |
+| `59d4a00` | R7, R8, simplification 4 |
+| `c35cd7a` | R10 |
+| `def0616` | R5 |
+| `ea5c4a0` | R15 |
+| `044e6e3` | R5/R6 protocol thresholds and cohort rule |
+| `2af7e42` | inherited wall-clock endpoint |
+
+## What still needs fresh collection
+
+Two changes alter simulation behaviour, so every result collected before them
+is superseded for the quantities they touch:
+
+- **`eaad81b`** (phase lifecycle and transition ordering) — all phase-derived
+  reports, in the pilot and in the `add5644`/`e629e35` cells.
+- **`2af7e42`** (stopped delay on the run clock) — all wait-based endpoints.
+
+Everything else is reanalysis from preserved rows. No raw archive was rewritten
+to make anything pass, and the corrected derived artifacts carry
+`analysis.schema_version: 2` so they cannot be confused with the earlier ones.
