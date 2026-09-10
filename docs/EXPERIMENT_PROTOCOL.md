@@ -160,6 +160,44 @@ counted per scenario in the batch summary.
 Failures are reported, not excluded. A scenario that fails often is a finding
 about that scenario.
 
+### Cohorts
+
+Passing the gate makes a *pair* reportable; it does not make two pairs
+poolable. Before plans are aggregated into one interval they must agree on
+the controller each arm label ran, the configuration fingerprint, and the
+source fingerprint. Plans whose archived content hash has already been seen
+are the same run twice, however their folders are named, and are dropped
+rather than counted as replication. Where incompatible cohorts are present
+the pooled estimate is withheld and each cohort is summarized separately.
+
+Note that seeds are reused across regime cells by design, so a pooled overall
+interval across cells cannot treat those observations as independent. Report
+per stratum; the overall figure is descriptive.
+
+### Timing acceptance thresholds
+
+These are the values collection runs under. They are **provisional** — agreed
+here in advance so they cannot be chosen after seeing results, not measured.
+Revisit them once §9.5 of [PAIRED_REPLAY_PLAN.md](PAIRED_REPLAY_PLAN.md) has
+been measured on a second machine.
+
+| Quantity | Threshold | Disposition when breached |
+| --- | --- | --- |
+| Frame-rate spread across arms (mean, worst window) | 5% | pair invalid |
+| Worst release lateness, per arm | 250 ms recorded, +100 ms for the vehicle construction that follows the measurement | pair invalid |
+| Frame-rate telemetry coverage of the run | ≥ 95% | pair invalid |
+| Phase onset drift, two arms of the **same** controller | 1000 ms | timing report rejected |
+| Release gap between arms, same vehicle | 500 ms | timing report rejected |
+| Greens present in the signal log but missing from the phase log | any | timing report rejected |
+
+Two things are deliberately *not* rejections. Onset divergence between arms
+running **different** controllers is a design difference, including between
+controllers that share a phase order but not a duration rule; it is reported
+as divergence and never as drift. And missing or non-comparable telemetry —
+no frame-rate series, no window boundaries, series that do not cover the same
+intervals — is reported as **insufficient evidence**, which is neither a pass
+nor a fault.
+
 ## How to run it
 
 ```bash
