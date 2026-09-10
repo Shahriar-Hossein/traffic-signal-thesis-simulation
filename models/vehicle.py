@@ -39,6 +39,7 @@ class Vehicle(pygame.sprite.Sprite):
         self.direction_number = direction_number
         self.direction = direction
 
+        # Wall time, for human-readable timestamps only.
         self.created_at = datetime.now()
         # Run-clock times, so release and crossing sit on one timeline.
         self.released_sec = runclock.elapsed()
@@ -453,12 +454,15 @@ class Vehicle(pygame.sprite.Sprite):
                 self.y -= self.speed
                 moving = True
 
-        # Wait time tracking
-        now = datetime.now()
+        # Wait time tracking, on the shared run clock. It used to accumulate
+        # on the wall clock while releases, crossings and the run duration
+        # were measured monotonically, so a clock adjustment mid-run could
+        # move the primary endpoint without touching any timing telemetry.
+        now = runclock.elapsed()
         if moving:
             # If previously waiting, accumulate waited time
             if self.is_waiting:
-                waited = (now - self.wait_start_time).total_seconds()
+                waited = now - self.wait_start_time
                 self.actual_wait_time += waited
                 self.is_waiting = False
                 self.wait_start_time = None
