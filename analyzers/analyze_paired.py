@@ -309,7 +309,12 @@ def reconcile_summary(name, meta, crossed_times, lateness_sec, drift_tolerance_m
     if (isinstance(windows, list) and windows
             and finite_number(window_sec, positive=True)
             and finite_number(duration, positive=True)):
-        covered = len(windows) * window_sec
+        # A run that recorded its window boundaries knows exactly what it
+        # covered; one that did not is credited with its nominal window
+        # length, which is what the archived runs have.
+        recorded = meta.get('fps_covered_sec')
+        covered = (recorded if finite_number(recorded, positive=True)
+                   else len(windows) * window_sec)
         # Telemetry that covers a fraction of the run cannot speak for the
         # rest of it.
         if covered < FPS_COVERAGE_MIN * duration:

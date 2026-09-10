@@ -201,6 +201,33 @@ class TimingReportTests(unittest.TestCase):
         self.assertFalse(contrast['fps_windows_comparable'])
         self.assertEqual(self.report()['acceptance']['result'], 'insufficient evidence')
 
+    def test_stalls_at_different_moments_are_not_hidden_by_equal_extremes(self):
+        """
+        [30,60,60] and [60,60,30] share a mean and a minimum and slowed at
+        different times. Equal summary values are not equal physics, and the
+        boundaries are what tell them apart.
+        """
+        first = self.write_arm('a', windows=(30, 60, 60))
+        second = self.write_arm('b', windows=(60, 60, 30))
+        report = self.report()
+        contrast = report['contrasts'][0]
+        # The series themselves diverge sample against sample, which the
+        # extremes alone never showed.
+        self.assertEqual(contrast['fps_window_gap_max_pct'], 100.0)
+        self.assertEqual(report['arms'][0]['fps_mean'],
+                         report['arms'][1]['fps_mean'])
+
+        # And where a run recorded when each window actually ran, series that
+        # cover different seconds are not treated as comparable.
+        for folder, offset in ((first, 0.0), (second, 30.0)):
+            meta = json.loads((folder / 'run_meta.json').read_text())
+            meta['fps_window_bounds'] = [[offset + i, offset + i + 1]
+                                         for i in range(3)]
+            (folder / 'run_meta.json').write_text(json.dumps(meta))
+        self.assertFalse(self.report()['contrasts'][0]['fps_windows_comparable'])
+        self.assertEqual(self.report()['acceptance']['result'],
+                         'insufficient evidence')
+
     def test_missing_clearance_is_none_not_an_invented_zero(self):
         self.write_arm('a')
         folder = self.write_arm('b')

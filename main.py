@@ -270,12 +270,18 @@ class FpsTracker:
 
     def __init__(self):
         self.frames_total = 0
-        self._window_started_at = runclock.elapsed()
+        self._started_at = runclock.elapsed()
+        self._window_started_at = self._started_at
         self._window_frames = 0
         # The whole series, not just its extremes: two arms can share a mean
         # and still have run their physics at different rates at the moments
         # that mattered.
         self.windows = []
+        # Each window's actual start and end on the run clock. A window closes
+        # when a rendered frame finally arrives, not on a schedule, so after a
+        # stall two arms' window `k` no longer describe the same seconds.
+        # Comparing sample index alone cannot see that; these boundaries can.
+        self.window_bounds = []
 
     def tick(self):
         self.frames_total += 1
@@ -285,16 +291,27 @@ class FpsTracker:
         elapsed = now - self._window_started_at
         if elapsed >= FPS_SAMPLE_WINDOW_SEC:
             self.windows.append(round(self._window_frames / elapsed, 2))
+            self.window_bounds.append(
+                [round(self._window_started_at, 4), round(now, 4)])
             self._window_started_at = now
             self._window_frames = 0
 
     def stats(self, elapsed):
+        # The run clock starts before the display is up and the final window
+        # is cut off by shutdown, so a run never has telemetry for all of
+        # itself. Reporting what is covered lets an analyzer say how much of
+        # the run its frame-rate evidence actually speaks for.
+        covered = (self.window_bounds[-1][1] - self.window_bounds[0][0]
+                   if self.window_bounds else 0.0)
         return {
             "frames_total": self.frames_total,
             "fps_mean": round(self.frames_total / elapsed, 2) if elapsed else None,
             "fps_min": min(self.windows) if self.windows else None,
             "fps_window_sec": FPS_SAMPLE_WINDOW_SEC,
             "fps_windows": self.windows,
+            "fps_window_bounds": self.window_bounds,
+            "fps_telemetry_start_sec": round(self._started_at, 4),
+            "fps_covered_sec": round(covered, 4),
         }
 
 

@@ -34,6 +34,7 @@ CENSORED = 'censored'
 # fixtures pass.
 ONSET_DRIFT_TOLERANCE_MS = 1000.0
 RELEASE_GAP_TOLERANCE_MS = 500.0
+WINDOW_ALIGNMENT_TOLERANCE_SEC = 2.0
 
 
 def numeric(row, key):
@@ -234,7 +235,8 @@ def compare_timing(baseline, other, plan):
     # window-shape divergence, not an aligned interval comparison.
     windows_aligned = (len(base_windows) == len(other_windows)
                        and base_meta.get('fps_window_sec') == other_meta.get('fps_window_sec')
-                       and bool(common))
+                       and bool(common)
+                       and boundaries_overlap(base_meta, other_meta))
 
     base_clearance = base_meta.get('last_crossing_sec')
     other_clearance = other_meta.get('last_crossing_sec')
@@ -267,6 +269,29 @@ def compare_timing(baseline, other, plan):
             and isinstance(other_clearance, (int, float)) else None
         ),
     }
+
+
+def boundaries_overlap(base_meta, other_meta):
+    """
+    Whether the two window series describe compatible intervals.
+
+    Runs that recorded window boundaries are compared on those; a window
+    closes when a rendered frame arrives, so after a stall the same sample
+    index covers different seconds in the two arms. Runs archived before
+    boundaries were recorded cannot answer this, and are not failed for it —
+    they are simply not evidence about interval alignment.
+    """
+    base = base_meta.get('fps_window_bounds')
+    other = other_meta.get('fps_window_bounds')
+    if not isinstance(base, list) or not isinstance(other, list) or not base or not other:
+        return True
+    for one, two in zip(base, other):
+        try:
+            if abs(one[0] - two[0]) > WINDOW_ALIGNMENT_TOLERANCE_SEC:
+                return False
+        except (TypeError, IndexError):
+            return False
+    return True
 
 
 def acceptance(report):
