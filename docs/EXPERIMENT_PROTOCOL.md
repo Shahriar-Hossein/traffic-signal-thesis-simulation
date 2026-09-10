@@ -57,9 +57,19 @@ Twelve cells. Regimes are placed against **measured** capacity: fixed-24
 cleared 500 vehicles in 248 s on `even_500_seed201`, about 2.0 veh/s through
 the intersection.
 
-Pinning a regime changes only arrival times — the vehicle draws (direction,
-lane, type, turn) are identical across regimes at the same seed, so demand is
-the only thing that varies.
+Pinning a regime changes only arrival times **among the three pinned
+regimes**: at one seed, the low, medium and high cells draw the identical
+sequence of vehicles (direction, lane, type, turn), so demand is the only
+thing that varies between them.
+
+This does **not** extend to the changing-demand cell. A mixed plan draws its
+condition from the same generator as its vehicles — once at the start and
+again at every transition — so it does not share the pinned cells' vehicle
+sequence. At seed 301 with N=500 the two differ in the vehicle at 492 of 500
+positions. A contrast between the changing cell and a pinned cell therefore
+varies the vehicle draws as well as the demand, and must be read that way.
+Small samples conceal this: at seed 5 the two agree for 40 vehicles and first
+diverge at sequence 60.
 
 **Hypothesis, recorded in advance.** The benefit should be largest under
 skewed and changing demand near capacity, where greens sit away from both

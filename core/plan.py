@@ -158,8 +158,15 @@ def build_plan(seed, count, uneven_mode, plan_id=None, condition=None):
 
     `condition` pins one traffic condition for the whole plan instead of
     switching between them. That is what gives a scenario a single demand
-    regime — below capacity, near it, or over it — rather than a mixture of
-    all three. Left None, the condition switches as it always has.
+    regime rather than a mixture of all three. Left None, the condition
+    switches as it always has.
+
+    The vehicle sequence is shared across *pinned* regimes at one seed, so a
+    comparison between the low, medium and high cells varies demand and
+    nothing else. The changing-demand cell does not share that sequence, and a
+    comparison against it varies the vehicle draws too. Fixing that would mean
+    regenerating every existing plan under a different sampling algorithm, so
+    the guarantee is narrowed here rather than the archive rewritten.
 
     Uses a private `random.Random(seed)`; never the global module, so nothing
     else in the process can perturb the sequence.
@@ -183,9 +190,15 @@ def build_plan(seed, count, uneven_mode, plan_id=None, condition=None):
         # Mirrors generator.py: the condition is picked *before* the vehicle
         # draws, so the rng sequence lines up with the live path.
         if condition is None or t - condition_started_at >= trafficConditionInterval:
-            # A pinned condition is chosen once and never drawn, so it costs
-            # no rng draws and cannot shift the vehicle sequence relative to
-            # an unpinned plan of the same seed.
+            # A pinned condition is chosen once and never drawn. That keeps
+            # the vehicle sequence identical across *pinned* regimes, which is
+            # what the scenario grid compares. It does NOT line the sequence
+            # up with an unpinned plan of the same seed: a mixed plan spends a
+            # draw here on its first vehicle and on every transition, and one
+            # skipped draw shifts everything after it. At seed 301, N=500,
+            # pinned and mixed differ in the vehicle at 492 of 500 positions.
+            # Small fixtures can hide this — seed 5 agrees for 40 vehicles and
+            # first differs at seq 60.
             condition = pinned or pick_traffic_condition(condition, rng)
             condition_started_at = t
             timeline.append({
@@ -213,7 +226,9 @@ def build_plan(seed, count, uneven_mode, plan_id=None, condition=None):
         t += 1 / trafficConditions[condition]
 
     header = {
-        'plan_id': plan_id or default_plan_id(uneven_mode, count, seed),
+        # The pin belongs in the default identity: two plans that differ only
+        # in demand regime are different plans and must not share a folder.
+        'plan_id': plan_id or default_plan_id(uneven_mode, count, seed, pinned),
         'seed': seed,
         'target_vehicle_count': count,
         'uneven_mode': uneven_mode,
@@ -286,6 +301,12 @@ def load_plan(path):
     if 'uneven_mode' not in header or (header['uneven_mode'] is not None
                                        and not isinstance(header['uneven_mode'], str)):
         raise ValueError(f"Plan {path}: missing or invalid uneven_mode.")
+    # The same validator the builder uses, so a schema that promises supported
+    # skews cannot accept a name the sampler would refuse.
+    try:
+        direction_weights(header['uneven_mode'])
+    except ValueError as error:
+        raise ValueError(f"Plan {path}: {error}") from None
     # Absent means unpinned: plans written before this field existed encode
     # "switches conditions" by omission. Retrofitting the key would change
     # their content hash and so break the archive it is meant to protect.
@@ -312,10 +333,13 @@ def load_plan(path):
         raise ValueError(f"Plan {path}: condition timeline must start at zero.")
     pinned = header.get('pinned_condition')
     if pinned is not None:
-        if pinned not in rates:
-            raise ValueError(f"Plan {path}: unknown pinned_condition {pinned!r}.")
+        # Type before membership: an unhashable pin reached `in rates` and
+        # raised TypeError, which the CLI does not catch, instead of the
+        # ValueError every other malformed field produces.
         if not isinstance(pinned, str):
             raise ValueError(f"Plan {path}: invalid pinned_condition.")
+        if pinned not in rates:
+            raise ValueError(f"Plan {path}: unknown pinned_condition {pinned!r}.")
         if any(event['condition'] != pinned for event in timeline):
             raise ValueError(f"Plan {path}: timeline contradicts pinned_condition.")
 
@@ -359,7 +383,32 @@ def load_plan(path):
             raise ValueError(f"Plan {path}: inconsistent turn at seq {seq}.")
     if not isinstance(header.get('plan_id'), str) or not header['plan_id']:
         raise ValueError(f"Plan {path}: missing plan_id.")
+
+    # The replay uses each vehicle's own `condition`, not the timeline, so a
+    # vehicle whose label disagrees with the regime in force at its arrival is
+    # replayed under a demand it was not drawn for. Checking the label against
+    # the rate table alone accepted that: a high-pinned plan whose first
+    # vehicle said `low` passed, hash and all.
+    for record in plan['vehicles']:
+        active = active_condition(timeline, record['t_offset_sec'])
+        if record['condition'] != active:
+            raise ValueError(
+                f"Plan {path}: vehicle {record['seq']} is labelled "
+                f"{record['condition']!r} but the timeline has {active!r} in "
+                f"force at {record['t_offset_sec']}s."
+            )
     return plan
+
+
+def active_condition(timeline, offset):
+    """The condition the timeline puts in force at `offset`."""
+    condition = None
+    for event in timeline:
+        if event['t_offset_sec'] <= offset:
+            condition = event['condition']
+        else:
+            break
+    return condition
 
 
 def check_plan_against_config(plan):
