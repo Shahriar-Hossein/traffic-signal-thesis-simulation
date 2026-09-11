@@ -19,6 +19,7 @@ import importlib
 # the proposed controller changes against fixed-24.
 REGISTRY = {
     'fixed': ('core.cycle_fixed', 'fixed_traffic_cycle'),
+    'fixed_tuned': ('core.cycle_tuned_fixed', 'fixed_tuned_traffic_cycle'),
     'priority': ('core.cycle_priority', 'control_traffic_cycle'),
     'fairness_priority': ('core.cycle_fairness_priority',
                           'fairness_control_traffic_cycle'),
@@ -26,6 +27,7 @@ REGISTRY = {
                                       'fixed_order_adaptive_duration_cycle'),
     'adaptive_order_fixed_duration': ('core.cycle_ablation',
                                       'adaptive_order_fixed_duration_cycle'),
+    'actuated': ('core.cycle_actuated', 'actuated_traffic_cycle'),
 }
 
 NAMES = tuple(REGISTRY)

@@ -19,7 +19,9 @@ DURATION_RULES = {
     'fairness_priority': (0.67, 6, 18),
     'fixed_order_adaptive_duration': (0.75, 6, 24),
     'fixed': None,
+    'fixed_tuned': None,
     'adaptive_order_fixed_duration': None,
+    'actuated': None,
 }
 
 # Recorded duration bounds per controller, for reports that ask how often a
@@ -29,8 +31,19 @@ GREEN_BOUNDS = {
     'fairness_priority': (6, 18),
     'fixed_order_adaptive_duration': (6, 24),
     'fixed': None,
+    'fixed_tuned': None,
     'adaptive_order_fixed_duration': None,
+    # This controller selects a 24-second ceiling and may end it only through
+    # the detector rule below; these are its actual possible green bounds.
+    'actuated': (6, 24),
 }
+
+# Simple-actuated comparator settings.  They live beside the other controller
+# rules, without importing mutable simulator configuration, so the source
+# provenance fingerprint records the exact comparator definition.
+ACTUATED_MIN_GREEN = 6
+ACTUATED_MAX_GREEN = 24
+ACTUATED_GAP_OUT_SEC = 2
 
 
 def adaptive_green(weight, per_vehicle_sec, minimum, maximum):
