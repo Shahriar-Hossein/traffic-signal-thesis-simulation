@@ -1,5 +1,16 @@
 # Publication readiness — start here next session
 
+**Current scope update — 11 September 2026:** supervisor-ready, venue-neutral
+conference paper within September, studying scheduling inside this simplified
+simulator. Real-road calibration and cross-machine generalization are not
+claimed. Use [the current checkpoint](CODEX_WORKING_STATE.md),
+[updated protocol](EXPERIMENT_PROTOCOL.md), and [paper draft](paper/manuscript.md)
+for live status; the detailed measurements below are historical development
+findings, not fresh final evidence. New safeguards and both competitive-controller
+implementations are present. Fixed timing still requires development selection;
+final experiments and paper figures remain pending.
+
+
 **Reviewed: 10 September 2026.** Basis: current source, README, all five existing Markdown documents, the [current thesis PDF](Thesis_Report_5-9-26_update.pdf), and the pasted progress review. Historical code was checked for context. `data/` was excluded; historical numbers below are documented findings, not newly verified results.
 
 **Verdict:** the project has moved from a demonstration toward a controlled experiment. The core controller and paired-replay infrastructure exist. It is **not yet ready for definitive result collection or a conference submission**: measurement integrity, model credibility, and the experimental design still need work. This is several substantive work stages away, not just a plotting exercise; a reliable calendar estimate needs the first validation runs.

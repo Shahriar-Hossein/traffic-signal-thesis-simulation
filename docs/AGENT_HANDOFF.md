@@ -791,3 +791,28 @@ is superseded for the quantities they touch:
 Everything else is reanalysis from preserved rows. No raw archive was rewritten
 to make anything pass, and the corrected derived artifacts carry
 `analysis.schema_version: 2` so they cannot be confused with the earlier ones.
+
+## Codex continuation — 11 September 2026
+
+The user authorized implementation and lower-cost delegation. Their target is
+a supervisor-ready conference paper within September, followed by venue
+selection. They chose a reproducible scheduling study in the simplified model;
+real-road calibration and packet-level VANET claims are outside that scope.
+
+See `CODEX_WORKING_STATE.md` for the live checkpoint and
+`PUBLICATION_REVIEW_2026-09-10.md` for the reproduced remaining review failures.
+The updated implementation uses analysis schema 3 and adds interval FPS gating,
+publication eligibility, replicate identity, an arrival contract, runtime
+provenance, driver failure persistence, both comparator implementations and
+per-lane phase snapshots. The integrated suite reached 177 tests with one
+clean-Git-only check skipped. Subsequent work/tests remain in the checkpoint.
+
+Fresh N=20 development validation is archived separately under `results/` with
+source snapshots. The first attempt was rejected and preserved: final FPS
+accounting included a sleep after the last frame, biasing a short partial window.
+The revised tracker ends telemetry at the last observed frame; it does not
+relax the 5% threshold. This is development validation, not final evidence.
+
+The manuscript, supervisor checklist and delivery schedule are in `docs/paper/`.
+Final results remain pending. Do not confuse executable fixed-plan support with
+completed tuning, or a methods draft with a supervisor-ready submission.

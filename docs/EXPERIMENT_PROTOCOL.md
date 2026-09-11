@@ -1,10 +1,12 @@
 # Experiment protocol
 
-**Status: draft, not yet frozen.** Two prerequisites remain open — the traffic
-model is not calibrated (see [publication readiness](PUBLICATION_READINESS.md)),
-and no actuated comparator exists. This document is written before the
-evaluation runs so that the design can be read in a diff rather than
-reconstructed from whatever was eventually reported.
+**Status: implementation and development validation; not yet frozen.** Updated
+11 September 2026. The user selected a reproducible scheduling study within
+this simplified simulator, with a supervisor-ready paper due within September.
+Venue selection follows supervisor review. We do not claim calibrated traffic
+capacity, real-road efficiency, cross-machine generalization or packet-level
+VANET performance. Internal measurement validation and development-only fixed
+baseline tuning remain prerequisites for final collection.
 
 ## What is being tested
 
@@ -23,25 +25,37 @@ separate those.
 | `priority` | largest queue first, recounted each phase | `max(6, min(int(0.75·W), 24))` | the proposal |
 | `fixed_order_adaptive_duration` | fixed rotation | as `priority` | isolates duration |
 | `adaptive_order_fixed_duration` | as `priority` | 24 s | isolates ordering |
+| `actuated` | fixed rotation | 6–24 s, 2 s sampled detector gap-out | simple responsive comparator |
+| `fixed_tuned` | fixed rotation | scenario-specific per-approach constants | development-selected comparator |
 
 `W` is the weighted count of uncrossed vehicles on the approach,
 `sum(1 / configured_vehicle_speed)` across its three lanes. Green is computed
 once at onset and held.
 
-Yellow is 5 s and phasing is single-approach for every arm, so clearance is
-constant across arms and cannot explain a difference.
+Yellow is 5 s per phase and phasing is single-approach for every arm.
+Total yellow time can differ when policies complete different numbers of phases;
+report that overhead rather than claiming total clearance time is constant.
 
 `fairness_priority` is **not** an arm: it changes the duration coefficient, the
 upper bound and adds early termination all at once, so it isolates nothing. It
 stays available as an exploratory controller.
 
-Two gaps, stated rather than hidden:
+The actuated comparator samples a 100 px upstream stop-line zone once per
+controller second. It keeps the 6 s minimum, grants at most 24 s, and ends
+when two sampled elapsed seconds have no detected presence. It serves even
+empty approaches in rotation. These are explicit model settings, not calibrated
+field detector parameters. The presence test uses the leading vehicle edge.
 
-- **No tuned fixed baseline.** Fixed-24 is a diagnostic, not a competitive
-  control. A fixed plan with tuned splits, tuned on development seeds only,
-  is still to be added.
-- **No actuated comparator.** Comparing only against fixed timing overstates
-  what any queue-responsive rule contributes.
+`fixed_tuned` requires an explicit validated timing table; no missing-cell
+fallback exists. Support is implemented, but a table is not called tuned until
+development selection completes. The planned candidate set is uniform 12 s,
+uniform 24 s and 96 s of total green distributed by directional demand with
+6–60 s approach bounds. Selection uses development seeds 301/302 in every
+cell and the lowest mean stopped delay; all candidates must have complete valid
+coverage. Equal scores follow the predeclared candidate order. The selected
+entire table is supplied to all evaluation arms so their configuration
+fingerprints remain comparable. This is a bounded search, not globally optimal
+fixed timing. Selection and its evidence are archived before evaluation.
 
 ## Scenarios
 
@@ -93,6 +107,7 @@ of the grid deliberately.
 ## Seeds
 
 - **Development seeds** (301–308): free to inspect, tune against and rerun.
+  Earlier inspected seeds 201 and 401/402 are also development-only.
 - **Evaluation seeds** (9001–9020): reserved. Run once, after this protocol is
   frozen, and never tuned against.
 
@@ -128,7 +143,7 @@ independent corroboration and not a capacity estimate.
 | Worst-served approach mean, and the gap between best and worst | safeguard against starving an approach |
 | Clearance time (last crossing) | reported separately |
 | Entry-to-stop-line travel time | reported alongside delay, because spawn distance depends on the queue ahead |
-| Green-duration distribution, bound frequency, utilisation | mechanism |
+| Green-duration distribution, bound frequency, discharge span and lane snapshots | mechanism proxies; no utilisation/capacity claim |
 
 ## Inference
 
@@ -176,7 +191,7 @@ per stratum; the overall figure is descriptive.
 
 ### Timing acceptance thresholds
 
-These are the values collection runs under. They are **provisional** — agreed
+These are provisional development acceptance settings, to be frozen before evaluation. They are **provisional** — agreed
 here in advance so they cannot be chosen after seeing results, not measured.
 Revisit them once §9.5 of [PAIRED_REPLAY_PLAN.md](PAIRED_REPLAY_PLAN.md) has
 been measured on a second machine.
@@ -184,8 +199,10 @@ been measured on a second machine.
 | Quantity | Threshold | Disposition when breached |
 | --- | --- | --- |
 | Frame-rate spread across arms (mean, worst window) | 5% | pair invalid |
+| FPS difference on overlapping elapsed intervals, relative to baseline | 5% | pair invalid |
 | Worst release lateness, per arm | 250 ms recorded, +100 ms for the vehicle construction that follows the measurement | pair invalid |
-| Frame-rate telemetry coverage of the run | ≥ 95% | pair invalid |
+| Frame-rate telemetry coverage of each run and common horizon | ≥ 95% | pair invalid or insufficient evidence |
+| Completed green overrun beyond granted duration | ≤ 1000 ms (one controller tick) | timing rejected |
 | Phase onset drift, two arms of the **same** controller | 1000 ms | timing report rejected |
 | Release gap between arms, same vehicle | 500 ms | timing report rejected |
 | Greens present in the signal log but missing from the phase log | any | timing report rejected |
@@ -195,8 +212,8 @@ running **different** controllers is a design difference, including between
 controllers that share a phase order but not a duration rule; it is reported
 as divergence and never as drift. And missing or non-comparable telemetry —
 no frame-rate series, no window boundaries, series that do not cover the same
-intervals — is reported as **insufficient evidence**, which is neither a pass
-nor a fault.
+intervals — is reported as **insufficient evidence**, which does not authorize a publication estimate. Both rejection and
+insufficient evidence make the pair ineligible, and the driver exits nonzero.
 
 ## How to run it
 
@@ -235,3 +252,30 @@ plan.
 Results are exported out of the gitignored `data/` tree with
 [`scripts/export_results.py`](../scripts/export_results.py), which records the
 plans, raw logs, derived analyses, code revision and the commands used.
+
+## Implementation contract, 11 September 2026
+
+Analysis schema 3 separates raw measurement validity, timing acceptance and
+publication eligibility. Only eligible pairs enter batch estimates. Runtime
+identity is captured at simulator startup and must agree across arms; later
+export dependencies cannot substitute for it. Interval coverage is derived from
+recorded start/end boundaries, including the final partial FPS window. The
+comparison uses the common elapsed horizon when arms finish at different times;
+it does not demand the same number of samples. Resolution remains window-level,
+not a proof that sub-window physics was identical.
+
+The driver persists process failures bound to plan identity. Reanalysis cannot
+promote such a failure to success from complete-looking logs. Renamed plans and
+same-seed reruns do not become independent replicates. Cross-scenario summaries
+have no pooled confidence intervals. Explicit output roots and selected plan
+IDs keep unrelated historical folders out of collection batches.
+
+Phase CSVs include lane-level uncrossed, stopped and detector-zone counts at
+green onset/end, with sample times. Yellow-time shutdown retains the observed
+green end; green-time shutdown records a censored snapshot. These snapshots do
+not observe continuous queue occupancy or establish saturation flow.
+
+Final replication count is still to be frozen from development precision and
+available runtime. The initial planning target is 13 independent plans per cell
+(seeds 9001–9013), not an assurance of ±3 s precision for every contrast. No
+held-out seed has been used in this implementation/validation stage.
