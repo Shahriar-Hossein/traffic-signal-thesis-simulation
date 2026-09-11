@@ -1,0 +1,949 @@
+{
+  "run_mode": "vehicles",
+  "controller": "fixed",
+  "uneven_mode": "even",
+  "vehicle_log": "fixed_a_pairlog_20_20260911_111931.csv",
+  "signal_log": "fixed_a_pairlog_20_20260911_111931_signal.csv",
+  "phase_log": "fixed_a_pairlog_20_20260911_111931_phases.csv",
+  "provenance_version": 1,
+  "configuration": {
+    "defaultGreen": {
+      "0": 24,
+      "1": 24,
+      "2": 24,
+      "3": 24
+    },
+    "defaultRed": 150,
+    "defaultYellow": 5,
+    "speeds": {
+      "car": 2.0,
+      "bus": 1.75,
+      "truck": 1.5,
+      "bike": 2.25
+    },
+    "vehicleTypes": {
+      "0": "car",
+      "1": "bus",
+      "2": "truck",
+      "3": "bike"
+    },
+    "directionNumbers": {
+      "0": "right",
+      "1": "down",
+      "2": "left",
+      "3": "up"
+    },
+    "x": {
+      "right": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "down": [
+        560,
+        610,
+        660,
+        560
+      ],
+      "left": [
+        1008,
+        1008,
+        1008,
+        1008
+      ],
+      "up": [
+        348,
+        392,
+        448,
+        450
+      ]
+    },
+    "y": {
+      "right": [
+        310,
+        360,
+        410,
+        416
+      ],
+      "down": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "left": [
+        510,
+        558,
+        605,
+        560
+      ],
+      "up": [
+        1000,
+        1000,
+        1000,
+        1000
+      ]
+    },
+    "stopLines": {
+      "right": 240,
+      "down": 240,
+      "left": 780,
+      "up": 750
+    },
+    "defaultStop": {
+      "right": 230,
+      "down": 230,
+      "left": 790,
+      "up": 760
+    },
+    "signalCoods": [
+      [
+        200,
+        210
+      ],
+      [
+        720,
+        155
+      ],
+      [
+        790,
+        710
+      ],
+      [
+        270,
+        770
+      ]
+    ],
+    "signalTimerCoods": [
+      [
+        205,
+        190
+      ],
+      [
+        725,
+        135
+      ],
+      [
+        795,
+        690
+      ],
+      [
+        275,
+        750
+      ]
+    ],
+    "vehicleCountCoods": [
+      [
+        110,
+        270
+      ],
+      [
+        760,
+        210
+      ],
+      [
+        830,
+        770
+      ],
+      [
+        180,
+        830
+      ]
+    ],
+    "stoppingGap": 15,
+    "movingGap": 15,
+    "noOfSignals": 4,
+    "black": [
+      0,
+      0,
+      0
+    ],
+    "white": [
+      255,
+      255,
+      255
+    ],
+    "screenWidth": 1008,
+    "screenHeight": 1000,
+    "screenSize": [
+      1008,
+      1000
+    ],
+    "turnDirections": {
+      "right": {
+        "0": "up",
+        "1": "right",
+        "2": "down"
+      },
+      "down": {
+        "0": "left",
+        "1": "down",
+        "2": "right"
+      },
+      "left": {
+        "0": "up",
+        "1": "left",
+        "2": "down"
+      },
+      "up": {
+        "0": "left",
+        "1": "up",
+        "2": "right"
+      }
+    },
+    "turnProbability": 0.5,
+    "turnTriggerOffset": {
+      "right": {
+        "left_turn": {
+          "0": 40,
+          "1": 60,
+          "2": 80
+        },
+        "right_turn": {
+          "0": 240,
+          "1": 260,
+          "2": 280
+        }
+      },
+      "down": {
+        "left_turn": {
+          "0": 40,
+          "1": 60,
+          "2": 80
+        },
+        "right_turn": {
+          "0": 240,
+          "1": 260,
+          "2": 280
+        }
+      },
+      "left": {
+        "left_turn": {
+          "0": 60,
+          "1": 80,
+          "2": 90
+        },
+        "right_turn": {
+          "0": 270,
+          "1": 290,
+          "2": 310
+        }
+      },
+      "up": {
+        "left_turn": {
+          "0": 40,
+          "1": 60,
+          "2": 80
+        },
+        "right_turn": {
+          "0": 270,
+          "1": 290,
+          "2": 310
+        }
+      }
+    },
+    "turnFrames": {
+      "right": {
+        "right_turn": {
+          "0": 30,
+          "1": 35,
+          "2": 40
+        },
+        "left_turn": {
+          "0": 50,
+          "1": 55,
+          "2": 60
+        }
+      },
+      "down": {
+        "right_turn": {
+          "0": 30,
+          "1": 35,
+          "2": 40
+        },
+        "left_turn": {
+          "0": 50,
+          "1": 55,
+          "2": 60
+        }
+      },
+      "left": {
+        "right_turn": {
+          "0": 30,
+          "1": 35,
+          "2": 40
+        },
+        "left_turn": {
+          "0": 50,
+          "1": 55,
+          "2": 60
+        }
+      },
+      "up": {
+        "right_turn": {
+          "0": 30,
+          "1": 35,
+          "2": 40
+        },
+        "left_turn": {
+          "0": 50,
+          "1": 55,
+          "2": 60
+        }
+      }
+    },
+    "trafficConditions": {
+      "high": 4,
+      "medium": 2,
+      "low": 0.5
+    },
+    "trafficConditionInterval": 120,
+    "fixed_timing_plan": {
+      "schema_version": 1,
+      "development_seeds": [
+        301
+      ],
+      "selection_method": "validation-only hand-specified split; NOT a tuned baseline",
+      "scenarios": {
+        "even_high_20": [
+          12,
+          12,
+          12,
+          12
+        ]
+      }
+    },
+    "count_mode_timeout": 300
+  },
+  "configuration_hash": "3bbb98fd8a764eda5760c5de02b79bb923e6489e03b30a4af06f377011be6ebd",
+  "source_files": {
+    "config.py": "5beed6208a577ce2be2104261133f546f629b534f77ec6a3c08ef5d7ee2d5703",
+    "core/controllers.py": "5d696182bed6d3951ac888986eb8d6639c1c667adc1e3bd8163d094c2f61f52f",
+    "core/cycle_ablation.py": "29aa018ea7b1c1b982875dd8fabe7b85aa2e0163e0ea1065f03984702bd5124e",
+    "core/cycle_actuated.py": "cbf3a2d08026881170e700fc195c047cdbfde0438997d89326ec374d16cbf2d3",
+    "core/cycle_fairness_priority.py": "9b03185f5631d7131f89a00834f7c0f63db2a6a1e627cb2d242aec05e5cb4a1e",
+    "core/cycle_fixed.py": "69ed35e04436dce7b2cde5c65de6bdf374c39577360da69516debf25818280da",
+    "core/cycle_priority copy.py": "415ef45e855375046116a4a70bc7cce0a5984fbd06771719c14bd7f030bd8cdb",
+    "core/cycle_priority.py": "2195ff8bd01e55f32a3a469defaa5c55bb961cd9ec3742a863df7a476137cee9",
+    "core/cycle_tuned_fixed.py": "0b12cdd6dd129d55000d3cda953e91641a1bc55e2470c280cbcd1df25ba844c6",
+    "core/detectors.py": "50d93223f34d7c6fd7087a282b6885bb731c4af93336ad9b38be79bb69ab5ddc",
+    "core/fixed_timing.py": "eccb69efa8484e2d55b3cd75bb9bbd51a7d743798ffc252b0c7682dc67a5e75f",
+    "core/generator.py": "0123a297803267568cb406427fd86b30980b1cc66b10ff8f27fed7c221f64353",
+    "core/initializer.py": "627087391c09f4a8521b168da7b82fffbc237d486f9a4525be52f82a42be5b86",
+    "core/observations.py": "cc3ef1b4f261b0873ea818274c668209c0373b8a71ad03c3c234282ea077f156",
+    "core/phase.py": "1f072cc8fe13f994870a3baecc1c8631603a446ad9fcb62df326e4ddbc388356",
+    "core/plan.py": "0c70e9ee0ec1792c9d11323cdbea5be67373b98d51e990599d5a750c60d3be01",
+    "core/policy.py": "7c9474c00c4e781afb91d2941d6b9c9968feba0b65409b624c0b981688fb232b",
+    "core/provenance.py": "380c23a1c14d88064c0a7454ae0a72a12b50aef93c7c94da91ce729b087a1841",
+    "core/runclock.py": "38ea7bfea1c0ef0d81d0c8fe316d96f863f0cd2e77634ed6005393bcf6ddedfb",
+    "core/updater.py": "88b6a5f277b77a56f922c31f853473dc07bd986be4f7f312694694ccbe1262cf",
+    "images/buildings/appartment_building.png": "0ede6355e318c833f279d53f2d7756f5ae1860c59b54cbb9c40c5118c38fa0af",
+    "images/buildings/cafe_building.png": "88b6d151dcd11135100331bd1079360f3a243b5cb4782732bff094f6291d230c",
+    "images/buildings/commercial_building.png": "59fd1c8bfcf443ba19036114aa5b3af97f79409a37ece2c224c815878ec0be19",
+    "images/buildings/mall_building.png": "d214d0c2dea96163f63fe7b7a7fc4e20911e48dc0f17c8e03803c08fd662a31a",
+    "images/city_intersection.png": "dd01ce560b4f560f8466355ca8d9b1752c300085b7051ff3297c652580fd5741",
+    "images/down/bike.png": "57afb2c95414a1bcaf2fae5c73fcf21f3127ca0c1fb35eb42fc610cfa61f0504",
+    "images/down/bus.png": "df109c06fe2a76874452d671b0f158fedf4f732a0f18d08faa1e3e0355da3f59",
+    "images/down/car.png": "f7f8946234c99d6a8e0ea3e73114d99dae5aefcb60aeb2b818232a8d71be3470",
+    "images/down/truck.png": "7dd058fdffd1a4e1e62d9b4e390fb0e3c45713c6b348a008388362e3be2358ad",
+    "images/intersection.png": "34c28bcac2df4ca409ecc638eacf88b7cd4cbc9d29bf9982d2a5188a5b189d65",
+    "images/left/bike.png": "6ce02096c3e9bb9498af0d7a53be7725a3dfb7aaa58108f98c80e4d8825267f6",
+    "images/left/bus.png": "efa6a69f116a0575e8ac462a623aac0a518535c9784309489bf06597c67d1bcb",
+    "images/left/car.png": "be55414cdd38514d74fb92315b44e52b63a2a3cfb0707ac7c52700b9c8ab76cd",
+    "images/left/truck.png": "a73f2077a777cc8f30710b2ee0a1fcaa84ee6bade56fcb39dacf814fbfe1a922",
+    "images/right/bike.png": "8e82c1ced25422068d0f7004aeed270a164e2c40a4e5e2c6f2e8c4ae916a3efc",
+    "images/right/bus.png": "6ae71d5f87fb763bbd5a68ea19c37e2e7f422e1554757eaa1170b3d18074337b",
+    "images/right/car.png": "c53d2d6a3c46b9f391ce6baf04a3c6cc81e9350126503cf426a24b8a4cf8ee19",
+    "images/right/truck.png": "6c63a6fb0326be2048cbd5848fef53aaabb0d474da14c2918320e1ef7406171d",
+    "images/signals/green.png": "a312a1c8dc5309f0c1bc84a8d6115cd497b7f5e769b124099f70b3bf1e3a1d26",
+    "images/signals/red.png": "93c18212e491a154d70502e500dac026cdf5ee9aa1c18f2eb53333ef7e251581",
+    "images/signals/yellow.png": "54e121e12d4bc3186f5d32b63af9304bc4220173b8527a6505679aa6dd2a4d81",
+    "images/simulation-output.png": "062ec4ac0710d709225a4c1bfceb204e58405bc2aca97d629a63906d594e63b9",
+    "images/summary_chart.png": "54ecfbac50ebd46d5e627a46652aa23c8fe56dc7ea012cc3ace6fbcec86ce134",
+    "images/up/bike.png": "f2764fee24fc27a1f413932569eb858bdb84f1bf961dd3073762f45837f8e324",
+    "images/up/bus.png": "aa49d213c607aeef08605592067a21faf2cc98eae559bfd533f0dc9473081d3b",
+    "images/up/car.png": "d40bfbb94c464a9f69f6f8e71a2cb9938be22c8715cb8cfa66fc72dc47927999",
+    "images/up/truck.png": "ea1c494b7080c082967a88bdf3c4ba49760168c9a32766e0d54d2f01d7430ca9",
+    "main.py": "65eb69269a7dac3802aa739edfd9a073b21c52d23049687b327a8b91d69ff674",
+    "models/traffic_signal.py": "fef219b774b8799ce6f81b4169218f6557b364d88da280c638f04e3e5572dfc0",
+    "models/vehicle.py": "dd3c130ef19ef5474ae60991c7344d61060b7997e7a419d4cab098c236dbaf17",
+    "state.py": "7dff3a76c5a531fe195119f3226efbb4c8c64f0b8e5da762cdd5dfafc67de29b",
+    "utils/counters.py": "2eb35f3bed725ab9fbe3762d04d15853b9269807deea2eab7e0ac0d42788d63b",
+    "utils/draw.py": "efeb09323e4b1575a0a3442c0031a1f0395343d6371daaa8480fa00eb7a6496e",
+    "utils/logger.py": "020ed1cca49bc08b55758730daa7942235b3be6fe7e013020828340caba04380"
+  },
+  "source_hash": "396616e6552e3c645887e566f6a77e4ecdaf2afd0fdd0149171cf26fc0d5a60a",
+  "runtime": {
+    "python_implementation": "CPython",
+    "python_version": "3.12.3",
+    "pygame_version": "2.5.2",
+    "os": "Linux",
+    "os_release": "7.0.0-31-generic",
+    "platform": "Linux-7.0.0-31-generic-x86_64-with-glibc2.39",
+    "machine": "x86_64",
+    "sdl_video_driver": "dummy",
+    "executable": "/usr/bin/python3",
+    "argv": [
+      "/home/shahriar/projects/traffic-signal/main.py",
+      "--plan",
+      "/home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11/runs/even_high_20_seed301/plan.json",
+      "--controller",
+      "fixed",
+      "--pair-id",
+      "even_high_20_seed301",
+      "--arm",
+      "fixed_a",
+      "--paired-root",
+      "/home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11/runs",
+      "--timeout",
+      "300",
+      "--fixed-timing-plan",
+      "/home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11/validation_timing.json"
+    ]
+  },
+  "runtime_identity": {
+    "python_implementation": "CPython",
+    "python_version": "3.12.3",
+    "pygame_version": "2.5.2",
+    "os": "Linux",
+    "os_release": "7.0.0-31-generic",
+    "platform": "Linux-7.0.0-31-generic-x86_64-with-glibc2.39",
+    "machine": "x86_64",
+    "sdl_video_driver": "dummy"
+  },
+  "runtime_identity_hash": "fed46849562272fd063d82f77c278f3a5471e69784c933865bc48c8eb289671a",
+  "plan_hash": "473bf5a2c1843db2",
+  "generation_source": "plan",
+  "plan_id": "even_high_20_seed301",
+  "plan_path": "/home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11/runs/even_high_20_seed301/plan.json",
+  "arm": "fixed_a",
+  "vehicles_planned": 20,
+  "vehicles_released": 20,
+  "release_drift_mean_ms": 0.12,
+  "release_drift_max_ms": 0.79,
+  "target_vehicle_count": 20,
+  "vehicles_generated": 20,
+  "vehicles_crossed": 20,
+  "duration_sec": 101.92,
+  "last_crossing_sec": 100.395,
+  "stop_reason": "target_reached",
+  "final_phase_censored": true,
+  "started_at": "2026-09-11 11:19:31",
+  "ended_at": "2026-09-11 11:21:13",
+  "frames_total": 6341,
+  "fps_mean": 62.22,
+  "fps_min": 60.89,
+  "fps_window_sec": 1.0,
+  "fps_windows": [
+    64.0,
+    62.25,
+    62.29,
+    62.2,
+    62.44,
+    62.06,
+    62.23,
+    62.14,
+    62.14,
+    62.17,
+    62.05,
+    62.5,
+    62.41,
+    62.12,
+    62.27,
+    62.09,
+    62.21,
+    61.98,
+    62.13,
+    62.1,
+    62.07,
+    61.99,
+    62.29,
+    62.33,
+    62.06,
+    62.34,
+    62.32,
+    62.29,
+    62.31,
+    62.17,
+    62.18,
+    62.36,
+    62.35,
+    62.33,
+    62.12,
+    62.35,
+    62.29,
+    62.21,
+    62.23,
+    62.23,
+    62.1,
+    62.12,
+    62.16,
+    62.28,
+    62.33,
+    62.25,
+    62.25,
+    62.42,
+    62.2,
+    62.26,
+    62.14,
+    62.2,
+    61.99,
+    62.38,
+    62.42,
+    62.2,
+    62.32,
+    62.37,
+    62.43,
+    62.0,
+    62.27,
+    62.07,
+    62.38,
+    62.38,
+    62.09,
+    62.36,
+    62.09,
+    62.23,
+    62.37,
+    62.18,
+    62.37,
+    62.09,
+    62.25,
+    62.21,
+    62.49,
+    62.07,
+    62.12,
+    62.41,
+    62.27,
+    62.27,
+    62.06,
+    62.26,
+    62.24,
+    62.06,
+    62.26,
+    62.33,
+    62.15,
+    62.0,
+    62.09,
+    62.37,
+    62.32,
+    62.19,
+    62.17,
+    62.24,
+    62.18,
+    62.21,
+    62.08,
+    62.15,
+    62.31,
+    62.39,
+    60.89
+  ],
+  "fps_window_bounds": [
+    [
+      0.0304,
+      1.0304
+    ],
+    [
+      1.0304,
+      2.0425
+    ],
+    [
+      2.0425,
+      3.0538
+    ],
+    [
+      3.0538,
+      4.0667
+    ],
+    [
+      4.0667,
+      5.0756
+    ],
+    [
+      5.0756,
+      6.0907
+    ],
+    [
+      6.0907,
+      7.103
+    ],
+    [
+      7.103,
+      8.117
+    ],
+    [
+      8.117,
+      9.1308
+    ],
+    [
+      9.1308,
+      10.1442
+    ],
+    [
+      10.1442,
+      11.1595
+    ],
+    [
+      11.1595,
+      12.1675
+    ],
+    [
+      12.1675,
+      13.1769
+    ],
+    [
+      13.1769,
+      14.191
+    ],
+    [
+      14.191,
+      15.2027
+    ],
+    [
+      15.2027,
+      16.2174
+    ],
+    [
+      16.2174,
+      17.2301
+    ],
+    [
+      17.2301,
+      18.2304
+    ],
+    [
+      18.2304,
+      19.2445
+    ],
+    [
+      19.2445,
+      20.259
+    ],
+    [
+      20.259,
+      21.2739
+    ],
+    [
+      21.2739,
+      22.2741
+    ],
+    [
+      22.2741,
+      23.2855
+    ],
+    [
+      23.2855,
+      24.2962
+    ],
+    [
+      24.2962,
+      25.3114
+    ],
+    [
+      25.3114,
+      26.322
+    ],
+    [
+      26.322,
+      27.3329
+    ],
+    [
+      27.3329,
+      28.3442
+    ],
+    [
+      28.3442,
+      29.3553
+    ],
+    [
+      29.3553,
+      30.3687
+    ],
+    [
+      30.3687,
+      31.3819
+    ],
+    [
+      31.3819,
+      32.3921
+    ],
+    [
+      32.3921,
+      33.4025
+    ],
+    [
+      33.4025,
+      34.4132
+    ],
+    [
+      34.4132,
+      35.4273
+    ],
+    [
+      35.4273,
+      36.4377
+    ],
+    [
+      36.4377,
+      37.449
+    ],
+    [
+      37.449,
+      38.4618
+    ],
+    [
+      38.4618,
+      39.4741
+    ],
+    [
+      39.4741,
+      40.4865
+    ],
+    [
+      40.4865,
+      41.501
+    ],
+    [
+      41.501,
+      42.5152
+    ],
+    [
+      42.5152,
+      43.5287
+    ],
+    [
+      43.5287,
+      44.5403
+    ],
+    [
+      44.5403,
+      45.551
+    ],
+    [
+      45.551,
+      46.563
+    ],
+    [
+      46.563,
+      47.575
+    ],
+    [
+      47.575,
+      48.5843
+    ],
+    [
+      48.5843,
+      49.5972
+    ],
+    [
+      49.5972,
+      50.609
+    ],
+    [
+      50.609,
+      51.6229
+    ],
+    [
+      51.6229,
+      52.6357
+    ],
+    [
+      52.6357,
+      53.6359
+    ],
+    [
+      53.6359,
+      54.6458
+    ],
+    [
+      54.6458,
+      55.6551
+    ],
+    [
+      55.6551,
+      56.6679
+    ],
+    [
+      56.6679,
+      57.6787
+    ],
+    [
+      57.6787,
+      58.6889
+    ],
+    [
+      58.6889,
+      59.6979
+    ],
+    [
+      59.6979,
+      60.698
+    ],
+    [
+      60.698,
+      61.7098
+    ],
+    [
+      61.7098,
+      62.7247
+    ],
+    [
+      62.7247,
+      63.7346
+    ],
+    [
+      63.7346,
+      64.7445
+    ],
+    [
+      64.7445,
+      65.7592
+    ],
+    [
+      65.7592,
+      66.7695
+    ],
+    [
+      66.7695,
+      67.7842
+    ],
+    [
+      67.7842,
+      68.7965
+    ],
+    [
+      68.7965,
+      69.8065
+    ],
+    [
+      69.8065,
+      70.8197
+    ],
+    [
+      70.8197,
+      71.8297
+    ],
+    [
+      71.8297,
+      72.8444
+    ],
+    [
+      72.8444,
+      73.8564
+    ],
+    [
+      73.8564,
+      74.869
+    ],
+    [
+      74.869,
+      75.8772
+    ],
+    [
+      75.8772,
+      76.8922
+    ],
+    [
+      76.8922,
+      77.9063
+    ],
+    [
+      77.9063,
+      78.9157
+    ],
+    [
+      78.9157,
+      79.9274
+    ],
+    [
+      79.9274,
+      80.9391
+    ],
+    [
+      80.9391,
+      81.9543
+    ],
+    [
+      81.9543,
+      82.9661
+    ],
+    [
+      82.9661,
+      83.9784
+    ],
+    [
+      83.9784,
+      84.9935
+    ],
+    [
+      84.9935,
+      86.0053
+    ],
+    [
+      86.0053,
+      87.016
+    ],
+    [
+      87.016,
+      88.0297
+    ],
+    [
+      88.0297,
+      89.0458
+    ],
+    [
+      89.0458,
+      90.0604
+    ],
+    [
+      90.0604,
+      91.0706
+    ],
+    [
+      91.0706,
+      92.0815
+    ],
+    [
+      92.0815,
+      93.0945
+    ],
+    [
+      93.0945,
+      94.1078
+    ],
+    [
+      94.1078,
+      95.12
+    ],
+    [
+      95.12,
+      96.1333
+    ],
+    [
+      96.1333,
+      97.146
+    ],
+    [
+      97.146,
+      98.1609
+    ],
+    [
+      98.1609,
+      99.1746
+    ],
+    [
+      99.1746,
+      100.1856
+    ],
+    [
+      100.1856,
+      101.1954
+    ],
+    [
+      101.1954,
+      101.9181
+    ]
+  ],
+  "fps_telemetry_start_sec": 0.0304,
+  "fps_covered_sec": 101.8877
+}

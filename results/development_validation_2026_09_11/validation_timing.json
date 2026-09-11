@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "development_seeds": [
+    301
+  ],
+  "selection_method": "validation-only hand-specified split; NOT a tuned baseline",
+  "scenarios": {
+    "even_high_20": [
+      12,
+      12,
+      12,
+      12
+    ]
+  }
+}

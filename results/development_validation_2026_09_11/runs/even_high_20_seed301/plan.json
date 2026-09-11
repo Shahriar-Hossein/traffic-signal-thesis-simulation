@@ -1,0 +1,248 @@
+{
+  "header": {
+    "plan_id": "even_high_20_seed301",
+    "seed": 301,
+    "target_vehicle_count": 20,
+    "uneven_mode": "even",
+    "turn_probability": 0.5,
+    "traffic_conditions": {
+      "high": 4,
+      "medium": 2,
+      "low": 0.5
+    },
+    "traffic_condition_interval": 120,
+    "pinned_condition": "high",
+    "schema_version": 1,
+    "content_hash": "473bf5a2c1843db2",
+    "git_rev": "d90a6bd",
+    "created_at": "2026-09-11 11:19:31"
+  },
+  "condition_timeline": [
+    {
+      "t_offset_sec": 0.0,
+      "condition": "high"
+    }
+  ],
+  "vehicles": [
+    {
+      "seq": 0,
+      "t_offset_sec": 0.0,
+      "direction": "left",
+      "lane": 1,
+      "vehicle_type": "bike",
+      "will_turn": false,
+      "turn_direction": "left",
+      "target_turn_lane": 0,
+      "condition": "high"
+    },
+    {
+      "seq": 1,
+      "t_offset_sec": 0.25,
+      "direction": "left",
+      "lane": 2,
+      "vehicle_type": "bike",
+      "will_turn": false,
+      "turn_direction": "left",
+      "target_turn_lane": 0,
+      "condition": "high"
+    },
+    {
+      "seq": 2,
+      "t_offset_sec": 0.5,
+      "direction": "up",
+      "lane": 0,
+      "vehicle_type": "car",
+      "will_turn": false,
+      "turn_direction": "up",
+      "target_turn_lane": 0,
+      "condition": "high"
+    },
+    {
+      "seq": 3,
+      "t_offset_sec": 0.75,
+      "direction": "right",
+      "lane": 1,
+      "vehicle_type": "bus",
+      "will_turn": false,
+      "turn_direction": "right",
+      "target_turn_lane": 0,
+      "condition": "high"
+    },
+    {
+      "seq": 4,
+      "t_offset_sec": 1.0,
+      "direction": "right",
+      "lane": 2,
+      "vehicle_type": "truck",
+      "will_turn": false,
+      "turn_direction": "right",
+      "target_turn_lane": 0,
+      "condition": "high"
+    },
+    {
+      "seq": 5,
+      "t_offset_sec": 1.25,
+      "direction": "down",
+      "lane": 2,
+      "vehicle_type": "bus",
+      "will_turn": false,
+      "turn_direction": "down",
+      "target_turn_lane": 0,
+      "condition": "high"
+    },
+    {
+      "seq": 6,
+      "t_offset_sec": 1.5,
+      "direction": "right",
+      "lane": 2,
+      "vehicle_type": "bike",
+      "will_turn": false,
+      "turn_direction": "right",
+      "target_turn_lane": 0,
+      "condition": "high"
+    },
+    {
+      "seq": 7,
+      "t_offset_sec": 1.75,
+      "direction": "up",
+      "lane": 0,
+      "vehicle_type": "car",
+      "will_turn": false,
+      "turn_direction": "up",
+      "target_turn_lane": 0,
+      "condition": "high"
+    },
+    {
+      "seq": 8,
+      "t_offset_sec": 2.0,
+      "direction": "up",
+      "lane": 1,
+      "vehicle_type": "car",
+      "will_turn": false,
+      "turn_direction": "up",
+      "target_turn_lane": 0,
+      "condition": "high"
+    },
+    {
+      "seq": 9,
+      "t_offset_sec": 2.25,
+      "direction": "up",
+      "lane": 0,
+      "vehicle_type": "bus",
+      "will_turn": false,
+      "turn_direction": "up",
+      "target_turn_lane": 0,
+      "condition": "high"
+    },
+    {
+      "seq": 10,
+      "t_offset_sec": 2.5,
+      "direction": "up",
+      "lane": 2,
+      "vehicle_type": "car",
+      "will_turn": true,
+      "turn_direction": "right",
+      "target_turn_lane": 0,
+      "condition": "high"
+    },
+    {
+      "seq": 11,
+      "t_offset_sec": 2.75,
+      "direction": "right",
+      "lane": 0,
+      "vehicle_type": "truck",
+      "will_turn": true,
+      "turn_direction": "up",
+      "target_turn_lane": 2,
+      "condition": "high"
+    },
+    {
+      "seq": 12,
+      "t_offset_sec": 3.0,
+      "direction": "up",
+      "lane": 1,
+      "vehicle_type": "truck",
+      "will_turn": false,
+      "turn_direction": "up",
+      "target_turn_lane": 0,
+      "condition": "high"
+    },
+    {
+      "seq": 13,
+      "t_offset_sec": 3.25,
+      "direction": "left",
+      "lane": 2,
+      "vehicle_type": "car",
+      "will_turn": false,
+      "turn_direction": "left",
+      "target_turn_lane": 0,
+      "condition": "high"
+    },
+    {
+      "seq": 14,
+      "t_offset_sec": 3.5,
+      "direction": "up",
+      "lane": 0,
+      "vehicle_type": "truck",
+      "will_turn": false,
+      "turn_direction": "up",
+      "target_turn_lane": 0,
+      "condition": "high"
+    },
+    {
+      "seq": 15,
+      "t_offset_sec": 3.75,
+      "direction": "down",
+      "lane": 1,
+      "vehicle_type": "bus",
+      "will_turn": false,
+      "turn_direction": "down",
+      "target_turn_lane": 0,
+      "condition": "high"
+    },
+    {
+      "seq": 16,
+      "t_offset_sec": 4.0,
+      "direction": "left",
+      "lane": 2,
+      "vehicle_type": "truck",
+      "will_turn": true,
+      "turn_direction": "down",
+      "target_turn_lane": 1,
+      "condition": "high"
+    },
+    {
+      "seq": 17,
+      "t_offset_sec": 4.25,
+      "direction": "up",
+      "lane": 0,
+      "vehicle_type": "bike",
+      "will_turn": true,
+      "turn_direction": "left",
+      "target_turn_lane": 0,
+      "condition": "high"
+    },
+    {
+      "seq": 18,
+      "t_offset_sec": 4.5,
+      "direction": "left",
+      "lane": 0,
+      "vehicle_type": "car",
+      "will_turn": true,
+      "turn_direction": "up",
+      "target_turn_lane": 1,
+      "condition": "high"
+    },
+    {
+      "seq": 19,
+      "t_offset_sec": 4.75,
+      "direction": "up",
+      "lane": 2,
+      "vehicle_type": "truck",
+      "will_turn": false,
+      "turn_direction": "up",
+      "target_turn_lane": 0,
+      "condition": "high"
+    }
+  ]
+}
