@@ -29,6 +29,7 @@ from config import (
 )
 from core import runclock
 from core.updater import update_signal_timers
+from core.observations import capture_lane_observations
 from models.traffic_signal import signals
 from utils.counters import get_vehicle_counts, get_weighted_vehicle_counts
 from utils.logger import (
@@ -98,11 +99,13 @@ def run_phase(green_index, green_time, round_index, phase_index, weights,
 
     # The decision is captured before the green it authorises is exposed.
     green_start = runclock.elapsed()
+    lane_observations_start = capture_lane_observations(direction, green_start)
     begin_phase(
         round_index=round_index, phase_index=phase_index, direction=direction,
         green_start_sec=green_start, green_selected_sec=green_time,
         decision_weight=weights[direction],
         decision_counts=weights, queue_counts=queues,
+        lane_observations_start=lane_observations_start,
     )
     log_signal_change(direction)
 
@@ -122,9 +125,11 @@ def run_phase(green_index, green_time, round_index, phase_index, weights,
         time.sleep(1)
 
     green_end = runclock.elapsed()
-    mark_green_end(green_end, termination)
-
     state.currentYellow = 1
+    lane_observations_end = capture_lane_observations(direction, green_end)
+    mark_green_end(green_end, termination,
+                   lane_observations_end=lane_observations_end)
+
     for lane in range(3):
         for vehicle in state.vehicles[direction][lane]:
             vehicle.stop = defaultStop[direction]

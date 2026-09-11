@@ -19,7 +19,7 @@ class TimingReportTests(unittest.TestCase):
         write_plan(self.plan, str(self.directory / 'plan.json'))
 
     def write_arm(self, name, release_shift=0.0, phase_shift=0.0, windows=(60, 60),
-                  controller='fixed', phases=None, granted=24, window_sec=1.0):
+                  controller='fixed', phases=None, granted=24, window_sec=30.0):
         """
         One arm. `phases` is a list of (direction, start, granted[, status,
         termination]); the default is two 24s greens in the fixed order.
@@ -62,11 +62,17 @@ class TimingReportTests(unittest.TestCase):
             for record in phases:
                 writer.writerow(['2026-09-10 00:00:00', record[0]])
 
+        duration = max(record[1] + record[2] + 7 for record in phases)
+        actual_window = duration / len(windows)
         (folder / 'run_meta.json').write_text(json.dumps({
             'controller': controller, 'started_at': f'2026-09-10 00:0{len(name)}:00',
             'fps_mean': 60, 'fps_min': min(windows), 'fps_windows': list(windows),
             'fps_window_sec': window_sec,
-            'last_crossing_sec': 58.5 + phase_shift, 'duration_sec': 60,
+            'fps_window_bounds': [[i * actual_window, (i + 1) * actual_window]
+                                  for i in range(len(windows))],
+            'fps_covered_sec': duration,
+            'last_crossing_sec': duration - 1.5,
+            'duration_sec': duration,
         }))
         return folder
 
@@ -198,8 +204,8 @@ class TimingReportTests(unittest.TestCase):
         self.write_arm('a', windows=(60, 60))
         self.write_arm('b', windows=(60, 60, 60), window_sec=0.5)
         contrast = self.report()['contrasts'][0]
-        self.assertFalse(contrast['fps_windows_comparable'])
-        self.assertEqual(self.report()['acceptance']['result'], 'insufficient evidence')
+        self.assertTrue(contrast['fps_windows_comparable'])
+        self.assertEqual(self.report()['acceptance']['result'], 'accepted')
 
     def test_stalls_at_different_moments_are_not_hidden_by_equal_extremes(self):
         """
@@ -214,6 +220,7 @@ class TimingReportTests(unittest.TestCase):
         # The series themselves diverge sample against sample, which the
         # extremes alone never showed.
         self.assertEqual(contrast['fps_window_gap_max_pct'], 100.0)
+        self.assertEqual(report['acceptance']['result'], 'rejected')
         self.assertEqual(report['arms'][0]['fps_mean'],
                          report['arms'][1]['fps_mean'])
 
@@ -226,7 +233,7 @@ class TimingReportTests(unittest.TestCase):
             (folder / 'run_meta.json').write_text(json.dumps(meta))
         self.assertFalse(self.report()['contrasts'][0]['fps_windows_comparable'])
         self.assertEqual(self.report()['acceptance']['result'],
-                         'insufficient evidence')
+                         'rejected')
 
     def test_missing_clearance_is_none_not_an_invented_zero(self):
         self.write_arm('a')

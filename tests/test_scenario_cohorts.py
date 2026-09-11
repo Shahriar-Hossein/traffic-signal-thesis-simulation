@@ -12,7 +12,8 @@ from pathlib import Path
 import tempfile
 
 from analyzers.analyze_paired import (
-    MIXED_REGIME, analyze_batch, scenario_identity, scenario_label,
+    MIXED_REGIME, analyze_batch, prescribed_traffic_hash, scenario_identity,
+    scenario_label,
 )
 from core.plan import build_plan, write_plan
 from scripts.scenarios import REGIMES, SKEWS
@@ -93,6 +94,11 @@ class BatchGroupingTests(unittest.TestCase):
                  'clearance_sec'},
                 scenario,
             )
+        pooled = batch['per_contrast']['fixed_vs_priority']
+        self.assertEqual(pooled['plans'], 12)
+        self.assertIsNone(pooled['ci_low'])
+        self.assertIn('heterogeneous scenario',
+                      pooled['inference_withheld_reason'])
         self.assertEqual(batch['cohort_errors'], [])
 
     def test_a_copied_plan_folder_is_not_a_second_plan(self):
@@ -104,6 +110,41 @@ class BatchGroupingTests(unittest.TestCase):
         self.assertEqual(len(batch['duplicate_plans']), 1)
         self.assertEqual(batch['duplicate_plans'][0]['duplicate_of'],
                          'even_high_seed41')
+
+    def test_a_regenerated_seed_under_a_new_plan_id_is_a_rerun(self):
+        first = self.build(41, 'even', 'high', 'first_display_name')
+        second = self.build(41, 'even', 'high', 'renamed_regeneration')
+        self.assertNotEqual(first.plan['header']['content_hash'],
+                            second.plan['header']['content_hash'])
+        self.assertEqual(prescribed_traffic_hash(first.plan),
+                         prescribed_traffic_hash(second.plan))
+
+        batch = analyze_batch(str(self.root), write=False, baseline='fixed')
+        block = batch['per_scenario']['even_high_3']['fixed_vs_priority']
+        self.assertEqual(block['plans'], 1)
+        self.assertEqual(batch['independent_replicates_included'], 1)
+        self.assertEqual(batch['reruns_excluded'], 1)
+        self.assertEqual(len(batch['duplicate_plans']), 1)
+        self.assertEqual(batch['duplicate_plans'][0]['duplicate_reason'],
+                         'scenario_seed')
+        self.assertEqual(batch['duplicate_plans'][0]['duplicate_of'],
+                         'first_display_name')
+
+    def test_reused_seeds_keep_cell_inference_but_withhold_pooled_ci(self):
+        for seed in (51, 52):
+            self.build(seed, 'even', 'high', f'even_high_seed{seed}')
+            self.build(seed, 'even', 'low', f'even_low_seed{seed}')
+
+        batch = analyze_batch(str(self.root), write=False, baseline='fixed')
+        pooled = batch['per_contrast']['fixed_vs_priority']
+        self.assertEqual(pooled['plans'], 4)
+        self.assertIsNone(pooled['ci_low'])
+        self.assertIn('reused across cells', pooled['inference_withheld_reason'])
+        self.assertEqual(batch['reused_seeds_across_scenarios'], [51, 52])
+        for scenario in ('even_high_3', 'even_low_3'):
+            cell = batch['per_scenario'][scenario]['fixed_vs_priority']
+            self.assertEqual(cell['plans'], 2)
+            self.assertIsNotNone(cell['ci_low'])
 
     def test_genuinely_independent_plans_still_aggregate(self):
         self.build(42, 'even', 'high', 'even_high_seed42')
@@ -128,6 +169,11 @@ class BatchGroupingTests(unittest.TestCase):
         # Refused, not averaged: each cohort is summarized on its own.
         self.assertEqual(batch['per_contrast'], {})
         self.assertEqual(len(batch['per_cohort']), 2)
+        self.assertIn('even_high_3', batch['per_scenario'])
+        self.assertIn('cohort_error', batch['per_scenario']['even_high_3'])
+        self.assertEqual(
+            len(batch['per_scenario']['even_high_3']['per_cohort']), 2
+        )
         for block in batch['per_cohort'].values():
             self.assertEqual(block['fixed_vs_priority']['plans'], 1)
 

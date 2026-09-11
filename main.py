@@ -1,12 +1,14 @@
 # main.py
 # test github
 import argparse
+import os
 import pygame
 import sys
 import threading
 from datetime import datetime
 
 import state
+import config as runtime_config
 
 from config import (
     signalCoods, signalTimerCoods, vehicleCountCoods,
@@ -16,6 +18,7 @@ from config import (
 from core.initializer import initialize
 from core.generator import generateVehicles
 from core.plan import load_plan, check_plan_against_config
+from core.fixed_timing import load_fixed_timing, resolve_fixed_greens
 from core import runclock
 from core.controllers import NAMES as CONTROLLER_NAMES
 
@@ -65,6 +68,14 @@ def parse_args(argv=None):
     parser.add_argument("--pair-id", help="Paired-run identity; sends logs to data/paired/.")
     parser.add_argument("--arm", help="Arm label within the pair, e.g. 'fixed'.")
     parser.add_argument(
+        "--paired-root",
+        help="Root for paired logs (default: repository data/paired).",
+    )
+    parser.add_argument(
+        "--fixed-timing-plan",
+        help="Validated scenario timing table required by fixed_tuned.",
+    )
+    parser.add_argument(
         "--run-mode", choices=["time", "vehicles"],
         help="How the run ends (default: state.run_mode).",
     )
@@ -103,9 +114,36 @@ def apply_args(args):
         state.pair_id = args.pair_id
     if args.arm is not None:
         state.arm_label = args.arm
+    if args.paired_root is not None:
+        state.paired_root = os.path.abspath(args.paired_root)
 
     if args.plan is not None:
         load_plan_into_state(args.plan)
+
+    if args.fixed_timing_plan is not None:
+        try:
+            table = load_fixed_timing(args.fixed_timing_plan)
+        except (OSError, ValueError) as error:
+            print(f"ERROR: {error}")
+            sys.exit(2)
+        state.fixed_timing_plan = table
+        # Provenance snapshots config at logger startup. Store the validated
+        # data, not a machine-specific file name, so every arm fingerprints
+        # the actual comparator settings it received.
+        runtime_config.fixed_timing_plan = table
+
+    if state.currentMode == 'fixed_tuned':
+        if state.fixed_timing_plan is None:
+            print("ERROR: fixed_tuned requires --fixed-timing-plan.")
+            sys.exit(2)
+        try:
+            resolve_fixed_greens(
+                state.fixed_timing_plan,
+                state.vehicle_plan['header'] if state.vehicle_plan else None,
+            )
+        except ValueError as error:
+            print(f"ERROR: {error}")
+            sys.exit(2)
 
     if state.pair_id is not None:
         if state.generation_source != 'plan':
@@ -272,6 +310,7 @@ class FpsTracker:
         self.frames_total = 0
         self._started_at = runclock.elapsed()
         self._window_started_at = self._started_at
+        self._last_frame_at = self._started_at
         self._window_frames = 0
         # The whole series, not just its extremes: two arms can share a mean
         # and still have run their physics at different rates at the moments
@@ -288,6 +327,7 @@ class FpsTracker:
         self._window_frames += 1
 
         now = runclock.elapsed()
+        self._last_frame_at = now
         elapsed = now - self._window_started_at
         if elapsed >= FPS_SAMPLE_WINDOW_SEC:
             self.windows.append(round(self._window_frames / elapsed, 2))
@@ -297,20 +337,23 @@ class FpsTracker:
             self._window_frames = 0
 
     def stats(self, elapsed):
-        # The run clock starts before the display is up and the final window
-        # is cut off by shutdown, so a run never has telemetry for all of
-        # itself. Reporting what is covered lets an analyzer say how much of
-        # the run its frame-rate evidence actually speaks for.
-        covered = (self.window_bounds[-1][1] - self.window_bounds[0][0]
-                   if self.window_bounds else 0.0)
+        windows = list(self.windows)
+        bounds = [list(bound) for bound in self.window_bounds]
+        # Shutdown occurs after the final sleep, without another physics frame.
+        remainder = self._last_frame_at - self._window_started_at
+        if self._window_frames and remainder > 0:
+            windows.append(round(self._window_frames / remainder, 2))
+            bounds.append([round(self._window_started_at, 4), round(self._last_frame_at, 4)])
+        covered = sum(end - start for start, end in bounds)
         return {
             "frames_total": self.frames_total,
             "fps_mean": round(self.frames_total / elapsed, 2) if elapsed else None,
-            "fps_min": min(self.windows) if self.windows else None,
+            "fps_min": min(windows) if windows else None,
             "fps_window_sec": FPS_SAMPLE_WINDOW_SEC,
-            "fps_windows": self.windows,
-            "fps_window_bounds": self.window_bounds,
+            "fps_windows": windows,
+            "fps_window_bounds": bounds,
             "fps_telemetry_start_sec": round(self._started_at, 4),
+            "fps_telemetry_end_sec": round(self._last_frame_at, 4),
             "fps_covered_sec": round(covered, 4),
         }
 

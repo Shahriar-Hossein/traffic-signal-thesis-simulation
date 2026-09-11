@@ -36,7 +36,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.controllers import NAMES as CONTROLLER_NAMES
 from core.plan import load_plan
-from core.provenance import fingerprint
+from core.provenance import fingerprint, runtime_identity
 from collections import defaultdict
 
 BASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
@@ -55,8 +55,9 @@ MIN_PAIRS_FOR_TEST = 10
 # Bumped whenever the meaning of a reported number changes, so a derived
 # artifact can say which analysis produced it.  2: scenario keys carry the
 # demand regime, safeguards are reported per stratum, and cohorts are checked
-# before pooling.
-ANALYSIS_SCHEMA_VERSION = 2
+# before pooling.  3: replicate identity no longer depends on a display name,
+# and inference is reported per scenario rather than across heterogeneous cells.
+ANALYSIS_SCHEMA_VERSION = 3
 
 # Allowances for cross-field checks.  Every one of these exists because two
 # recorded quantities are measured by different code at different moments; a
@@ -522,6 +523,34 @@ def scenario_label(identity):
     return f"{identity['skew']}_{identity['regime']}_{identity['workload']}"
 
 
+def prescribed_traffic_hash(plan):
+    """Fingerprint the traffic a plan prescribes, excluding naming metadata.
+
+    ``content_hash`` remains the immutable archive-integrity check.  It cannot
+    also identify a replicate because the display-only ``plan_id`` is part of
+    that historical hash.  This second digest is analyzer metadata only and
+    covers the actual arrival schedule and vehicle draws.
+    """
+    if not isinstance(plan, dict):
+        return None
+    return fingerprint({
+        'condition_timeline': plan.get('condition_timeline'),
+        'vehicles': plan.get('vehicles'),
+    })
+
+
+def replicate_identity(plan):
+    """Identity of one generated draw within its scenario cell."""
+    if not isinstance(plan, dict) or not isinstance(plan.get('header'), dict):
+        return None
+    header = plan['header']
+    return {
+        'scenario': scenario_identity(header),
+        'generation_seed': header.get('seed'),
+        'prescribed_traffic_hash': prescribed_traffic_hash(plan),
+    }
+
+
 # --- Cohort identity -----------------------------------------------------
 
 def cohort_identity(arms, header):
@@ -540,15 +569,18 @@ def cohort_identity(arms, header):
     controllers = {}
     configuration = set()
     source = set()
+    runtime = set()
     for arm in arms:
         meta = arm.get('meta') if isinstance(arm.get('meta'), dict) else {}
         controllers[arm['arm']] = meta.get('controller')
         configuration.add(meta.get('configuration_hash'))
         source.add(meta.get('source_hash'))
+        runtime.add(meta.get('runtime_identity_hash'))
     return {
         'controllers': controllers,
         'configuration_hash': sorted(h for h in configuration if h),
         'source_hash': sorted(h for h in source if h),
+        'runtime_identity_hash': sorted(h for h in runtime if h),
         'schema_version': (header or {}).get('schema_version'),
     }
 
@@ -616,9 +648,9 @@ def plans_needed(sd, half_width, confidence=0.95):
     return math.ceil((z * sd / half_width) ** 2)
 
 
-def contrast_summary(means):
+def contrast_summary(means, inference=True, inference_reason=None):
     """Plan-level effect summary: the unit of inference is the plan."""
-    return {
+    summary = {
         "plans": len(means),
         "delta_wait_mean_of_plan_means": round(statistics.fmean(means), 3),
         "delta_wait_median_of_plan_means": round(statistics.median(means), 3),
@@ -626,14 +658,32 @@ def contrast_summary(means):
             round(statistics.stdev(means), 3) if len(means) > 1 else None
         ),
         "plans_favouring_arm": sum(1 for m in means if m < 0),
-        # Planning figures for the next round, at two precisions.
-        "plans_for_half_width_1s": plans_needed(
-            statistics.stdev(means) if len(means) > 1 else None, 1.0),
-        "plans_for_half_width_0_5s": plans_needed(
-            statistics.stdev(means) if len(means) > 1 else None, 0.5),
-        **bootstrap_ci(means),
-        **{f"wilcoxon_{k}": v for k, v in wilcoxon_signed_rank(means).items()},
     }
+    if inference:
+        summary.update({
+            # Planning figures for the next round, at two precisions.
+            "plans_for_half_width_1s": plans_needed(
+                statistics.stdev(means) if len(means) > 1 else None, 1.0),
+            "plans_for_half_width_0_5s": plans_needed(
+                statistics.stdev(means) if len(means) > 1 else None, 0.5),
+            **bootstrap_ci(means),
+            **{f"wilcoxon_{k}": v for k, v in wilcoxon_signed_rank(means).items()},
+        })
+    else:
+        summary.update({
+            "plans_for_half_width_1s": None,
+            "plans_for_half_width_0_5s": None,
+            "ci_low": None,
+            "ci_high": None,
+            "ci_method": "withheld: descriptive summary across scenarios",
+            "ci_confidence": None,
+            "wilcoxon_n_nonzero": None,
+            "wilcoxon_w_statistic": None,
+            "wilcoxon_z": None,
+            "wilcoxon_p_value": None,
+            "inference_withheld_reason": inference_reason,
+        })
+    return summary
 
 
 # --- Signed-rank test ----------------------------------------------------
@@ -780,6 +830,66 @@ def arm_sort_key(arm):
     return (started_at is None, started_at or "", arm["arm"])
 
 
+def driver_failure_reasons(plan_dir, header):
+    """Read a plan-bound orchestration failure left by ``run_paired.py``."""
+    path = os.path.join(plan_dir, 'driver_status.json')
+    if not os.path.exists(path):
+        return []
+    try:
+        with open(path) as handle:
+            status = json.load(handle)
+    except (OSError, ValueError) as error:
+        return [f"driver status cannot be read: {error}"]
+    if not isinstance(status, dict):
+        return ["driver status is not a JSON object"]
+    if status.get('schema_version') != 1:
+        return [f"driver status has unsupported schema_version "
+                f"{status.get('schema_version')!r}"]
+    if (status.get('plan_id') != header.get('plan_id')
+            or status.get('plan_hash') != header.get('content_hash')):
+        return ["driver status does not identify this plan"]
+    expected = status.get('expected_arms')
+    failures = status.get('failures')
+    if (not isinstance(expected, list) or not expected
+            or any(not isinstance(item, dict)
+                   or not isinstance(item.get('label'), str)
+                   or not isinstance(item.get('controller'), str)
+                   for item in expected)):
+        return ["driver status has invalid expected_arms"]
+    if (not isinstance(failures, list) or not failures
+            or any(not isinstance(item, dict)
+                   or not isinstance(item.get('arm'), str)
+                   or not isinstance(item.get('reason'), str)
+                   for item in failures)):
+        return ["driver status has invalid failures"]
+    return [f"driver: {item['arm']}: {item['reason']}" for item in failures]
+
+
+def runtime_reasons(arms):
+    reasons, identities = [], set()
+    for arm in arms:
+        if arm.get('error'):
+            continue
+        meta = arm.get('meta') or {}
+        try:
+            runtime = meta['runtime']
+            identity = runtime_identity(runtime)
+            if (identity != meta.get('runtime_identity')
+                    or fingerprint(identity) != meta.get('runtime_identity_hash')):
+                raise ValueError('identity mismatch')
+            if any(not isinstance(value, str) or not value
+                   for key, value in identity.items() if key != 'sdl_video_driver'):
+                raise ValueError('missing runtime version or platform')
+            if not isinstance(runtime['argv'], list) or not isinstance(runtime['executable'], str):
+                raise ValueError('missing launch command')
+            identities.add(meta['runtime_identity_hash'])
+        except (KeyError, TypeError, ValueError):
+            reasons.append(f"{arm['arm']}: runtime provenance missing or inconsistent")
+    if len(identities) > 1:
+        reasons.append('runtime environments differ across arms')
+    return reasons
+
+
 def analyze_pair(plan_dir, fps_tolerance=DEFAULT_FPS_TOLERANCE,
                  drift_tolerance_ms=DEFAULT_DRIFT_TOLERANCE_MS, write=True,
                  baseline=None):
@@ -809,6 +919,7 @@ def analyze_pair(plan_dir, fps_tolerance=DEFAULT_FPS_TOLERANCE,
 
     header = plan['header'] if plan else {}
     identity = scenario_identity(header) if plan else None
+    replicate = replicate_identity(plan)
     comparison = {
         "plan_id": plan_id,
         # The stratum this plan belongs to. Effects are reported per scenario
@@ -817,18 +928,39 @@ def analyze_pair(plan_dir, fps_tolerance=DEFAULT_FPS_TOLERANCE,
         "scenario_fields": identity,
         # The replicate's identity, and what a batch may pool it with.
         "plan_hash": header.get('content_hash'),
+        "generation_seed": header.get('seed'),
+        "prescribed_traffic_hash": (
+            replicate.get('prescribed_traffic_hash') if replicate else None
+        ),
+        "replicate_identity": replicate,
         "cohort": cohort_identity(arms, header),
         "planned_vehicle_count": planned_count,
         "arm_names": [a["arm"] for a in arms],
     }
 
     reasons = plan_errors + check_validity(arms, plan, fps_tolerance, drift_tolerance_ms)
+    if plan:
+        reasons.extend(driver_failure_reasons(plan_dir, header))
     if baseline is not None and baseline not in comparison['arm_names']:
         reasons.append(f"requested baseline {baseline!r} is missing")
     if len(arms) < 2:
         reasons.append(f"found {len(arms)} arms; at least 2 required")
-    comparison["valid"] = not reasons
+    comparison["measurement_valid"] = not reasons
+    reasons.extend(runtime_reasons(arms))
+    from analyzers.analyze_timing import timing_report
+    timing = timing_report(arms, plan, plan_id, fps_tolerance)
+    comparison["timing_acceptance"] = timing['acceptance']
+    if timing['acceptance']['result'] != 'accepted':
+        reasons.extend('timing: ' + item for item in
+                       timing['acceptance']['reasons'] +
+                       timing['acceptance']['insufficient_evidence'])
+    comparison["publication_eligible"] = not reasons
+    comparison["valid"] = comparison["publication_eligible"]
     comparison["invalid_reasons"] = reasons
+    comparison["analysis"] = {
+        "schema_version": ANALYSIS_SCHEMA_VERSION, "baseline": baseline,
+        "fps_tolerance": fps_tolerance, "drift_tolerance_ms": drift_tolerance_ms,
+    }
 
     comparison["arms"] = {
         a["arm"]: summarize_arm(a) for a in arms if not reasons and not a.get("error")
@@ -875,7 +1007,7 @@ def plan_dirs_under(root, only=None):
     return [os.path.join(root, name) for name in names]
 
 
-def contrast_block(pairs):
+def contrast_block(pairs, inference=True, inference_reason=None):
     """
     Summarize one group of plans: the primary endpoint and its safeguards.
 
@@ -905,13 +1037,19 @@ def contrast_block(pairs):
 
     summaries = {}
     for key, means in sorted(primary.items()):
-        summaries[key] = contrast_summary(means)
+        summaries[key] = contrast_summary(means, inference, inference_reason)
         summaries[key]["safeguards"] = {
             label: {
                 "plans": len(deltas),
                 "mean_of_plan_deltas": round(statistics.fmean(deltas), 3),
                 "plans_worse_under_arm": sum(1 for delta in deltas if delta > 0),
-                **bootstrap_ci(deltas),
+                **(bootstrap_ci(deltas) if inference else {
+                    "ci_low": None,
+                    "ci_high": None,
+                    "ci_method": "withheld: descriptive summary across scenarios",
+                    "ci_confidence": None,
+                    "inference_withheld_reason": inference_reason,
+                }),
             }
             for label, deltas in sorted(safeguards[key].items())
         }
@@ -922,9 +1060,11 @@ def partition_cohorts(pairs):
     """
     Split valid pairs into cohorts, and drop plans that are not replicates.
 
-    Two things are refused here. A plan folder copied under a second name is
-    the same run twice: its archived content hash has already been seen, and
-    counting it as a second plan halves the width of every interval for free.
+    Two things are refused here. A plan folder copied under a second name, or
+    a plan regenerated from the same seed and scenario under a new plan ID,
+    is the same draw twice. Counting it as a second plan halves the width of
+    every interval for free. The archived content hash is retained, while
+    deduplication uses generation and canonical prescribed-traffic identity.
     And pairs whose code, configuration or controller mapping differ came
     from different experiments; pooling them is not replication either.
     """
@@ -932,25 +1072,93 @@ def partition_cohorts(pairs):
     duplicates = []
     seen = {}
     for pair in pairs:
+        scenario = pair.get("scenario", "unknown")
+        seed = pair.get("generation_seed")
+        traffic = pair.get("prescribed_traffic_hash")
+        keys = []
+        if seed is not None:
+            keys.append(("scenario_seed", scenario, seed))
+        if traffic:
+            keys.append(("scenario_traffic", scenario, traffic))
         digest = pair.get("plan_hash")
-        if digest and digest in seen:
+        if digest:
+            keys.append(("archived_content", digest))
+        duplicate_key = next((key for key in keys if key in seen), None)
+        if duplicate_key is not None:
             duplicates.append({
                 "plan_id": pair["plan_id"],
-                "duplicate_of": seen[digest],
+                "duplicate_of": seen[duplicate_key],
                 "plan_hash": digest,
+                "replicate_identity": pair.get("replicate_identity"),
+                "duplicate_reason": duplicate_key[0],
             })
             continue
-        if digest:
-            seen[digest] = pair["plan_id"]
+        for key in keys:
+            seen[key] = pair["plan_id"]
         cohorts[cohort_label(pair.get("cohort"))].append(pair)
     return dict(cohorts), duplicates
 
 
+def reused_seeds_across_scenarios(pairs):
+    """Return seeds shared by two or more scenario cells."""
+    scenarios_by_seed = defaultdict(set)
+    for pair in pairs:
+        seed = pair.get("generation_seed")
+        if seed is not None:
+            scenarios_by_seed[seed].add(pair.get("scenario", "unknown"))
+    return sorted(seed for seed, scenarios in scenarios_by_seed.items()
+                  if len(scenarios) > 1)
+
+
+def scenario_breakdown(cohorts):
+    """Summarize cells without crossing incompatible cohort boundaries."""
+    grouped = defaultdict(lambda: defaultdict(list))
+    for cohort, pairs in cohorts.items():
+        for pair in pairs:
+            grouped[pair.get("scenario", "unknown")][cohort].append(pair)
+
+    result = {}
+    for scenario, cohort_groups in sorted(grouped.items()):
+        if len(cohort_groups) == 1:
+            result[scenario] = contrast_block(next(iter(cohort_groups.values())))
+        else:
+            result[scenario] = {
+                "cohort_error": (
+                    f"{len(cohort_groups)} incompatible cohorts in this scenario; "
+                    "estimates are separated by cohort."
+                ),
+                "per_cohort": {
+                    cohort: contrast_block(group)
+                    for cohort, group in sorted(cohort_groups.items())
+                },
+            }
+    return result
+
+
+def pooled_inference_reason(pairs):
+    """Explain why a summary across scenario cells is descriptive only."""
+    scenarios = sorted({pair.get("scenario", "unknown") for pair in pairs})
+    if len(scenarios) <= 1:
+        return None
+    reused = reused_seeds_across_scenarios(pairs)
+    dependence = (
+        f"; generation seeds {reused} are reused across cells" if reused else ""
+    )
+    return (
+        "effects span heterogeneous scenario cells and are descriptive"
+        f"{dependence}; pooled confidence intervals/tests are withheld"
+    )
+
+
 def analyze_batch(root, fps_tolerance=DEFAULT_FPS_TOLERANCE,
                   drift_tolerance_ms=DEFAULT_DRIFT_TOLERANCE_MS, write=True,
-                  baseline=None, only=None):
+                  baseline=None, only=None, plan_ids=None):
     """Analyze every selected plan folder under `root` and aggregate."""
     plan_dirs = plan_dirs_under(root, only)
+    if plan_ids is not None:
+        selected = set(plan_ids)
+        plan_dirs = [directory for directory in plan_dirs
+                     if os.path.basename(directory) in selected]
 
     pairs = [
         analyze_pair(d, fps_tolerance, drift_tolerance_ms, write=write,
@@ -961,6 +1169,7 @@ def analyze_batch(root, fps_tolerance=DEFAULT_FPS_TOLERANCE,
 
     cohorts, duplicates = partition_cohorts(valid)
     pooled = [pair for group in cohorts.values() for pair in group]
+    reused_seeds = reused_seeds_across_scenarios(pooled)
 
     invalid_by_scenario = defaultdict(int)
     for pair in pairs:
@@ -969,7 +1178,7 @@ def analyze_batch(root, fps_tolerance=DEFAULT_FPS_TOLERANCE,
 
     aggregate = {
         "root": os.path.abspath(root),
-        "selection": only or "*",
+        "selection": sorted(plan_ids) if plan_ids is not None else (only or "*"),
         # The settings the numbers below were produced under. An export or a
         # re-run that assumes the defaults is not reproducing this analysis.
         "analysis": {
@@ -980,6 +1189,8 @@ def analyze_batch(root, fps_tolerance=DEFAULT_FPS_TOLERANCE,
         },
         "plans_total": len(pairs),
         "plans_valid": len(valid),
+        "independent_replicates_included": len(pooled),
+        "reruns_excluded": len(duplicates),
         "plans_invalid": [
             {"plan_id": p["plan_id"], "reasons": p["invalid_reasons"]}
             for p in pairs if not p.get("valid")
@@ -992,7 +1203,8 @@ def analyze_batch(root, fps_tolerance=DEFAULT_FPS_TOLERANCE,
         "invalid_by_scenario": dict(sorted(
             (scenario, count) for scenario, count in invalid_by_scenario.items()
         )),
-        "inference_unit": "plan",
+        "inference_unit": "independent generation draw within scenario",
+        "reused_seeds_across_scenarios": reused_seeds,
         "cohorts": {
             label: sorted(pair["plan_id"] for pair in group)
             for label, group in sorted(cohorts.items())
@@ -1002,6 +1214,8 @@ def analyze_batch(root, fps_tolerance=DEFAULT_FPS_TOLERANCE,
         "per_scenario": {},
         "per_cohort": {},
     }
+
+    aggregate["per_scenario"] = scenario_breakdown(cohorts)
 
     if len(cohorts) > 1:
         # Refusing to pool is the finding. Each cohort is still summarized,
@@ -1013,21 +1227,21 @@ def analyze_batch(root, fps_tolerance=DEFAULT_FPS_TOLERANCE,
             f"controller mapping, configuration or source revision."
         )
         aggregate["per_cohort"] = {
-            label: contrast_block(group) for label, group in sorted(cohorts.items())
+            label: contrast_block(
+                group,
+                inference=pooled_inference_reason(group) is None,
+                inference_reason=pooled_inference_reason(group),
+            )
+            for label, group in sorted(cohorts.items())
         }
         if write:
             write_batch(root, only, aggregate)
         return aggregate
 
-    aggregate["per_contrast"] = contrast_block(pooled)
-
-    by_scenario = defaultdict(list)
-    for pair in pooled:
-        by_scenario[pair.get("scenario", "unknown")].append(pair)
-    aggregate["per_scenario"] = {
-        scenario: contrast_block(group)
-        for scenario, group in sorted(by_scenario.items())
-    }
+    pooled_reason = pooled_inference_reason(pooled)
+    aggregate["per_contrast"] = contrast_block(
+        pooled, inference=pooled_reason is None, inference_reason=pooled_reason
+    )
 
     if write:
         write_batch(root, only, aggregate)

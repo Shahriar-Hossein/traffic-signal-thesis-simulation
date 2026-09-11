@@ -23,6 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from analyzers.analyze_paired import load_arm, arm_sort_key, percentile  # noqa: E402
 from core.plan import load_plan  # noqa: E402
 from core.policy import GREEN_BOUNDS  # noqa: E402
+from analyzers.timing_contract import compare_fps, finite, fps_intervals
 
 # A phase whose green was cut short by shutdown. Its recorded duration is a
 # censoring time, not a granted duration.
@@ -34,7 +35,7 @@ CENSORED = 'censored'
 # fixtures pass.
 ONSET_DRIFT_TOLERANCE_MS = 1000.0
 RELEASE_GAP_TOLERANCE_MS = 500.0
-WINDOW_ALIGNMENT_TOLERANCE_SEC = 2.0
+GREEN_OVERRUN_TOLERANCE_MS = 1000.0
 
 
 def numeric(row, key):
@@ -120,6 +121,28 @@ def release_times(arm):
     return times
 
 
+def phase_timing_errors(arm):
+    duration = (arm.get('meta') or {}).get('duration_sec')
+    if not finite(duration):
+        return ['phase timing cannot be reconciled without a finite run duration']
+    errors = []
+    previous_end = 0.0
+    records = phase_records(arm)
+    for index, record in enumerate(records):
+        end = record['phase_end']
+        green_end = record['start'] + record['actual']
+        if (record['selected'] <= 0 or record['start'] < previous_end - .01
+                or end is None or end < green_end or end > duration + .01):
+            errors.append(f'phase {index} has inconsistent transition timestamps')
+        if record['status'] not in (None, 'complete', CENSORED):
+            errors.append(f'phase {index} has unknown completion status')
+        if record['status'] == CENSORED and index != len(records) - 1:
+            errors.append('a censored phase must be the final phase')
+        if end is not None:
+            previous_end = end
+    return errors
+
+
 def summarize_timing(arm, plan):
     """Per-arm timing behaviour, independent of any other arm."""
     meta = arm.get('meta') if isinstance(arm.get('meta'), dict) else {}
@@ -134,8 +157,8 @@ def summarize_timing(arm, plan):
     overrun = [record['actual'] - record['selected'] for record in timed]
     greens = [record['selected'] for record in phases if record['status'] != CENSORED]
     bounds = GREEN_BOUNDS.get(controller)
-    windows = [value for value in (meta.get('fps_windows') or [])
-               if isinstance(value, (int, float)) and math.isfinite(value)]
+    series = meta.get('fps_windows')
+    windows = [value for value in series if finite(value)] if isinstance(series, list) else []
 
     lateness = []
     if plan:
@@ -149,6 +172,7 @@ def summarize_timing(arm, plan):
         'controller': controller,
         'phases': len(phases),
         'phase_completeness': phase_completeness(arm),
+        'phase_timing_errors': phase_timing_errors(arm),
         'greens_ended_early': sum(1 for record in phases
                                   if record['termination'] == 'early_exit'),
         # A green that runs longer than it was granted is the sleep loop
@@ -183,6 +207,7 @@ def summarize_timing(arm, plan):
         'fps_min': meta.get('fps_min'),
         'fps_p05': round(percentile(windows, 0.05), 2) if windows else None,
         'fps_windows': len(windows),
+        'fps_evidence': fps_intervals(meta),
         'last_crossing_sec': meta.get('last_crossing_sec'),
         'duration_sec': meta.get('duration_sec'),
     }
@@ -222,21 +247,9 @@ def compare_timing(baseline, other, plan):
                    for i in range(aligned)] if prefix_matches else [])
     divergence = round(max(onset_gaps) * 1000, 1) if onset_gaps else None
 
-    base_windows = [value for value in (base_meta.get('fps_windows') or [])
-                    if isinstance(value, (int, float)) and math.isfinite(value)]
-    other_windows = [value for value in (other_meta.get('fps_windows') or [])
-                     if isinstance(value, (int, float)) and math.isfinite(value)]
-    common = min(len(base_windows), len(other_windows))
-    window_gaps = [abs(other_windows[i] - base_windows[i]) / max(base_windows[i], 1e-9)
-                   for i in range(common)]
-    # The series are compared sample against sample, and a window closes when
-    # a rendered frame arrives rather than at a recorded instant. After a
-    # stall the two series no longer describe the same seconds, so this is
-    # window-shape divergence, not an aligned interval comparison.
-    windows_aligned = (len(base_windows) == len(other_windows)
-                       and base_meta.get('fps_window_sec') == other_meta.get('fps_window_sec')
-                       and bool(common)
-                       and boundaries_overlap(base_meta, other_meta))
+    fps = compare_fps(base_meta, other_meta)
+    window_gaps = fps['gaps']
+    windows_aligned = fps['comparable']
 
     base_clearance = base_meta.get('last_crossing_sec')
     other_clearance = other_meta.get('last_crossing_sec')
@@ -261,6 +274,7 @@ def compare_timing(baseline, other, plan):
         'fps_window_gap_max_pct': round(max(window_gaps) * 100, 2) if window_gaps else None,
         'fps_window_gap_p95_pct': round(percentile(window_gaps, 0.95) * 100, 2) if window_gaps else None,
         'fps_windows_comparable': windows_aligned,
+        'fps_common_coverage': fps['common_coverage'],
         # None, not zero: an arm with no recorded clearance has not cleared
         # in the same time as the baseline, it has not reported one.
         'clearance_gap_sec': (
@@ -271,30 +285,7 @@ def compare_timing(baseline, other, plan):
     }
 
 
-def boundaries_overlap(base_meta, other_meta):
-    """
-    Whether the two window series describe compatible intervals.
-
-    Runs that recorded window boundaries are compared on those; a window
-    closes when a rendered frame arrives, so after a stall the same sample
-    index covers different seconds in the two arms. Runs archived before
-    boundaries were recorded cannot answer this, and are not failed for it —
-    they are simply not evidence about interval alignment.
-    """
-    base = base_meta.get('fps_window_bounds')
-    other = other_meta.get('fps_window_bounds')
-    if not isinstance(base, list) or not isinstance(other, list) or not base or not other:
-        return True
-    for one, two in zip(base, other):
-        try:
-            if abs(one[0] - two[0]) > WINDOW_ALIGNMENT_TOLERANCE_SEC:
-                return False
-        except (TypeError, IndexError):
-            return False
-    return True
-
-
-def acceptance(report):
+def acceptance(report, fps_tolerance=0.05):
     """
     Whether this folder's timing evidence supports a comparison.
 
@@ -313,6 +304,7 @@ def acceptance(report):
         insufficient.append('no readable arms')
 
     for arm in report['arms']:
+        reasons.extend(f"{arm['arm']}: {error}" for error in arm['phase_timing_errors'])
         completeness = arm['phase_completeness']
         if completeness['records_status'] == 'phases missing from the log':
             reasons.append(
@@ -324,10 +316,18 @@ def acceptance(report):
         if completeness['phase_rows_unusable']:
             reasons.append(
                 f"{arm['arm']}: {completeness['phase_rows_unusable']} unusable phase rows")
-        if arm['fps_windows'] == 0:
-            insufficient.append(f"{arm['arm']}: no frame-rate series recorded")
+        evidence = arm['fps_evidence']
+        reasons.extend(f"{arm['arm']}: {error}" for error in evidence['errors'])
+        insufficient.extend(f"{arm['arm']}: {error}" for error in evidence['missing'])
+        if (arm['green_overrun_max_ms'] is not None
+                and arm['green_overrun_max_ms'] > GREEN_OVERRUN_TOLERANCE_MS):
+            reasons.append(f"{arm['arm']}: green duration exceeds timing tolerance")
 
     for contrast in report['contrasts']:
+        gap = contrast['fps_window_gap_max_pct']
+        if gap is not None and gap > fps_tolerance * 100:
+            reasons.append(f"{contrast['baseline']}→{contrast['arm']}: "
+                           f"interval FPS divergence {gap}% exceeds {fps_tolerance * 100:g}%")
         if not contrast['fps_windows_comparable']:
             insufficient.append(
                 f"{contrast['baseline']}→{contrast['arm']}: frame-rate series "
@@ -357,37 +357,43 @@ def acceptance(report):
     return {'result': 'accepted', 'reasons': [], 'insufficient_evidence': []}
 
 
-def analyze_timing(plan_dir, write=True):
-    plan_dir = os.path.abspath(plan_dir)
-    try:
-        plan = load_plan(os.path.join(plan_dir, 'plan.json'))
-    except (OSError, ValueError) as error:
-        plan = None
-        print(f"warning: {error}")
-
-    arms = sorted(
-        (load_arm(os.path.join(plan_dir, name)) for name in os.listdir(plan_dir)
-         if os.path.isdir(os.path.join(plan_dir, name))),
-        key=arm_sort_key,
-    )
+def timing_report(arms, plan, plan_id, fps_tolerance=0.05):
     usable = [arm for arm in arms if not arm.get('error')]
-
     report = {
-        'plan_id': os.path.basename(plan_dir),
+        'plan_id': plan_id,
         'errors': [f"{arm['arm']}: {arm['error']}" for arm in arms if arm.get('error')],
         'arms': [summarize_timing(arm, plan) for arm in usable],
         'contrasts': [compare_timing(usable[0], arm, plan) for arm in usable[1:]],
+        'thresholds': {'fps_tolerance': fps_tolerance,
+                       'onset_drift_ms': ONSET_DRIFT_TOLERANCE_MS,
+                       'release_gap_ms': RELEASE_GAP_TOLERANCE_MS,
+                       'green_overrun_ms': GREEN_OVERRUN_TOLERANCE_MS},
     }
     if plan is None:
         report['errors'].append('plan.json could not be verified')
-    # The point of an acceptance report is a verdict. Without one it was a
-    # display of numbers that no collection decision could be made from.
-    report['acceptance'] = acceptance(report)
+    report['acceptance'] = acceptance(report, fps_tolerance)
+    return report
 
+
+def analyze_timing(plan_dir, write=True, baseline=None, fps_tolerance=0.05):
+    plan_dir = os.path.abspath(plan_dir)
+    try:
+        plan = load_plan(os.path.join(plan_dir, 'plan.json'))
+    except (OSError, ValueError, TypeError, KeyError):
+        plan = None
+    arms = sorted(
+        (load_arm(os.path.join(plan_dir, name)) for name in os.listdir(plan_dir)
+         if os.path.isdir(os.path.join(plan_dir, name))), key=arm_sort_key)
+    if baseline is not None:
+        arms.sort(key=lambda arm: arm['arm'] != baseline)
+    report = timing_report(arms, plan, os.path.basename(plan_dir), fps_tolerance)
+    if baseline is not None and not any(arm['arm'] == baseline for arm in arms):
+        report['errors'].append(f'requested baseline {baseline!r} is missing')
+        report['acceptance'] = acceptance(report, fps_tolerance)
     if write:
         path = os.path.join(plan_dir, 'timing.json')
         with open(path, 'w') as handle:
-            json.dump(report, handle, indent=2)
+            json.dump(report, handle, indent=2, allow_nan=False)
         report['written_to'] = path
     return report
 
@@ -444,9 +450,14 @@ def main(argv=None):
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('plan_dir', help='a data/paired/{plan_id} folder')
     parser.add_argument('--no-write', action='store_true', help='print without writing timing.json')
+    parser.add_argument('--baseline')
+    parser.add_argument('--fps-tolerance', type=float, default=0.05)
     args = parser.parse_args(argv)
-    print_report(analyze_timing(args.plan_dir, write=not args.no_write))
+    report = analyze_timing(args.plan_dir, write=not args.no_write,
+                            baseline=args.baseline, fps_tolerance=args.fps_tolerance)
+    print_report(report)
+    return 0 if report['acceptance']['result'] == 'accepted' else 1
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

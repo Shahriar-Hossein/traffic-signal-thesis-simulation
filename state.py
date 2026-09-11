@@ -55,12 +55,14 @@ count_mode_timeout = 1800
 generation_source = 'random'
 vehicle_plan_path = None   # set when generation_source == 'plan'
 vehicle_plan = None        # the loaded plan dict, populated by main.py
+fixed_timing_plan = None   # validated tuned-fixed table, populated by main.py
 
 # --- Paired-run identity (only set by the CLI / driver script) ---
 # When pair_id is set the logger writes to data/paired/ instead of either
 # existing log root.  Left None, nothing about logging changes.
 pair_id = None      # e.g. 'even_500_seed07'
 arm_label = None    # e.g. 'fixed' / 'priority'
+paired_root = None  # explicit harness destination; None keeps data/paired
 
 # --- Live counters (written at runtime, not settings) ---
 # Owned by the generator thread only.

@@ -172,7 +172,8 @@ def export_plan(plan_dir, destination, analysis):
         fps_tolerance=analysis['fps_tolerance'],
         drift_tolerance_ms=analysis['drift_tolerance_ms'],
     )
-    timing = analyze_timing(target, write=False)
+    timing = analyze_timing(target, write=False, baseline=analysis['baseline'],
+                            fps_tolerance=analysis['fps_tolerance'])
     discharge = [analyze_discharge(arm_dir) for arm_dir in arm_dirs(target)]
     for filename, payload in (('comparison.json', comparison),
                               ('timing.json', timing),

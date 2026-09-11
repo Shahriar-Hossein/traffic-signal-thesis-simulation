@@ -9,7 +9,7 @@ import unittest
 
 from analyzers.analyze_paired import analyze_pair, analyze_batch
 from core.plan import build_plan, write_plan, load_plan
-from core.provenance import fingerprint
+from core.provenance import fingerprint, _runtime_snapshot, runtime_identity
 from utils.logger import PHASE_LOG_COLUMNS
 
 
@@ -54,7 +54,9 @@ class ReplayValidityTests(unittest.TestCase):
             duration = round(last_crossing + drain, 2)
             # 61/59 alternating: mean 60, worst window 59, and enough windows
             # to cover the whole run rather than its first few seconds.
-            windows = [61, 59] * math.ceil(duration / fps_window_sec / 2)
+            bounds = [[start, min(start + fps_window_sec, duration)]
+                      for start in range(0, math.ceil(duration), int(fps_window_sec))]
+            windows = [60] * len(bounds)
             meta = dict(
                 generation_source='plan', run_mode='vehicles', stop_reason='target_reached',
                 plan_id=self.plan['header']['plan_id'],
@@ -69,10 +71,14 @@ class ReplayValidityTests(unittest.TestCase):
                 last_crossing_sec=last_crossing,
                 fps_mean=60, fps_min=min(windows), frames_total=round(60 * duration),
                 fps_window_sec=fps_window_sec, fps_windows=windows,
+                fps_window_bounds=bounds, fps_covered_sec=duration,
                 release_drift_mean_ms=1, release_drift_max_ms=2,
-                final_phase_censored=False,
+                final_phase_censored=True,
                 configuration={'speed': 2}, source_files={'main.py': 'abc'},
             )
+            meta['runtime'] = _runtime_snapshot()
+            meta['runtime_identity'] = runtime_identity(meta['runtime'])
+            meta['runtime_identity_hash'] = fingerprint(meta['runtime_identity'])
             meta['configuration_hash'] = fingerprint(meta['configuration'])
             meta['source_hash'] = fingerprint(meta['source_files'])
             self.arms[name] = {'rows': rows, 'meta': meta}
@@ -94,11 +100,12 @@ class ReplayValidityTests(unittest.TestCase):
                 writer.writerow({
                     'round_index': 0, 'phase_index': 0, 'direction': 'right',
                     'green_start_sec': 10.0, 'green_selected_sec': 24,
-                    'green_end_sec': 34.0, 'phase_end_sec': 39.0,
+                    'green_end_sec': arm['meta'].get('duration_sec', 14.5),
+                    'phase_end_sec': arm['meta'].get('duration_sec', 14.5),
                     'decision_weight': 3.0,
                     'decision_counts': '{"down": 0, "left": 0, "right": 3, "up": 0}',
                     'queue_counts': '{"down": 0, "left": 0, "right": 3, "up": 0}',
-                    'status': 'complete', 'termination': 'duration',
+                    'status': 'censored', 'termination': 'shutdown',
                 })
 
     def result(self):
@@ -221,7 +228,7 @@ class ReplayValidityTests(unittest.TestCase):
     # Recorded by every run from now on, but absent from runs archived before
     # the phase log gained a censoring status. Requiring it in the gate would
     # invalidate the existing archive, which is evidence, not a defect.
-    OPTIONAL_METADATA = {'final_phase_censored'}
+    OPTIONAL_METADATA = {'final_phase_censored', 'fps_covered_sec'}
 
     def test_every_required_metadata_field(self):
         original = copy.deepcopy(self.arms)
@@ -338,7 +345,8 @@ class ReplayValidityTests(unittest.TestCase):
              lambda arm: arm['meta'].update(release_drift_max_ms=200),
              'not supported by the logged releases'),
             ('telemetry covering the first seconds only',
-             lambda arm: arm['meta'].update(fps_windows=[59], fps_min=59),
+             lambda arm: arm['meta'].update(fps_windows=[59], fps_min=59,
+                                          fps_window_bounds=[[0, 5]], fps_covered_sec=5),
              'fps telemetry covers'),
         ]
         for label, mutate, expected in cases:

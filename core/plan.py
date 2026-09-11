@@ -35,6 +35,12 @@ DIRECTIONS = list(directionNumbers.values())
 # tables but is never generated into; this mirrors the original generator).
 LANE_COUNT = 3
 
+# build_plan stores cumulative virtual-clock offsets rounded independently to
+# six decimal places.  Two adjacent stored values can therefore differ from
+# the unrounded interval by one whole unit in the last stored place.
+ARRIVAL_OFFSET_DECIMALS = 6
+ARRIVAL_TOLERANCE_SEC = 10 ** -ARRIVAL_OFFSET_DECIMALS
+
 # Direction probabilities per demand skew.  Any mode not listed here — and
 # `None` — falls back to uniform, which is what the original if/elif chain did.
 DIRECTION_WEIGHTS = {
@@ -397,6 +403,75 @@ def load_plan(path):
                 f"{record['condition']!r} but the timeline has {active!r} in "
                 f"force at {record['t_offset_sec']}s."
             )
+
+    # Schema v1 plans are produced by build_plan: arrivals are a regular
+    # virtual-clock sequence, with the interval determined by the condition
+    # active for the preceding vehicle.  Checking only monotonicity lets a
+    # rehashed pinned plan such as [0, 100, 200] masquerade as generated data.
+    # The tolerance follows the six-place rounding done by build_plan.
+    for previous_record, record in zip(plan['vehicles'], plan['vehicles'][1:]):
+        expected_gap = 1 / rates[previous_record['condition']]
+        actual_gap = record['t_offset_sec'] - previous_record['t_offset_sec']
+        if not math.isclose(actual_gap, expected_gap, rel_tol=0,
+                            abs_tol=ARRIVAL_TOLERANCE_SEC):
+            raise ValueError(
+                f"Plan {path}: irregular arrival gap before seq {record['seq']} "
+                f"({actual_gap} != {expected_gap})."
+            )
+
+    # The builder emits an event at the first vehicle at or after each
+    # condition interval.  Pinned plans intentionally repeat the same event
+    # condition at later interval boundaries; mixed plans choose a different
+    # condition at each boundary.  Every event must therefore land on an
+    # actual arrival, and no earlier arrival may already have crossed its
+    # interval boundary.
+    event_indices = []
+    for event in timeline:
+        matches = [
+            index for index, record in enumerate(plan['vehicles'])
+            if math.isclose(record['t_offset_sec'], event['t_offset_sec'],
+                            rel_tol=0, abs_tol=ARRIVAL_TOLERANCE_SEC)
+        ]
+        if len(matches) != 1:
+            raise ValueError(
+                f"Plan {path}: condition timeline event does not match "
+                "exactly one generated arrival."
+            )
+        index = matches[0]
+        if plan['vehicles'][index]['condition'] != event['condition']:
+            raise ValueError(
+                f"Plan {path}: condition timeline does not match generated "
+                "arrivals."
+            )
+        event_indices.append(index)
+
+    for previous_event, event, previous_index, index in zip(
+            timeline, timeline[1:], event_indices, event_indices[1:]):
+        if index <= previous_index:
+            raise ValueError(f"Plan {path}: condition timeline is out of order.")
+        elapsed = event['t_offset_sec'] - previous_event['t_offset_sec']
+        if elapsed < header['traffic_condition_interval'] - ARRIVAL_TOLERANCE_SEC:
+            raise ValueError(
+                f"Plan {path}: condition timeline changes before its interval."
+            )
+        for record in plan['vehicles'][previous_index + 1:index]:
+            if (record['t_offset_sec'] - previous_event['t_offset_sec']
+                    >= header['traffic_condition_interval'] - ARRIVAL_TOLERANCE_SEC):
+                raise ValueError(
+                    f"Plan {path}: condition timeline skips an interval boundary."
+                )
+        if header.get('pinned_condition') is None and (
+                event['condition'] == previous_event['condition']):
+            raise ValueError(
+                f"Plan {path}: changing-demand timeline repeats a condition."
+            )
+    last_event = timeline[-1]['t_offset_sec']
+    if any(record['t_offset_sec'] - last_event
+           >= header['traffic_condition_interval'] - ARRIVAL_TOLERANCE_SEC
+           for record in plan['vehicles'][event_indices[-1] + 1:]):
+        raise ValueError(
+            f"Plan {path}: condition timeline skips a final interval boundary."
+        )
     return plan
 
 

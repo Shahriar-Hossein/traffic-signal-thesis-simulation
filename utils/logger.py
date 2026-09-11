@@ -49,6 +49,7 @@ PHASE_LOG_COLUMNS = [
     "green_selected_sec", "green_end_sec", "phase_end_sec",
     "decision_weight", "decision_counts", "queue_counts",
     "status", "termination",
+    "lane_observations_start", "lane_observations_end",
 ]
 
 # Phase statuses.  A reader that does not recognise a status must treat the
@@ -104,7 +105,10 @@ def init_logger(duration_sec, uneven_mode=None):
         arm = state.arm_label or mode_label
         run_basename = f"{arm}_pairlog_{bucket}_{timestamp}"
 
-        log_dir = os.path.join(BASE_DATA_DIR, "paired", state.pair_id, arm)
+        paired_root = getattr(state, 'paired_root', None)
+        if paired_root is None:
+            paired_root = os.path.join(BASE_DATA_DIR, "paired")
+        log_dir = os.path.join(paired_root, state.pair_id, arm)
         signal_dir = log_dir  # both arms' logs live together in the arm folder
     elif state.run_mode == 'vehicles':
         bucket = str(state.target_vehicle_count)
@@ -213,17 +217,18 @@ def begin_phase(**fields):
         _active_phase = dict(fields)
 
 
-def mark_green_end(green_end_sec, termination):
+def mark_green_end(green_end_sec, termination, **fields):
     """Note when and why the green ended, while the phase is still open."""
     with _phase_lock:
         if _active_phase is not None:
+            _active_phase.update(fields)
             _active_phase["green_end_sec"] = green_end_sec
             _active_phase["termination"] = termination
 
 
-def complete_phase(phase_end_sec):
+def complete_phase(phase_end_sec, **fields):
     """Write the open phase as a completed record and close it."""
-    return _close_phase(phase_end_sec, PHASE_COMPLETE)
+    return _close_phase(phase_end_sec, PHASE_COMPLETE, **fields)
 
 
 def finalize_phase(phase_end_sec):
@@ -239,17 +244,22 @@ def finalize_phase(phase_end_sec):
     return _close_phase(phase_end_sec, PHASE_CENSORED)
 
 
-def _close_phase(phase_end_sec, status):
+def _close_phase(phase_end_sec, status, **extra_fields):
     global _active_phase
     with _phase_lock:
         fields = _active_phase
         _active_phase = None
     if fields is None:
         return None
+    fields.update(extra_fields)
     fields["phase_end_sec"] = phase_end_sec
     fields["status"] = status
     if status == PHASE_CENSORED:
         fields["termination"] = "shutdown"
+        if fields.get("lane_observations_end") is None:
+            from core.observations import capture_lane_observations
+            fields["lane_observations_end"] = capture_lane_observations(
+                fields["direction"], phase_end_sec)
         # The green never ended on its own terms; the run end is the only
         # bound on it that was actually observed.
         if fields.get("green_end_sec") is None:
@@ -265,7 +275,8 @@ def log_phase(**fields):
 
     row = dict.fromkeys(PHASE_LOG_COLUMNS)
     row.update(fields)
-    for key in ("decision_counts", "queue_counts"):
+    for key in ("decision_counts", "queue_counts",
+                "lane_observations_start", "lane_observations_end"):
         if isinstance(row[key], dict):
             row[key] = json.dumps(row[key], sort_keys=True)
     for key in ("green_start_sec", "green_end_sec", "phase_end_sec", "decision_weight"):
