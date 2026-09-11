@@ -1,0 +1,75 @@
+<frozen importlib._bootstrap>:488: RuntimeWarning: Your system is avx2 capable but pygame was not built with support for it. The performance of some of your blits could be adversely affected. Consider enabling compile time detection with environment variables like PYGAME_DETECT_AVX2=1 if you are compiling without cross compilation.
+pygame 2.5.2 (SDL 2.30.0, Python 3.12.3)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+[DEBUG] state.currentMode = 'fixed'
+Replaying plan even_high_20_seed301: 20 vehicles
+Traffic condition: high (4 vehicles/sec)
+Initial all-red phase for 10 seconds to accumulate vehicles.
+Paired replay: pair = even_high_20_seed301 | arm = fixed_a | controller = fixed | plan = /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11/runs/even_high_20_seed301/plan.json
+Run mode: vehicles | target = 20 | controller = fixed | load = even | source = plan | timeout = 300s
+Released all 20 planned vehicles. Generator stopping.
+Simulation ended (target_reached): 20/20 vehicles crossed in 101.9s
+<frozen importlib._bootstrap>:488: RuntimeWarning: Your system is avx2 capable but pygame was not built with support for it. The performance of some of your blits could be adversely affected. Consider enabling compile time detection with environment variables like PYGAME_DETECT_AVX2=1 if you are compiling without cross compilation.
+pygame 2.5.2 (SDL 2.30.0, Python 3.12.3)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+[DEBUG] state.currentMode = 'fixed'
+Replaying plan even_high_20_seed301: 20 vehicles
+Traffic condition: high (4 vehicles/sec)
+Initial all-red phase for 10 seconds to accumulate vehicles.
+Paired replay: pair = even_high_20_seed301 | arm = fixed_b | controller = fixed | plan = /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11/runs/even_high_20_seed301/plan.json
+Run mode: vehicles | target = 20 | controller = fixed | load = even | source = plan | timeout = 300s
+Released all 20 planned vehicles. Generator stopping.
+Simulation ended (target_reached): 20/20 vehicles crossed in 101.9s
+<frozen importlib._bootstrap>:488: RuntimeWarning: Your system is avx2 capable but pygame was not built with support for it. The performance of some of your blits could be adversely affected. Consider enabling compile time detection with environment variables like PYGAME_DETECT_AVX2=1 if you are compiling without cross compilation.
+pygame 2.5.2 (SDL 2.30.0, Python 3.12.3)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+[DEBUG] state.currentMode = 'actuated'
+Replaying plan even_high_20_seed301: 20 vehicles
+Traffic condition: high (4 vehicles/sec)
+Initial all-red phase for 10 seconds to accumulate vehicles.
+Paired replay: pair = even_high_20_seed301 | arm = actuated | controller = actuated | plan = /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11/runs/even_high_20_seed301/plan.json
+Run mode: vehicles | target = 20 | controller = actuated | load = even | source = plan | timeout = 300s
+Released all 20 planned vehicles. Generator stopping.
+Simulation ended (target_reached): 20/20 vehicles crossed in 47.9s
+<frozen importlib._bootstrap>:488: RuntimeWarning: Your system is avx2 capable but pygame was not built with support for it. The performance of some of your blits could be adversely affected. Consider enabling compile time detection with environment variables like PYGAME_DETECT_AVX2=1 if you are compiling without cross compilation.
+pygame 2.5.2 (SDL 2.30.0, Python 3.12.3)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+[DEBUG] state.currentMode = 'fixed_tuned'
+Replaying plan even_high_20_seed301: 20 vehicles
+Traffic condition: high (4 vehicles/sec)
+Initial all-red phase for 10 seconds to accumulate vehicles.
+Paired replay: pair = even_high_20_seed301 | arm = fixed_tuned | controller = fixed_tuned | plan = /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11/runs/even_high_20_seed301/plan.json
+Run mode: vehicles | target = 20 | controller = fixed_tuned | load = even | source = plan | timeout = 300s
+Released all 20 planned vehicles. Generator stopping.
+Simulation ended (target_reached): 20/20 vehicles crossed in 65.9s
+Wrote plan even_high_20_seed301 -> /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11/runs/even_high_20_seed301/plan.json
+
+══ pair even_high_20_seed301: 20 vehicles, 4 arm(s), run one at a time ══
+
+▶ arm 'fixed_a' (controller=fixed)
+  /usr/bin/python3 /home/shahriar/projects/traffic-signal/main.py --plan /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11/runs/even_high_20_seed301/plan.json --controller fixed --pair-id even_high_20_seed301 --arm fixed_a --paired-root /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11/runs --timeout 300 --fixed-timing-plan /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11/validation_timing.json
+
+▶ arm 'fixed_b' (controller=fixed)
+  /usr/bin/python3 /home/shahriar/projects/traffic-signal/main.py --plan /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11/runs/even_high_20_seed301/plan.json --controller fixed --pair-id even_high_20_seed301 --arm fixed_b --paired-root /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11/runs --timeout 300 --fixed-timing-plan /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11/validation_timing.json
+
+▶ arm 'actuated' (controller=actuated)
+  /usr/bin/python3 /home/shahriar/projects/traffic-signal/main.py --plan /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11/runs/even_high_20_seed301/plan.json --controller actuated --pair-id even_high_20_seed301 --arm actuated --paired-root /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11/runs --timeout 300 --fixed-timing-plan /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11/validation_timing.json
+
+▶ arm 'fixed_tuned' (controller=fixed_tuned)
+  /usr/bin/python3 /home/shahriar/projects/traffic-signal/main.py --plan /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11/runs/even_high_20_seed301/plan.json --controller fixed_tuned --pair-id even_high_20_seed301 --arm fixed_tuned --paired-root /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11/runs --timeout 300 --fixed-timing-plan /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11/validation_timing.json
+
+=== even_high_20_seed301 ===
+⛔ INVALID — reported, not averaged in:
+   - fps_min spread 12.1% exceeds 5.0%
+   - timing: fixed_a→fixed_tuned: interval FPS divergence 13.58% exceeds 5%
+
+=== timing: even_high_20_seed301 ===
+  ⛔ rejected
+     - fixed_a→fixed_tuned: interval FPS divergence 13.58% exceeds 5%
+  fixed_a        fixed    phases    4 [final phase censored]  green mean   24.0 (fixed duration)  overrun max      5.5ms  release late max      0.8ms  fps  62.22/  62.0
+  fixed_b        fixed    phases    4 [final phase censored]  green mean   24.0 (fixed duration)  overrun max      5.5ms  release late max      1.5ms  fps  62.23/ 61.99
+  actuated       actuated phases    4 [final phase censored]  green mean   24.0 (low 0, high 3 of 6/24)  overrun max      n/ams  release late max      2.0ms  fps  62.22/ 61.98
+  fixed_tuned    fixed_tuned phases    4 [final phase censored]  green mean   12.0 (fixed duration)  overrun max      2.2ms  release late max      1.3ms  fps  62.19/ 61.98
+  fixed_a -> fixed_b: release gap max 1.4ms  same controller: drift 2.1ms  order matches over prefix True (equal length True)  fps window gap p95 0.63% [comparable True]  clearance Δ -0.007s
+  fixed_a -> actuated: release gap max 1.9ms  different schedules: divergence 54010.3ms  order matches over prefix True (equal length True)  fps window gap p95 0.75% [comparable True]  clearance Δ -54.025s
+  fixed_a -> fixed_tuned: release gap max 1.2ms  different schedules: divergence 36008.1ms  order matches over prefix True (equal length True)  fps window gap p95 0.66% [comparable True]  clearance Δ -36.026s

@@ -1,0 +1,41 @@
+<frozen importlib._bootstrap>:488: RuntimeWarning: Your system is avx2 capable but pygame was not built with support for it. The performance of some of your blits could be adversely affected. Consider enabling compile time detection with environment variables like PYGAME_DETECT_AVX2=1 if you are compiling without cross compilation.
+................usage: python3 -m unittest [-h] [--plan PLAN]
+                           [--controller {fixed,fixed_tuned,priority,fairness_priority,fixed_order_adaptive_duration,adaptive_order_fixed_duration,actuated}]
+                           [--pair-id PAIR_ID] [--arm ARM]
+                           [--paired-root PAIRED_ROOT]
+                           [--fixed-timing-plan FIXED_TIMING_PLAN]
+                           [--run-mode {time,vehicles}] [--count COUNT]
+                           [--uneven-mode UNEVEN_MODE] [--duration DURATION]
+                           [--timeout TIMEOUT]
+python3 -m unittest: error: argument --controller: invalid choice: 'priorty' (choose from 'fixed', 'fixed_tuned', 'priority', 'fairness_priority', 'fixed_order_adaptive_duration', 'adaptive_order_fixed_duration', 'actuated')
+.............................s.........................................................................................................................................
+----------------------------------------------------------------------
+Ran 183 tests in 3.070s
+
+OK (skipped=1)
+pygame 2.5.2 (SDL 2.30.0, Python 3.12.3)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+
+══ pair fixture: 3 vehicles, 2 arm(s), run one at a time ══
+  ✗ arm 'priority' failed: exit code 9
+
+⛔ pair fixture failed: priority: exit code 9
+
+1/1 plans valid
+
+1/1 plans valid
+
+1/1 plans valid
+
+2/2 plans valid
+
+▶ arm 'fixed' (controller=fixed)
+  /usr/bin/python3 /home/shahriar/projects/traffic-signal/main.py --plan plan.json --controller fixed --pair-id fixture --arm fixed --paired-root /tmp/tmp_wf4ahrc --timeout 90 --fixed-timing-plan /tmp/tmp_wf4ahrc/timing.json
+
+══ pair fixture: 1 vehicles, 2 arm(s), run one at a time ══
+
+=== timing: fixture ===
+  ❔ insufficient evidence
+     ? requested baseline 'a' is missing
+     ? no readable arms
+  ⛔ requested baseline 'a' is missing

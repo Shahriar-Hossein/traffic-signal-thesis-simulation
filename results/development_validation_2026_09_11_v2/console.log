@@ -1,0 +1,79 @@
+Wrote plan even_high_20_seed301 -> /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11_v2/runs/even_high_20_seed301/plan.json
+
+══ pair even_high_20_seed301: 20 vehicles, 4 arm(s), run one at a time ══
+
+▶ arm 'fixed_a' (controller=fixed)
+  /usr/bin/python3 /home/shahriar/projects/traffic-signal/main.py --plan /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11_v2/runs/even_high_20_seed301/plan.json --controller fixed --pair-id even_high_20_seed301 --arm fixed_a --paired-root /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11_v2/runs --timeout 300 --fixed-timing-plan /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11_v2/validation_timing.json
+<frozen importlib._bootstrap>:488: RuntimeWarning: Your system is avx2 capable but pygame was not built with support for it. The performance of some of your blits could be adversely affected. Consider enabling compile time detection with environment variables like PYGAME_DETECT_AVX2=1 if you are compiling without cross compilation.
+pygame 2.5.2 (SDL 2.30.0, Python 3.12.3)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+[DEBUG] state.currentMode = 'fixed'
+Replaying plan even_high_20_seed301: 20 vehicles
+Traffic condition: high (4 vehicles/sec)
+Initial all-red phase for 10 seconds to accumulate vehicles.
+Paired replay: pair = even_high_20_seed301 | arm = fixed_a | controller = fixed | plan = /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11_v2/runs/even_high_20_seed301/plan.json
+Run mode: vehicles | target = 20 | controller = fixed | load = even | source = plan | timeout = 300s
+Released all 20 planned vehicles. Generator stopping.
+Simulation ended (target_reached): 20/20 vehicles crossed in 101.9s
+
+▶ arm 'fixed_b' (controller=fixed)
+  /usr/bin/python3 /home/shahriar/projects/traffic-signal/main.py --plan /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11_v2/runs/even_high_20_seed301/plan.json --controller fixed --pair-id even_high_20_seed301 --arm fixed_b --paired-root /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11_v2/runs --timeout 300 --fixed-timing-plan /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11_v2/validation_timing.json
+<frozen importlib._bootstrap>:488: RuntimeWarning: Your system is avx2 capable but pygame was not built with support for it. The performance of some of your blits could be adversely affected. Consider enabling compile time detection with environment variables like PYGAME_DETECT_AVX2=1 if you are compiling without cross compilation.
+pygame 2.5.2 (SDL 2.30.0, Python 3.12.3)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+[DEBUG] state.currentMode = 'fixed'
+Replaying plan even_high_20_seed301: 20 vehicles
+Traffic condition: high (4 vehicles/sec)
+Initial all-red phase for 10 seconds to accumulate vehicles.
+Paired replay: pair = even_high_20_seed301 | arm = fixed_b | controller = fixed | plan = /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11_v2/runs/even_high_20_seed301/plan.json
+Run mode: vehicles | target = 20 | controller = fixed | load = even | source = plan | timeout = 300s
+Released all 20 planned vehicles. Generator stopping.
+Simulation ended (target_reached): 20/20 vehicles crossed in 101.9s
+
+▶ arm 'actuated' (controller=actuated)
+  /usr/bin/python3 /home/shahriar/projects/traffic-signal/main.py --plan /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11_v2/runs/even_high_20_seed301/plan.json --controller actuated --pair-id even_high_20_seed301 --arm actuated --paired-root /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11_v2/runs --timeout 300 --fixed-timing-plan /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11_v2/validation_timing.json
+<frozen importlib._bootstrap>:488: RuntimeWarning: Your system is avx2 capable but pygame was not built with support for it. The performance of some of your blits could be adversely affected. Consider enabling compile time detection with environment variables like PYGAME_DETECT_AVX2=1 if you are compiling without cross compilation.
+pygame 2.5.2 (SDL 2.30.0, Python 3.12.3)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+[DEBUG] state.currentMode = 'actuated'
+Replaying plan even_high_20_seed301: 20 vehicles
+Traffic condition: high (4 vehicles/sec)
+Initial all-red phase for 10 seconds to accumulate vehicles.
+Paired replay: pair = even_high_20_seed301 | arm = actuated | controller = actuated | plan = /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11_v2/runs/even_high_20_seed301/plan.json
+Run mode: vehicles | target = 20 | controller = actuated | load = even | source = plan | timeout = 300s
+Released all 20 planned vehicles. Generator stopping.
+Simulation ended (target_reached): 20/20 vehicles crossed in 47.9s
+
+▶ arm 'fixed_tuned' (controller=fixed_tuned)
+  /usr/bin/python3 /home/shahriar/projects/traffic-signal/main.py --plan /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11_v2/runs/even_high_20_seed301/plan.json --controller fixed_tuned --pair-id even_high_20_seed301 --arm fixed_tuned --paired-root /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11_v2/runs --timeout 300 --fixed-timing-plan /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11_v2/validation_timing.json
+<frozen importlib._bootstrap>:488: RuntimeWarning: Your system is avx2 capable but pygame was not built with support for it. The performance of some of your blits could be adversely affected. Consider enabling compile time detection with environment variables like PYGAME_DETECT_AVX2=1 if you are compiling without cross compilation.
+pygame 2.5.2 (SDL 2.30.0, Python 3.12.3)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+[DEBUG] state.currentMode = 'fixed_tuned'
+Replaying plan even_high_20_seed301: 20 vehicles
+Traffic condition: high (4 vehicles/sec)
+Initial all-red phase for 10 seconds to accumulate vehicles.
+Paired replay: pair = even_high_20_seed301 | arm = fixed_tuned | controller = fixed_tuned | plan = /home/shahriar/projects/traffic-signal/results/development_validation_2026_09_11_v2/runs/even_high_20_seed301/plan.json
+Run mode: vehicles | target = 20 | controller = fixed_tuned | load = even | source = plan | timeout = 300s
+Released all 20 planned vehicles. Generator stopping.
+Simulation ended (target_reached): 20/20 vehicles crossed in 65.9s
+
+=== even_high_20_seed301 ===
+✅ valid pair
+  fixed_a               20 veh  clear 100.3874s  wait mean   62.59  p95   93.77  worst    up   92.56  travel   64.87  thr   11.95/min  fps  62.25
+  fixed_b               20 veh  clear 100.3821s  wait mean   62.58  p95   93.77  worst    up   92.56  travel   64.86  thr   11.95/min  fps  62.25
+  actuated              20 veh  clear  46.3856s  wait mean   27.49  p95   39.76  worst    up   38.57  travel   29.76  thr   25.87/min  fps  62.26
+  fixed_tuned           20 veh  clear  64.3886s  wait mean   39.19  p95   57.77  worst    up   56.56  travel   41.46  thr   18.64/min  fps  62.25
+  paired fixed_a -> fixed_b: n=20 Δwait mean -0.002 median 0.0 win 0.25 p=n/a
+  paired fixed_a -> actuated: n=20 Δwait mean -35.099 median -36.01 win 1.0 p=n/a
+  paired fixed_a -> fixed_tuned: n=20 Δwait mean -23.399 median -24.005 win 0.8 p=n/a
+
+=== timing: even_high_20_seed301 ===
+  ✅ accepted
+  fixed_a        fixed    phases    4 [final phase censored]  green mean   24.0 (fixed duration)  overrun max      4.4ms  release late max      1.2ms  fps  62.25/ 62.07
+  fixed_b        fixed    phases    4 [final phase censored]  green mean   24.0 (fixed duration)  overrun max      2.5ms  release late max      1.0ms  fps  62.25/ 62.03
+  actuated       actuated phases    4 [final phase censored]  green mean   24.0 (low 0, high 3 of 6/24)  overrun max      n/ams  release late max      1.1ms  fps  62.26/ 61.98
+  fixed_tuned    fixed_tuned phases    4 [final phase censored]  green mean   12.0 (fixed duration)  overrun max      2.6ms  release late max      1.3ms  fps  62.25/ 62.05
+  fixed_a -> fixed_b: release gap max 0.7ms  same controller: drift 3.5ms  order matches over prefix True (equal length True)  fps window gap p95 0.59% [comparable True]  clearance Δ -0.005s
+  fixed_a -> actuated: release gap max 1.1ms  different schedules: divergence 54004.5ms  order matches over prefix True (equal length True)  fps window gap p95 0.63% [comparable True]  clearance Δ -54.002s
+  fixed_a -> fixed_tuned: release gap max 0.7ms  different schedules: divergence 36002.6ms  order matches over prefix True (equal length True)  fps window gap p95 0.61% [comparable True]  clearance Δ -35.999s
