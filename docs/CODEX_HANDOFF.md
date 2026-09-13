@@ -1,4 +1,4 @@
-# Codex handoff — 11 September 2026
+# Codex handoff — 14 September 2026
 
 Start here when resuming. This records the work across the interrupted sessions,
 why it was done, what was verified, and the next actions. The user requested
@@ -6,14 +6,15 @@ this handoff after two sessions reached usage limits.
 
 ## Objective and decisions
 
-- Deliver a **supervisor-ready conference-paper draft within September 2026**.
-  Supervisor review comes before venue selection. The report submission gates
-  the user's degree certificate; they need next month for applications and IELTS.
+- **Current priority:** validate simulator and priority-policy behavior with
+  small development-only studies. Paper production, presentation work and
+  broad final evaluation are paused until that behavior is understood.
 - The user chose **a reproducible scheduling study in the simplified simulator**.
   Do not expand the immediate task into real-road calibration or claim realistic
   traffic efficiency, network capacity, or packet-level VANET performance.
 - The user authorized bounded lower-cost delegation and reusable Codex guidance.
-  They did not request a commit, push, or external submission.
+  They did not request a commit, push, external submission, paper writing or
+  figure/image generation.
 
 ## Status at handoff
 
@@ -40,8 +41,8 @@ full-workload validation, held-out evaluation, final plots and results remain.
    delegation and instruction files.
 2. [Verification and artifacts](codex_handoff/validation.md) — tests, rejected
    first run, successful corrected run and exact artifact locations.
-3. [Next actions and known gaps](codex_handoff/next_steps.md) — ordered continuation,
-   commands, incomplete agent work and decisions still needed.
+3. [Validation-first next actions](codex_handoff/next_steps.md) — the current
+   ordered continuation and its explicit hold on paper-production work.
 
 The working manuscript is [here](paper/manuscript.md). Also see the
 [supervisor checklist](paper/SUPERVISOR_CHECKLIST.md),

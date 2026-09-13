@@ -1,12 +1,15 @@
 # Current Codex checkpoint
 
-Updated 12 September 2026 with the current done/remaining checklist.
+Updated 14 September 2026: validation-first reset; writing and presentation are
+on hard hold.
 
 **Start with [CODEX_HANDOFF.md](CODEX_HANDOFF.md).** It indexes changes/rationale,
 verified artifacts and exact next actions under `docs/codex_handoff/`.
 
-- Objective: supervisor-ready conference paper within September; simplified
-  simulator scheduling study, venue after supervisor review.
+- Immediate objective: establish, with small reproducible development studies,
+  that the simulator and priority policy behave as specified across relevant
+  demand situations. A conference paper is a possible later use of that
+  evidence, not the current deliverable.
 - Branch: `feature/modify-data-collection`; reviewed implementation, workflow,
   paper and validation changes are split into reviewable commits.
 
@@ -21,8 +24,8 @@ verified artifacts and exact next actions under `docs/codex_handoff/`.
 - [x] Separated development seeds from reserved evaluation seeds; no held-out
   seed has been used for study outcomes.
 - [x] Implemented the development-only fixed-timing tuning workflow.
-- [x] Drafted the final-evaluation and paper-figure workflows. These remain
-  integration work, not verified final deliverables.
+- [x] Drafted final-evaluation, manuscript and figure workflows. They are
+  retained as future reference only and are not current work.
 - [x] Passed the integrated suite: 183 tests OK, with one clean-tree-only check
   skipped.
 - [x] Completed an accepted N=20 four-arm development validation and confirmed
@@ -35,37 +38,46 @@ verified artifacts and exact next actions under `docs/codex_handoff/`.
 
 No long study is intentionally running now.
 
-## Remaining, in order
+## Current validation plan
 
-- [ ] Finish and test the evaluation runner, including workflow dependency
-  hashes, exact selected-plan handling, arm-order rotation, resume behavior and
-  explicit failure accounting.
-- [ ] Finish the plotting interface and render synthetic validation figures,
-  including safeguard intervals and valid interval/error-bar handling.
-- [ ] Add verified collection commands and run the complete test suite once
-  after integration.
-- [ ] Run representative N=500 repeatability and telemetry validation using
-  fresh development roots.
-- [ ] Run development-only fixed-timing tuning: 72 paired comparisons and 144
-  sequential simulator arms.
-- [ ] Select and freeze the `fixed_tuned` timing table from complete development
-  coverage.
-- [ ] Decide the independent-plan count and precision target, then freeze the
-  protocol, seeds, thresholds, arm ordering, retry/failure policy and analysis
-  version.
-- [ ] Collect the held-out six-arm evaluation. The current planning target is 13
-  plans per cell across 12 cells: 936 sequential simulator runs.
-- [ ] Audit validity and failures, then produce per-scenario estimates,
-  intervals, safeguards, clearance and mechanism summaries.
-- [ ] Generate the final tables and figures and replace the manuscript's pending
-  Results section only with eligible held-out evidence.
-- [ ] Recheck references, conclusions, limitations and the reproducibility
-  package; obtain author names and affiliations.
-- [ ] Render and visually inspect the supervisor-ready paper, obtain supervisor
-  review, and only then select and apply a conference format.
+This is deliberately a learning and verification phase. Use development seeds,
+fresh result roots and sequential runs only. Preserve raw results, including
+failed runs; do not use reserved evaluation seeds.
+
+1. **Controller-rule checks.** Run small, deterministic probes that verify the
+   policy's observable rules: queue measurement, selected next approach,
+   green-duration bounds/calculation, rotation/service guarantee, and fixed
+   controller behavior. Inspect phase and queue telemetry, not just aggregate
+   delay.
+2. **Representative-environment checks.** At the actual 500-vehicle workload,
+   repeat a deliberately small set of development plans spanning balanced and
+   strongly skewed demand, low/medium/high offered load, and changing demand.
+   Confirm plan identity, arrivals, crossings, timing coverage, queue
+   observations and repeatability before interpreting controller differences.
+3. **Mechanism checks.** Compare `priority` with the simple fixed baseline in
+   the environments above. Add one ablation/comparator only when it answers a
+   concrete question about *why* priority helped, failed, or changed fairness;
+   do not automatically run all six arms or tune a best fixed controller.
+4. **Review gate.** Summarize what the policy demonstrably does, where its
+   effect is absent or adverse, what remains unvalidated, and whether the model
+   is stable enough to justify a later experimental protocol. Only then decide
+   whether a bounded comparative study is worthwhile and what it should test.
+
+## Hard hold — not current work
+
+- Paper/manuscript drafting, reference expansion, venue selection and PDF
+  rendering.
+- Figure, image or other presentation-asset generation, including synthetic
+  paper figures.
+- The held-out six-arm evaluation, the proposed 936-run grid, protocol freeze,
+  and fixed-timing tuning/selection.
+- Completing infrastructure whose only purpose is final collection or paper
+  presentation (`run_evaluation.py`, paper plotting, collection commands),
+  unless it becomes necessary for a specific validation check.
 
 ## Next action
 
-Read [the detailed next steps](codex_handoff/next_steps.md), finish evaluation
-and plotting integration, then validate the full N=500 path before starting the
-tuning study.
+Read [the validation-first next steps](codex_handoff/next_steps.md). Start with
+controller-rule probes, then run only the small representative N=500
+development validation set. Do not start tuning, held-out collection, writing
+or visual work.

@@ -1,12 +1,13 @@
 # Experiment protocol
 
-**Status: implementation and development validation; not yet frozen.** Updated
-11 September 2026. The user selected a reproducible scheduling study within
-this simplified simulator, with a supervisor-ready paper due within September.
-Venue selection follows supervisor review. We do not claim calibrated traffic
-capacity, real-road efficiency, cross-machine generalization or packet-level
-VANET performance. Internal measurement validation and development-only fixed
-baseline tuning remain prerequisites for final collection.
+**Status: draft retained for later; hard hold.** Updated 14 September 2026.
+The immediate task is a small, development-only validation of simulator and
+priority-policy behavior, not a frozen comparative study or conference-paper
+production. Do not collect this protocol's held-out evaluation, tune a final
+baseline, write paper results, or generate figures until that validation has
+been reviewed and a new scope is explicitly chosen. We do not claim calibrated
+traffic capacity, real-road efficiency, cross-machine generalization or
+packet-level VANET performance.
 
 ## What is being tested
 
