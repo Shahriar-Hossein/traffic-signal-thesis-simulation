@@ -1,5 +1,8 @@
 # Traffic-signal working rules
 
+- This branch is a plan-only paired study: fixed 12 s, fixed 24 s, and priority use the same scheduled traffic plan.
+- Keep `docs/Thesis_Report_5-9-26_update.pdf` as historical thesis context; its results are separate from this study.
+
 - Research data is the product. A completed simulation is not automatically valid evidence.
 - Use `run_paired.py` for sequential comparisons. Do not run simulator arms concurrently.
 - Keep raw plans and logs immutable. Use fresh output roots for probes and `write=False` for historical reanalysis.

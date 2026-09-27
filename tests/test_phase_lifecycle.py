@@ -93,23 +93,18 @@ class PhaseLifecycleTests(unittest.TestCase):
         self.assertGreater(float(row['phase_end_sec']), end)
         self.assertEqual(float(row['green_selected_sec']), 4)
 
-    def test_early_exit_is_a_termination_reason_not_a_short_green(self):
-        self.serve(green_time=10, early_exit=lambda direction, second: second >= 3)
-        row = self.rows()[0]
-        self.assertEqual(row['status'], logger.PHASE_COMPLETE)
-        self.assertEqual(row['termination'], 'early_exit')
-        self.assertEqual(float(row['green_selected_sec']), 10)
-        self.assertEqual(float(row['green_end_sec']) - float(row['green_start_sec']), 3)
-
     def test_shutdown_during_green_still_records_the_phase(self):
-        def stop_during_green(direction, second):
-            if second == 2:
-                logger.finalize_phase(self.clock.elapsed())
-                raise SystemExit  # the daemon thread is killed here
-            return False
+        real_sleep = self.clock.sleep
 
-        with self.assertRaises(SystemExit):
-            self.serve(green_time=10, early_exit=stop_during_green)
+        def sleeping(seconds):
+            real_sleep(seconds)
+            if self.clock.elapsed() == 2:
+                logger.finalize_phase(self.clock.elapsed())
+                raise SystemExit
+
+        with mock.patch.object(phase.time, 'sleep', sleeping):
+            with self.assertRaises(SystemExit):
+                self.serve(green_time=10)
 
         rows = self.rows()
         self.assertEqual(len(rows), 1)

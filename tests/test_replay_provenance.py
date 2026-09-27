@@ -27,9 +27,9 @@ class ProvenanceTests(unittest.TestCase):
         self.assertNotEqual(fingerprint(one['configuration']), one['configuration_hash'])
 
     def test_paired_logger_records_actual_attributes_and_startup_snapshot(self):
-        plan = build_plan(7, 1, 'even', plan_id='fixture')
+        plan = build_plan(7, 'even', [{'condition': 'high', 'duration_sec': 0.25}], plan_id='fixture', scenario='fixture')
         state = SimpleNamespace(
-            pair_id='fixture', arm_label='fixed', currentMode='fixed', run_mode='vehicles',
+            pair_id='fixture', arm_label='fixed', currentMode='fixed', paired_root=None,
             target_vehicle_count=1, count_mode_timeout=1800, vehicle_plan=plan,
             generation_source='plan', vehicle_plan_path='plan.json', uneven_mode='even',
             release_count=1, release_drift_sum_ms=1, release_drift_max_ms=1,
@@ -41,7 +41,7 @@ class ProvenanceTests(unittest.TestCase):
                 'direction', 'lane', 'will_turn', 'turn_direction', 'target_turn_lane')},
         )
         with tempfile.TemporaryDirectory() as root, patch.object(logger, 'state', state), patch.object(logger, 'BASE_DATA_DIR', root):
-            logger.init_logger(60, 'even')
+            logger.init_logger()
             logger.log_vehicle(vehicle)
             path = logger.write_run_meta(stop_reason='target_reached')
             meta = json.loads(Path(path).read_text())
@@ -52,18 +52,11 @@ class ProvenanceTests(unittest.TestCase):
                 self.assertEqual(rows[0][key], str(record[key]))
             self.assertEqual(rows[0]['released_sec'], '1.5')
             self.assertEqual(rows[0]['crossed_sec'], '9.25')
-            state.pair_id = None
-            logger.init_logger(60, 'even')
-            logger.log_vehicle(vehicle)
-            with open(logger.log_filename) as handle:
-                rows = list(csv.reader(handle))
-            self.assertEqual(rows[0], logger.VEHICLE_LOG_COLUMNS)
-            self.assertEqual(len(rows[1]), 6)
 
     def test_driver_archives_external_plan_before_launch(self):
         with tempfile.TemporaryDirectory() as root:
             root = Path(root)
-            plan = build_plan(7, 1, 'even', plan_id='fixture')
+            plan = build_plan(7, 'even', [{'condition': 'high', 'duration_sec': 0.25}], plan_id='fixture', scenario='fixture')
             external = root / 'external.json'
             write_plan(plan, str(external))
             destination = root / 'paired'

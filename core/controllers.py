@@ -15,8 +15,7 @@ never drags pygame into an analyzer.
 """
 import importlib
 
-# name -> (module, function).  Ablations change exactly one of the two things
-# the proposed controller changes against fixed-24.
+# name -> (module, function).
 REGISTRY = {
     'fixed': ('core.cycle_fixed', 'fixed_traffic_cycle'),
     'priority': ('core.cycle_priority', 'control_traffic_cycle'),

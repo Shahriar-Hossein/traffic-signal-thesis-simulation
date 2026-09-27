@@ -13,7 +13,7 @@ class ScheduledPlanTests(unittest.TestCase):
     def make_plan(self, schedule=None, mode='even', scenario='balanced_moderate'):
         if schedule is None:
             schedule = [{'condition': 'medium', 'duration_sec': 10}]
-        return build_plan(301, None, mode, schedule=schedule, scenario=scenario)
+        return build_plan(301, mode, schedule, scenario=scenario)
 
     @staticmethod
     def resign(plan, path):
@@ -41,7 +41,7 @@ class ScheduledPlanTests(unittest.TestCase):
     def test_study_environments_derive_count_from_full_duration(self):
         cases = (
             ('balanced_moderate', 'even', [('medium', 10)], 20),
-            ('one_busy', 'up', [('medium', 10)], 20),
+            ('one_busy', 'right', [('medium', 10)], 20),
             ('two_busy', 'up_down', [('medium', 10)], 20),
             ('high_low_high', 'even', [('high', 10), ('low', 10), ('high', 10)], 85),
             ('sustained_high', 'even', [('high', 30)], 120),
@@ -89,7 +89,7 @@ class ScheduledPlanTests(unittest.TestCase):
         first[0]['duration_sec'] = 10
         self.assertEqual(a['header']['arrival_schedule'][0]['duration_sec'], 4)
 
-    def test_builder_rejects_bad_schedule_and_count_quota(self):
+    def test_builder_rejects_bad_schedule(self):
         bad = ([], [{'condition': 'bad', 'duration_sec': 1}],
                [{'condition': 'high', 'duration_sec': 0}],
                [{'condition': 'high', 'duration_sec': float('nan')}],
@@ -98,8 +98,6 @@ class ScheduledPlanTests(unittest.TestCase):
         for schedule in bad:
             with self.subTest(schedule=schedule), self.assertRaises(ValueError):
                 self.make_plan(schedule)
-        with self.assertRaisesRegex(ValueError, 'count=None'):
-            build_plan(301, 5, 'even', schedule=[{'condition': 'high', 'duration_sec': 1}])
 
     def test_rehashed_malformed_schedules_and_arrivals_are_rejected(self):
         with tempfile.TemporaryDirectory() as root:

@@ -15,7 +15,7 @@ class TimingReportTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.directory = Path(self.temp.name) / 'fixture'
-        self.plan = build_plan(7, 3, 'even', plan_id='fixture')
+        self.plan = build_plan(7, 'even', [{'condition': 'high', 'duration_sec': 0.75}], plan_id='fixture', scenario='fixture')
         write_plan(self.plan, str(self.directory / 'plan.json'))
 
     def write_arm(self, name, release_shift=0.0, phase_shift=0.0, windows=(60, 60),
@@ -127,15 +127,6 @@ class TimingReportTests(unittest.TestCase):
         self.assertFalse(contrast['phase_order_matches_over_prefix'])
         self.assertIsNone(contrast['phase_onset_drift_max_ms'])
         self.assertIsNone(contrast['phase_onset_divergence_max_ms'])
-
-    def test_an_early_exit_is_not_counted_as_overrun(self):
-        self.write_arm('a', controller='priority',
-                       phases=[('right', 10.0, 24, 'complete', 'early_exit'),
-                               ('down', 40.0, 24)])
-        arm = self.report()['arms'][0]
-        self.assertEqual(arm['greens_ended_early'], 1)
-        # Only the green that ran to its granted duration contributes.
-        self.assertEqual(arm['green_overrun_max_ms'], 500.0)
 
     def test_a_censored_green_is_not_a_granted_duration(self):
         self.write_arm('a', phases=[('right', 10.0, 24),

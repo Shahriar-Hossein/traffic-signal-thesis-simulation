@@ -34,8 +34,7 @@ def make_plans(root, scenarios=SCENARIOS, seeds=DEVELOPMENT_SEEDS):
         for seed in seeds:
             plan_id = f'{name}_seed{seed}'
             path = root / plan_id / 'plan.json'
-            plan = build_plan(seed, None, mode, plan_id=plan_id,
-                              schedule=schedule, scenario=name)
+            plan = build_plan(seed, mode, schedule, plan_id=plan_id, scenario=name)
             write_plan(plan, str(path))
             written.append(path)
             print(f'{plan_id}: {len(plan["vehicles"])} arrivals, '

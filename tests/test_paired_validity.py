@@ -7,7 +7,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from analyzers.analyze_paired import analyze_pair, analyze_batch
+from analyzers.analyze_paired import analyze_pair, analyze_batch, scenario_label
 from core.plan import build_plan, write_plan, load_plan
 from core.provenance import fingerprint, _runtime_snapshot, runtime_identity
 from utils.logger import PHASE_LOG_COLUMNS
@@ -19,7 +19,7 @@ class ReplayValidityTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.directory = self.root / 'fixture'
-        self.plan = build_plan(7, 3, 'even', plan_id='fixture')
+        self.plan = build_plan(7, 'even', [{'condition': 'high', 'duration_sec': 0.75}], plan_id='fixture', scenario='fixture')
         write_plan(self.plan, str(self.directory / 'plan.json'))
         self.build_arms()
         self.save()
@@ -99,7 +99,7 @@ class ReplayValidityTests(unittest.TestCase):
                 writer.writeheader()
                 writer.writerow({
                     'round_index': 0, 'phase_index': 0, 'direction': 'right',
-                    'green_start_sec': 10.0, 'green_selected_sec': 24,
+                    'green_start_sec': 10.0, 'green_selected_sec': 6 if name == 'priority' else 24,
                     'green_end_sec': arm['meta'].get('duration_sec', 14.5),
                     'phase_end_sec': arm['meta'].get('duration_sec', 14.5),
                     'decision_weight': 3.0,
@@ -122,7 +122,6 @@ class ReplayValidityTests(unittest.TestCase):
         result = self.result()
         self.assertTrue(result['valid'], result['invalid_reasons'])
         self.assertEqual(result['paired'][0]['n_matched'], 3)
-        self.assertIsNone(result['paired'][0]['wilcoxon_p_value'])
         batch = analyze_batch(str(self.root), write=False, baseline='fixed')
         self.assertEqual(batch['per_contrast']['fixed_vs_priority']['plans'], 1)
         narrowed = analyze_batch(str(self.root), write=False, baseline='fixed',
@@ -138,15 +137,15 @@ class ReplayValidityTests(unittest.TestCase):
         # Both fixture arms log identical waits, so every safeguard is flat.
         self.assertEqual(guards['wait_p95']['mean_of_plan_deltas'], 0.0)
         self.assertEqual(guards['wait_p95']['plans_worse_under_arm'], 0)
-        # The stratum carries the demand regime, not just skew and workload.
-        self.assertEqual(result['scenario'], 'even_mixed_3')
-        self.assertEqual(result['scenario_fields'],
-                         {'skew': 'even', 'regime': 'mixed', 'workload': 3})
-        self.assertIn('even_mixed_3', batch['per_scenario'])
+        # The stratum carries its schedule and demand pattern.
+        self.assertEqual(result['scenario'], scenario_label(result['scenario_fields']))
+        self.assertEqual(result['scenario_fields']['scenario'], 'fixture')
+        self.assertEqual(result['scenario_fields']['workload'], 3)
+        self.assertIn(result['scenario'], batch['per_scenario'])
         # Safeguards are reported per stratum, at the level the headline
         # number for that stratum is read.
         self.assertEqual(
-            set(batch['per_scenario']['even_mixed_3']['fixed_vs_priority']['safeguards']),
+            set(batch['per_scenario'][result['scenario']]['fixed_vs_priority']['safeguards']),
             set(guards),
         )
         self.assertEqual(batch['analysis']['baseline'], 'fixed')
@@ -389,15 +388,6 @@ class IntervalTests(unittest.TestCase):
         summary = contrast_summary(values)
         self.assertEqual(summary['plans'], 8)
         self.assertEqual(summary['plans_favouring_arm'], 8)
-
-    def test_replication_count_grows_with_variability_and_precision(self):
-        from analyzers.analyze_paired import plans_needed
-        self.assertEqual(plans_needed(3, 1.0), 35)
-        # Halving the target half-width costs four times the plans.
-        self.assertEqual(plans_needed(3, 0.5), 139)
-        self.assertLess(plans_needed(1, 1.0), plans_needed(3, 1.0))
-        self.assertIsNone(plans_needed(None, 1.0))
-        self.assertIsNone(plans_needed(3, 0))
 
     def test_interval_spanning_zero_is_reported_as_such(self):
         from analyzers.analyze_paired import bootstrap_ci

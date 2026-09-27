@@ -70,7 +70,7 @@ class EligibilityTests(unittest.TestCase):
         self.assertIn('interval FPS divergence', ' '.join(pair['invalid_reasons']))
         batch = analyze_batch(str(f.root), write=False)
         self.assertEqual(batch['plans_valid'], 0)
-        self.assertEqual(batch['invalid_by_scenario'], {'even_mixed_3': 1})
+        self.assertEqual(batch['invalid_by_scenario'], {pair['scenario']: 1})
 
     def test_missing_phases_withhold_effects_despite_coherent_vehicle_rows(self):
         f = self.fixture

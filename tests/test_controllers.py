@@ -25,7 +25,7 @@ class RegistryTests(unittest.TestCase):
     def test_cli_accepts_exactly_the_registered_names(self):
         import main
         for name in NAMES:
-            self.assertEqual(main.parse_args(['--controller', name]).controller, name)
+            self.assertEqual(main.parse_args(['--plan', 'plan.json', '--pair-id', 'fixture', '--arm', name, '--controller', name]).controller, name)
         with self.assertRaises(SystemExit):
             main.parse_args(['--controller', 'priorty'])
 

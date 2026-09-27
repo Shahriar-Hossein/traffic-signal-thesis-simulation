@@ -1,14 +1,13 @@
 # core/generator.py
 import state
-import random
 import time
 from core import runclock
 from models.vehicle import Vehicle
 from core.plan import (
-    sample_vehicle, pick_traffic_condition, DIRECTIONS,
+    DIRECTIONS,
 )
 from config import (
-    trafficConditions, trafficConditionInterval
+    trafficConditions
 )
 
 # How long a replay sleep may block before re-checking `state.running`, so a
@@ -16,73 +15,9 @@ from config import (
 REPLAY_SLEEP_SLICE = 0.05
 
 
-def generateVehicles(uneven_mode=None):
-    """
-    Generate vehicles continuously with uneven direction probabilities.
-    Modes:
-        - None or 'uniform': equal probability for all directions
-        - 'top_right': more vehicles from top and right
-        - 'bottom_left': more vehicles from left and bottom
-        - 'one_direction': mostly from right (can be changed)
-
-    The generation rate switches between the traffic conditions defined in
-    config.trafficConditions (high/medium/low) every
-    config.trafficConditionInterval seconds, picked at random.
-
-    When state.generation_source == 'plan' this hands off to replay_vehicles,
-    which reads a pre-written plan instead of drawing.
-    """
-    if state.generation_source == 'plan':
-        replay_vehicles(state.vehicle_plan)
-        return
-
-    # NOTE: the traffic-condition sequence is unseeded, so two runs of the same
-    # length (or the same vehicle quota) see different load sequences.  Paired
-    # study comparisons use replay plans for this reason.
-    cnt = 0
-    condition = None
-    condition_started_at = 0  # forces a pick on the first iteration
-
-    while state.running:
-        # In 'vehicles' mode the generator releases a fixed quota and stops.
-        # The simulation itself keeps running until those vehicles have crossed.
-        if (state.run_mode == 'vehicles'
-                and state.vehicles_generated >= state.target_vehicle_count):
-            print(
-                f"Generated all {state.target_vehicle_count} vehicles. "
-                "Generator stopping."
-            )
-            break
-
-        cnt += 1
-
-        # Switch traffic condition every `trafficConditionInterval` seconds
-        now = time.time()
-        if now - condition_started_at >= trafficConditionInterval:
-            condition = pick_traffic_condition(condition)
-            condition_started_at = now
-            state.traffic_condition = condition
-            print(
-                f"Traffic condition: {condition} "
-                f"({trafficConditions[condition]} vehicles/sec)"
-            )
-
-        # Type, direction and lane all come from the shared sampler so the
-        # plan writer cannot drift away from what the live mode produces.
-        drawn = sample_vehicle(uneven_mode, random)
-
-        Vehicle(
-            drawn['lane'],
-            drawn['vehicle_type'],
-            drawn['direction_number'],
-            drawn['direction']
-        )
-        state.vehicles_generated += 1
-        # print(f"Generated vehicle {cnt}: {direction} lane {lane_number}")
-
-        # Interval between generations, derived from the active condition
-        # e.g. 4 vehicles/sec -> 0.25s, 0.5 vehicles/sec -> 2s
-        time.sleep(1 / trafficConditions[condition])
+def generateVehicles():
+    """Release the scheduled plan loaded by main.py."""
+    replay_vehicles(state.vehicle_plan)
 
 
 def replay_vehicles(plan):

@@ -42,18 +42,8 @@ PAIRED_ROOT = os.path.join(BASE_DIR, "study")
 DEFAULT_FPS_TOLERANCE = 0.05        # relative spread in fps_mean across arms
 DEFAULT_DRIFT_TOLERANCE_MS = 250.0  # worst single release lateness, per arm
 
-# Below this many matched pairs the normal approximation in the signed-rank
-# test is not trustworthy and the p-value is reported as None.
-MIN_PAIRS_FOR_TEST = 10
-
-# Bumped whenever the meaning of a reported number changes, so a derived
-# artifact can say which analysis produced it.  2: scenario keys carry the
-# demand regime, safeguards are reported per stratum, and cohorts are checked
-# before pooling.  3: replicate identity no longer depends on a display name,
-# and inference is reported per scenario rather than across heterogeneous cells.
-# 4: scheduled plans key strata by scenario and schedule; paired effects include
-# per-direction estimates and priority is contrasted with both fixed settings.
-ANALYSIS_SCHEMA_VERSION = 4
+# Schema 5 keeps only scheduled-plan effects and the study endpoints.
+ANALYSIS_SCHEMA_VERSION = 5
 
 # Allowances for cross-field checks.  Every one of these exists because two
 # recorded quantities are measured by different code at different moments; a
@@ -167,9 +157,7 @@ def summarize_arm(arm):
     meta = arm["meta"]
 
     waits = []
-    travels = []
     by_direction = defaultdict(list)
-    by_type = defaultdict(list)
 
     for row in rows:
         try:
@@ -178,13 +166,6 @@ def summarize_arm(arm):
             continue
         waits.append(wait)
         by_direction[row["direction"]].append(wait)
-        by_type[row["vehicle_type"]].append(wait)
-        # Entry to stop line. Spawn distance depends on the queue ahead, so
-        # this is reported next to stopped delay rather than folded into it.
-        try:
-            travels.append(float(row["crossed_sec"]) - float(row["released_sec"]))
-        except (KeyError, TypeError, ValueError):
-            pass
 
     direction_means = {
         d: statistics.fmean(v) for d, v in by_direction.items() if v
@@ -193,20 +174,15 @@ def summarize_arm(arm):
         max(direction_means, key=direction_means.get) if direction_means else None
     )
 
-    duration = meta.get("duration_sec")
-    clearance = meta.get("last_crossing_sec") or duration
-
     return {
         "controller": meta.get("controller"),
-        "duration_sec": duration,
+        "duration_sec": meta.get("duration_sec"),
         "vehicles_logged": len(rows),
         "wait_mean": round(statistics.fmean(waits), 2) if waits else None,
         "wait_median": round(statistics.median(waits), 2) if waits else None,
-        "wait_p90": round(percentile(waits, 0.90), 2) if waits else None,
         # Tail delay and the worst-served approach are the safeguards: a mean
         # gain paid for by one starved approach is not an improvement.
         "wait_p95": round(percentile(waits, 0.95), 2) if waits else None,
-        "wait_max": round(max(waits), 2) if waits else None,
         "worst_direction": worst_direction,
         "worst_direction_wait_mean": round(direction_means[worst_direction], 2) if worst_direction else None,
         # Spread between the best- and worst-served approach.
@@ -214,21 +190,11 @@ def summarize_arm(arm):
             round(max(direction_means.values()) - min(direction_means.values()), 2)
             if direction_means else None
         ),
-        "travel_mean": round(statistics.fmean(travels), 2) if travels else None,
-        "travel_p90": round(percentile(travels, 0.90), 2) if travels else None,
         # Clearance is measured to the last crossing; duration_sec also
         # covers the display drain that follows it.
         "last_crossing_sec": meta.get("last_crossing_sec"),
-        # Finite-workload clearance rate, a transformation of clearance time,
-        # not a separate capacity estimate.
-        "throughput_per_min": (
-            round(len(rows) / clearance * 60, 2) if clearance else None
-        ),
         "wait_mean_by_direction": {
             d: round(statistics.fmean(v), 2) for d, v in sorted(by_direction.items())
-        },
-        "wait_mean_by_type": {
-            t: round(statistics.fmean(v), 2) for t, v in sorted(by_type.items())
         },
         "signal_changes": arm["signal_changes"],
         "fps_mean": meta.get("fps_mean"),
@@ -499,47 +465,24 @@ def check_validity(arms, plan, fps_tolerance, drift_tolerance_ms):
 
 # --- Scenario identity ---------------------------------------------------
 
-# A plan written before the demand regime could be pinned switches between
-# regimes. That is a regime — the changing-demand case — not a missing value,
-# and naming it here does not touch the plan or its hash.
-MIXED_REGIME = 'mixed'
-
-
 def scenario_identity(header):
-    """
-    The stratum a plan belongs to, as its three axes.
-
-    The grid varies skew *and* demand regime, so a key built from skew and
-    workload alone collapses low, medium, high and mixed into one another: a
-    twelve-cell grid reports three strata, each an average over four regimes
-    that describes none of them.
-    """
+    """The scheduled environment and workload of one independent plan."""
     if not isinstance(header, dict):
         return None
-    if header.get('schema_version') == 2 and header.get('scenario') is not None:
-        schedule = header.get('arrival_schedule')
-        return {
-            'scenario': header['scenario'],
-            'skew': header.get('uneven_mode'),
-            'schedule': fingerprint(schedule) if isinstance(schedule, list) else None,
-            'workload': header.get('target_vehicle_count'),
-        }
+    schedule = header.get('arrival_schedule')
     return {
+        'scenario': header.get('scenario'),
         'skew': header.get('uneven_mode'),
-        'regime': header.get('pinned_condition') or MIXED_REGIME,
+        'schedule': fingerprint(schedule) if isinstance(schedule, list) else None,
         'workload': header.get('target_vehicle_count'),
     }
 
 
 def scenario_label(identity):
-    """The stratum key used for grouping and for reporting."""
     if not identity:
         return 'unknown'
-    if 'scenario' in identity:
-        schedule = identity.get('schedule')
-        suffix = schedule[:8] if schedule else 'no_schedule'
-        return f"{identity['scenario']}_{identity['skew']}_{suffix}_{identity['workload']}"
-    return f"{identity['skew']}_{identity['regime']}_{identity['workload']}"
+    suffix = identity['schedule'][:8] if identity.get('schedule') else 'no_schedule'
+    return f"{identity['scenario']}_{identity['skew']}_{suffix}_{identity['workload']}"
 
 
 def fixed_green_config_variation(configurations, controllers):
@@ -683,29 +626,6 @@ def bootstrap_ci(values, confidence=0.95, iterations=BOOTSTRAP_ITERATIONS):
     }
 
 
-def plans_needed(sd, half_width, confidence=0.95):
-    """
-    Plans required for a CI half-width of `half_width`, given a pilot `sd`.
-
-    Normal approximation, n = (z * sd / half_width)^2, rounded up. It is a
-    planning figure, not a guarantee: the pilot sd is itself estimated from
-    few plans, so treat it as a floor and re-check once more plans are in.
-
-    The quantile comes from the standard library rather than a table with one
-    entry: the parameter previously accepted any confidence and silently used
-    an unrelated constant for all but 0.95, so a request for 99% returned a
-    smaller number of plans than a request for 95%.
-    """
-    if sd is None or not finite_number(sd) or not finite_number(half_width, positive=True):
-        return None
-    if not sd:
-        return None
-    if not finite_number(confidence) or not 0 < confidence < 1:
-        raise ValueError(f"confidence must lie strictly between 0 and 1, not {confidence!r}")
-    z = statistics.NormalDist().inv_cdf((1 + confidence) / 2)
-    return math.ceil((z * sd / half_width) ** 2)
-
-
 def contrast_summary(means, inference=True, inference_reason=None):
     """Plan-level effect summary: the unit of inference is the plan."""
     summary = {
@@ -719,90 +639,17 @@ def contrast_summary(means, inference=True, inference_reason=None):
     }
     if inference:
         summary.update({
-            # Planning figures for the next round, at two precisions.
-            "plans_for_half_width_1s": plans_needed(
-                statistics.stdev(means) if len(means) > 1 else None, 1.0),
-            "plans_for_half_width_0_5s": plans_needed(
-                statistics.stdev(means) if len(means) > 1 else None, 0.5),
             **bootstrap_ci(means),
-            **{f"wilcoxon_{k}": v for k, v in wilcoxon_signed_rank(means).items()},
         })
     else:
         summary.update({
-            "plans_for_half_width_1s": None,
-            "plans_for_half_width_0_5s": None,
             "ci_low": None,
             "ci_high": None,
             "ci_method": "withheld: descriptive summary across scenarios",
             "ci_confidence": None,
-            "wilcoxon_n_nonzero": None,
-            "wilcoxon_w_statistic": None,
-            "wilcoxon_z": None,
-            "wilcoxon_p_value": None,
             "inference_withheld_reason": inference_reason,
         })
     return summary
-
-
-# --- Signed-rank test ----------------------------------------------------
-
-def normal_sf(z):
-    """Upper-tail probability of the standard normal."""
-    return 0.5 * math.erfc(z / math.sqrt(2))
-
-
-def wilcoxon_signed_rank(deltas):
-    """
-    Two-sided Wilcoxon signed-rank test, normal approximation with tie and
-    continuity corrections.
-
-    Written out rather than imported so the analyzer has no scipy dependency;
-    at the pair sizes this design produces (hundreds of vehicles) the normal
-    approximation is what scipy would use anyway.  Returns None for `p` when
-    there are too few non-zero differences to trust it.
-    """
-    nonzero = [d for d in deltas if d != 0]
-    n = len(nonzero)
-    if n == 0:
-        return {"n_nonzero": 0, "w_statistic": None, "z": None, "p_value": None}
-
-    # Average ranks over ties in |d|
-    ordered = sorted(range(n), key=lambda i: abs(nonzero[i]))
-    ranks = [0.0] * n
-    tie_correction = 0
-    i = 0
-    while i < n:
-        j = i
-        while j + 1 < n and abs(nonzero[ordered[j + 1]]) == abs(nonzero[ordered[i]]):
-            j += 1
-        average_rank = (i + j) / 2 + 1
-        for k in range(i, j + 1):
-            ranks[ordered[k]] = average_rank
-        group = j - i + 1
-        tie_correction += group ** 3 - group
-        i = j + 1
-
-    w_plus = sum(r for r, d in zip(ranks, nonzero) if d > 0)
-    w_minus = sum(r for r, d in zip(ranks, nonzero) if d < 0)
-    w = min(w_plus, w_minus)
-
-    if n < MIN_PAIRS_FOR_TEST:
-        return {"n_nonzero": n, "w_statistic": w, "z": None, "p_value": None}
-
-    mean = n * (n + 1) / 4
-    variance = (n * (n + 1) * (2 * n + 1) - tie_correction / 2) / 24
-    if variance <= 0:
-        return {"n_nonzero": n, "w_statistic": w, "z": None, "p_value": None}
-
-    z = (w - mean + 0.5) / math.sqrt(variance)   # continuity correction
-    p = min(1.0, 2 * normal_sf(abs(z)))
-
-    return {
-        "n_nonzero": n,
-        "w_statistic": w,
-        "z": round(z, 4),
-        "p_value": p,
-    }
 
 
 # --- Pairing -------------------------------------------------------------
@@ -876,7 +723,6 @@ def compare_arms(baseline, other):
     }
     # Vehicles interact within a plan; no inferential vehicle-level p-value.
     result['inference_unit'] = 'plan'
-    result['wilcoxon_p_value'] = None
 
     if only_baseline or only_other:
         result["unmatched_plan_seqs"] = {
@@ -1373,22 +1219,18 @@ def print_pair(comparison):
             f"p95 {str(summary['wait_p95']):>7}  "
             f"worst {str(summary['worst_direction']):>5} "
             f"{str(summary['worst_direction_wait_mean']):>7}  "
-            f"travel {str(summary['travel_mean']):>7}  "
-            f"thr {str(summary['throughput_per_min']):>7}/min  "
             f"fps {str(summary['fps_mean']):>6}"
         )
         print(f"    direction delay: {summary['wait_mean_by_direction']}")
 
     for block in comparison.get("paired", []):
         win_key = f"win_rate_{block['arm']}"
-        p = block.get("wilcoxon_p_value")
         print(
             f"  paired {block['baseline']} -> {block['arm']}: "
             f"n={block['n_matched']} "
             f"Δwait mean {block['delta_wait_mean']} "
             f"median {block['delta_wait_median']} "
-            f"win {block[win_key]} "
-            f"p={'n/a' if p is None else f'{p:.2e}'}"
+            f"win {block[win_key]}"
         )
         print(f"    direction Δdelay: {block.get('delta_wait_mean_by_direction', {})}")
         if block["unmatched_in_baseline"] or block["unmatched_in_arm"]:

@@ -16,8 +16,7 @@ ARMS = [('fixed12', 'fixed'), ('fixed24', 'fixed'), ('priority', 'priority')]
 class DriverContractTests(unittest.TestCase):
     def make_plan(self, root, plan_id='fixture', seed=7, condition='high'):
         path = Path(root) / plan_id / 'plan.json'
-        write_plan(build_plan(seed, 3, 'even', plan_id=plan_id,
-                              condition=condition), str(path))
+        write_plan(build_plan(seed, 'even', [{'condition': condition, 'duration_sec': 0.75 if condition == 'high' else 1.5}], plan_id=plan_id, scenario='fixture'), str(path))
         return path
 
     def test_run_arm_passes_explicit_output_and_fixed_green(self):

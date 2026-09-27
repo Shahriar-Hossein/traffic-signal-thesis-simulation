@@ -17,8 +17,7 @@ run_provenance = None
 # Base folder for all data
 BASE_DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 
-# The six columns every run has logged since the beginning.  Existing
-# analyzers parse them positionally, so nothing may be inserted into this list.
+# Vehicle rows carry crossing delay and the plan sequence used for pairing.
 VEHICLE_LOG_COLUMNS = [
     "timestamp",
     "vehicle_id",
@@ -28,22 +27,12 @@ VEHICLE_LOG_COLUMNS = [
     "wait_time_sec",
 ]
 
-# Paired runs append identity and planned-attribute columns. Appending means
-# the first six still parse positionally if a paired file ever ends up in front
-# of an older analyzer — it should not, but it is cheap insurance.
 PAIRED_EXTRA_COLUMNS = [
     "plan_seq", "lane", "will_turn", "turn_direction", "target_turn_lane",
     "released_sec", "crossed_sec",
 ]
 
-# One row per served green, written only for paired runs so the existing
-# signal-log analyzer keeps the schema it expects. This is what makes a
-# controller's decisions reconstructable after the fact.
-#
-# `status` and `termination` are appended rather than inserted: a phase whose
-# green was cut short by shutdown is a *censored* record, not a short green,
-# and a report that cannot tell the two apart deletes exactly the phase that
-# completed the workload.
+# Each served green records the controller decision and whether shutdown censored it.
 PHASE_LOG_COLUMNS = [
     "round_index", "phase_index", "direction", "green_start_sec",
     "green_selected_sec", "green_end_sec", "phase_end_sec",
@@ -65,90 +54,34 @@ _phase_lock = threading.Lock()
 _active_phase = None
 
 
-def is_paired_run():
-    """A run is 'paired' exactly when the driver gave it a pair identity."""
-    return state.pair_id is not None
-
-
-def init_logger(duration_sec, uneven_mode=None):
-    """
-    Initialize the timestamped log files for this run.
-
-    The destination depends on how the run ends (state.run_mode) and on whether
-    this is one arm of a paired replay.  The roots never share a folder —
-    analyzers rebuild a run's identity from its folder path, so mixing them
-    would silently pool unrelated runs.
-
-    time mode:     data/logs/{uneven_mode}/{duration}/{mode}_log_{duration}_{ts}.csv
-    vehicles mode: data/logs_by_count/{uneven_mode}/{N}/{mode}_countlog_{N}_{ts}.csv
-    paired replay: data/study/{pair_id}/{arm}/{arm}_pairlog_{N}_{ts}.csv
-    """
+def init_logger():
+    """Create one set of logs for a planned paired arm."""
     global log_filename, signal_log_filename, phase_log_filename
-    global run_basename, run_provenance
+    global run_basename, run_provenance, _active_phase
 
-    if is_paired_run():
-        import config
-        from core.plan import content_hash
-        from core.provenance import capture_provenance
-        run_provenance = capture_provenance(config, state.count_mode_timeout)
-        run_provenance['plan_hash'] = content_hash(state.vehicle_plan)
+    import config
+    from core.plan import content_hash
+    from core.provenance import capture_provenance
+    run_provenance = capture_provenance(config, state.count_mode_timeout)
+    run_provenance['plan_hash'] = content_hash(state.vehicle_plan)
 
-    mode_label = state.currentMode  # e.g., 'priority', 'fixed'
+    arm = state.arm_label
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-
-    if is_paired_run():
-        # A third root, sibling to logs/ and logs_by_count/, for the same
-        # reason count mode got its own: a paired run does not fit the shape
-        # either existing analyzer expects, and no existing analyzer walks
-        # the paired root, so nothing it writes can contaminate a summary.
-        bucket = str(state.target_vehicle_count)
-        arm = state.arm_label or mode_label
-        run_basename = f"{arm}_pairlog_{bucket}_{timestamp}"
-
-        paired_root = getattr(state, 'paired_root', None)
-        if paired_root is None:
-            paired_root = os.path.join(BASE_DATA_DIR, "study")
-        log_dir = os.path.join(paired_root, state.pair_id, arm)
-        signal_dir = log_dir  # both arms' logs live together in the arm folder
-    elif state.run_mode == 'vehicles':
-        bucket = str(state.target_vehicle_count)
-        log_root = "logs_by_count"
-        signal_root = "log_signals_by_count"
-        run_basename = f"{mode_label}_countlog_{bucket}_{timestamp}"
-        log_dir = os.path.join(BASE_DATA_DIR, log_root, uneven_mode, bucket)
-        signal_dir = os.path.join(BASE_DATA_DIR, signal_root, uneven_mode, bucket)
-    else:
-        bucket = str(duration_sec)  # just seconds as folder name
-        log_root = "logs"
-        signal_root = "log_signals"
-        run_basename = f"{mode_label}_log_{bucket}_{timestamp}"
-        log_dir = os.path.join(BASE_DATA_DIR, log_root, uneven_mode, bucket)
-        signal_dir = os.path.join(BASE_DATA_DIR, signal_root, uneven_mode, bucket)
-
+    run_basename = f"{arm}_pairlog_{state.target_vehicle_count}_{timestamp}"
+    paired_root = state.paired_root or os.path.join(BASE_DATA_DIR, "study")
+    log_dir = os.path.join(paired_root, state.pair_id, arm)
     os.makedirs(log_dir, exist_ok=True)
-    os.makedirs(signal_dir, exist_ok=True)
 
     log_filename = os.path.join(log_dir, f"{run_basename}.csv")
-    signal_log_filename = os.path.join(signal_dir, f"{run_basename}_signal.csv")
-    phase_log_filename = (
-        os.path.join(log_dir, f"{run_basename}_phases.csv")
-        if is_paired_run() else None
-    )
-    if phase_log_filename:
-        with _phase_lock:
-            global _active_phase
-            _active_phase = None
-        with open(phase_log_filename, mode="w", newline="") as file:
-            csv.writer(file).writerow(PHASE_LOG_COLUMNS)
-
-    # Write CSV headers
-    columns = list(VEHICLE_LOG_COLUMNS)
-    if is_paired_run():
-        columns += PAIRED_EXTRA_COLUMNS
-
+    signal_log_filename = os.path.join(log_dir, f"{run_basename}_signal.csv")
+    phase_log_filename = os.path.join(log_dir, f"{run_basename}_phases.csv")
+    with _phase_lock:
+        _active_phase = None
+    with open(phase_log_filename, mode="w", newline="") as file:
+        csv.writer(file).writerow(PHASE_LOG_COLUMNS)
     with open(log_filename, mode="w", newline="") as file:
-        writer = csv.writer(file)
-        writer.writerow(columns)
+        csv.writer(file).writerow(VEHICLE_LOG_COLUMNS + PAIRED_EXTRA_COLUMNS)
+
 
 def log_vehicle(vehicle):
     """
@@ -166,16 +99,12 @@ def log_vehicle(vehicle):
         round(wait_time, 2)
     ]
 
-    if is_paired_run():
-        # The pairing key.  id(vehicle) cannot serve as one — CPython reuses
-        # addresses after a despawn, so joining the two arms on it would
-        # silently mismatch vehicles.
-        log_entry.extend([
-            vehicle.plan_seq, vehicle.lane, vehicle.will_turn,
-            vehicle.turn_direction, vehicle.target_turn_lane,
-            round(vehicle.released_sec, 4) if vehicle.released_sec is not None else None,
-            round(vehicle.crossed_sec, 4) if vehicle.crossed_sec is not None else None,
-        ])
+    log_entry.extend([
+        vehicle.plan_seq, vehicle.lane, vehicle.will_turn,
+        vehicle.turn_direction, vehicle.target_turn_lane,
+        round(vehicle.released_sec, 4) if vehicle.released_sec is not None else None,
+        round(vehicle.crossed_sec, 4) if vehicle.crossed_sec is not None else None,
+    ])
 
     with open(log_filename, mode="a", newline="") as file:
         writer = csv.writer(file)
@@ -288,12 +217,7 @@ def log_phase(**fields):
 
 
 def write_run_meta(**fields):
-    """
-    Write a per-run metadata sidecar next to the vehicle log.
-
-    JSON is used deliberately: every analyzer filters on '.csv', so a sidecar
-    can never contaminate an existing summary.
-    """
+    """Write the arm metadata beside its vehicle log."""
     if log_filename is None:
         return None
 
@@ -301,33 +225,28 @@ def write_run_meta(**fields):
         os.path.dirname(log_filename), f"{run_basename}_meta.json"
     )
     meta = {
-        "run_mode": state.run_mode,
+        "run_mode": "vehicles",
         "controller": state.currentMode,
         "uneven_mode": state.uneven_mode,
         "vehicle_log": os.path.basename(log_filename),
         "signal_log": os.path.basename(signal_log_filename),
     }
-    if phase_log_filename:
-        meta["phase_log"] = os.path.basename(phase_log_filename)
+    meta["phase_log"] = os.path.basename(phase_log_filename)
 
-    if is_paired_run():
-        # The folder path stops being the only run metadata here: a paired
-        # run records its own identity and its adherence to the plan, which
-        # is what the validity gate reads.
-        meta.update(run_provenance or {})
-        released = state.release_count
-        meta.update({
-            "generation_source": state.generation_source,
-            "plan_id": state.pair_id,
-            "plan_path": state.vehicle_plan_path,
-            "arm": state.arm_label,
-            "vehicles_planned": state.target_vehicle_count,
-            "vehicles_released": released,
-            "release_drift_mean_ms": (
-                round(state.release_drift_sum_ms / released, 2) if released else None
-            ),
-            "release_drift_max_ms": round(state.release_drift_max_ms, 2),
-        })
+    meta.update(run_provenance or {})
+    released = state.release_count
+    meta.update({
+        "generation_source": "plan",
+        "plan_id": state.pair_id,
+        "plan_path": state.vehicle_plan_path,
+        "arm": state.arm_label,
+        "vehicles_planned": state.target_vehicle_count,
+        "vehicles_released": released,
+        "release_drift_mean_ms": (
+            round(state.release_drift_sum_ms / released, 2) if released else None
+        ),
+        "release_drift_max_ms": round(state.release_drift_max_ms, 2),
+    })
 
     meta.update(fields)
 

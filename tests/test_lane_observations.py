@@ -108,14 +108,17 @@ class PhaseObservationLifecycleTests(unittest.TestCase):
         self.assertEqual(end['direction'], 'right')
 
     def test_green_censor_gets_end_snapshot(self):
-        def stop_during_green(direction, second):
-            if second == 1:
+        real_sleep = self.clock.sleep
+
+        def sleeping(seconds):
+            real_sleep(seconds)
+            if self.clock.elapsed() == 1:
                 logger.finalize_phase(self.clock.elapsed())
                 raise SystemExit
-            return False
 
-        with self.assertRaises(SystemExit):
-            self.serve(early_exit=stop_during_green)
+        with mock.patch.object(phase.time, 'sleep', sleeping):
+            with self.assertRaises(SystemExit):
+                self.serve()
         row = self.rows()[0]
         end = json.loads(row['lane_observations_end'])
         self.assertEqual(row['status'], logger.PHASE_CENSORED)

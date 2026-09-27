@@ -61,7 +61,7 @@ def rank_by_demand(indices, weights):
 
 
 def run_phase(green_index, green_time, round_index, phase_index, weights,
-              queues, red_extra=1, early_exit=None):
+              queues, red_extra=1):
     """
     Serve one green-then-yellow phase for `green_index` and record it.
 
@@ -70,9 +70,6 @@ def run_phase(green_index, green_time, round_index, phase_index, weights,
     as a parameter rather than unified so this refactor does not silently
     change any controller's signal timing.
 
-    `early_exit(direction, second)` is consulted once per green second before
-    that second elapses; returning True ends the green there and records the
-    phase as terminating early rather than on duration.
     """
     direction = directionNumbers[green_index]
 
@@ -95,18 +92,14 @@ def run_phase(green_index, green_time, round_index, phase_index, weights,
     state.currentYellow = 0
     state.currentGreen = green_index
 
-    termination = 'duration'
-    for second in range(green_time):
-        if early_exit is not None and early_exit(direction, second):
-            termination = 'early_exit'
-            break
+    for _ in range(green_time):
         update_signal_timers(green_index, yellow=False)
         time.sleep(1)
 
     green_end = runclock.elapsed()
     state.currentYellow = 1
     lane_observations_end = capture_lane_observations(direction, green_end)
-    mark_green_end(green_end, termination,
+    mark_green_end(green_end, 'duration',
                    lane_observations_end=lane_observations_end)
 
     for lane in range(3):

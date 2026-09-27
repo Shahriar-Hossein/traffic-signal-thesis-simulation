@@ -1,14 +1,4 @@
-# core/plan.py
-"""
-Vehicle sampling, shared by the live generator and the replay-plan writer,
-plus the plan file's schema, reader and validator.
-
-Everything that draws a vehicle lives here and *only* here.  The live random
-generator (`core.generator.generateVehicles`) and `scripts/make_plan.py` both
-call `sample_vehicle` / `sample_turn`, so a plan always describes the same
-distribution the live mode produces.  If the two ever had their own copy of
-the draw logic they could drift apart and nothing would report it.
-"""
+"""Build and validate immutable, scheduled traffic plans for paired replay."""
 
 import hashlib
 import json
@@ -19,63 +9,40 @@ import subprocess
 
 from config import (
     directionNumbers, vehicleTypes,
-    trafficConditions, trafficConditionInterval,
+    trafficConditions,
     turnDirections, turnProbability,
 )
 
 # Bumped whenever the plan file's shape changes.  A plan whose version this
 # code does not know is rejected loudly rather than half-read.
-SCHEMA_VERSION = 1
-SCHEDULE_SCHEMA_VERSION = 2
+SCHEMA_VERSION = 2
 
 # Same order as config.directionNumbers — the direction weight lists below are
-# positional against it, exactly as the old inline table in generator.py was.
+# positional against it.
 DIRECTIONS = list(directionNumbers.values())
 
-# Lanes a vehicle can be generated into (lane 3 exists in the coordinate
-# tables but is never generated into; this mirrors the original generator).
+# Lanes a vehicle can be generated into; lane 3 remains in the render tables.
 LANE_COUNT = 3
 
 # build_plan stores cumulative virtual-clock offsets rounded independently to
 # six decimal places.  Two adjacent stored values can therefore differ from
 # the unrounded interval by one whole unit in the last stored place.
 ARRIVAL_OFFSET_DECIMALS = 6
-ARRIVAL_TOLERANCE_SEC = 10 ** -ARRIVAL_OFFSET_DECIMALS
 
-# Direction probabilities per demand skew.  Any mode not listed here — and
-# `None` — falls back to uniform, which is what the original if/elif chain did.
+# Direction probabilities for the three study patterns.
 DIRECTION_WEIGHTS = {
-    # adjacent routes have more vehicles
-    'down_left':   [0.15, 0.35, 0.35, 0.15],
-    'right_down':  [0.35, 0.35, 0.15, 0.15],
-    'right_up':    [0.35, 0.15, 0.15, 0.35],
-    'left_up':     [0.15, 0.15, 0.35, 0.35],
-
-    # one direction has more vehicles
-    'up':          [0.05, 0.05, 0.05, 0.85],
-    'down':        [0.05, 0.85, 0.05, 0.05],
-    'left':        [0.05, 0.05, 0.85, 0.05],
-    'right':       [0.85, 0.05, 0.05, 0.05],
-
-    # alternate routes — up & down, left & right have more vehicles
-    'up_down':     [0.15, 0.35, 0.15, 0.35],
-    'left_right':  [0.35, 0.15, 0.35, 0.15],
+    'right': [0.85, 0.05, 0.05, 0.05],
+    'up_down': [0.15, 0.35, 0.15, 0.35],
 }
 
 UNIFORM_WEIGHTS = [0.25, 0.25, 0.25, 0.25]
 
 
-# 'even' and None both mean uniform; every other name must be a real skew.
-UNIFORM_MODES = (None, 'even', 'uniform')
+UNIFORM_MODES = ('even',)
 
 
 def direction_weights(uneven_mode):
-    """
-    Direction probabilities for a demand skew ('even'/None -> uniform).
-
-    An unrecognised name used to fall back to uniform, so a typo produced a
-    balanced plan labelled as a skewed one — and nothing said so.
-    """
+    """Return the probability vector for a study demand pattern."""
     if uneven_mode in UNIFORM_MODES:
         return UNIFORM_WEIGHTS
     try:
@@ -87,23 +54,8 @@ def direction_weights(uneven_mode):
         ) from None
 
 
-def pick_traffic_condition(previous=None, rng=random):
-    """
-    Pick a traffic condition ('high'/'medium'/'low'), always different from
-    the one currently active.
-    """
-    choices = [c for c in trafficConditions if c != previous]
-    return rng.choice(choices)
-
-
 def sample_vehicle(uneven_mode, rng):
-    """
-    Draw one vehicle's type, direction and lane.
-
-    The draw order — type, then direction, then lane — is load bearing: it is
-    the order the original inline code used, so a seeded `rng` reproduces the
-    old sequence exactly.  Do not reorder these three calls.
-    """
+    """Draw one vehicle type, direction and lane from a seeded RNG."""
     vehicle_type_index = rng.randint(0, 3)
     direction = rng.choices(DIRECTIONS, direction_weights(uneven_mode))[0]
     lane = rng.randint(0, LANE_COUNT - 1)
@@ -186,160 +138,39 @@ def _scheduled_arrivals(schedule, rates):
     return timeline, arrivals, start
 
 
-def build_plan(seed, count, uneven_mode, plan_id=None, condition=None,
-               schedule=None, scenario=None):
-    """
-    Generate a full replay plan on a *virtual* clock.
-
-    The clock advances by `1 / trafficConditions[condition]` per vehicle and
-    switches condition on the `trafficConditionInterval` boundary — exactly
-    what core/generator.py does against `time.time()`, minus the sleep drift.
-    The drift is deliberately not modelled: it is a property of the machine on
-    the day, not of the traffic, and both replay arms re-impose their own.
-
-    `condition` pins one traffic condition for the whole plan instead of
-    switching between them. That is what gives a scenario a single demand
-    regime rather than a mixture of all three. Left None, the condition
-    switches as it always has.
-
-    The vehicle sequence is shared across *pinned* regimes at one seed, so a
-    comparison between the low, medium and high cells varies demand and
-    nothing else. The changing-demand cell does not share that sequence, and a
-    comparison against it varies the vehicle draws too. Fixing that would mean
-    regenerating every existing plan under a different sampling algorithm, so
-    the guarantee is narrowed here rather than the archive rewritten.
-
-    With `schedule`, pass count=None and a list of
-    {'condition': name, 'duration_sec': seconds} segments. Arrivals fill each
-    full segment, beginning at its exact boundary. The count is derived from
-    the durations; `scenario` is an optional identifier stored in the header.
-    These plans use schema v2. Calls without a schedule retain v1 behavior.
-
-    Uses a private `random.Random(seed)`; never the global module, so nothing
-    else in the process can perturb the sequence.
-    """
-    if schedule is not None:
-        if condition is not None or count is not None:
-            raise ValueError("schedule requires count=None and condition=None")
-        if scenario is not None and (not isinstance(scenario, str) or not scenario):
-            raise ValueError("scenario must be a nonempty string")
-        direction_weights(uneven_mode)
-        timeline, arrivals, _ = _scheduled_arrivals(schedule, trafficConditions)
-        rng = random.Random(seed)
-        vehicles = []
-        for seq, (offset, current_condition) in enumerate(arrivals):
-            drawn = sample_vehicle(uneven_mode, rng)
-            turn = sample_turn(drawn['direction'], drawn['lane'], rng)
-            vehicles.append({
-                'seq': seq, 't_offset_sec': offset,
-                'direction': drawn['direction'], 'lane': drawn['lane'],
-                'vehicle_type': drawn['vehicle_type'],
-                'will_turn': turn['will_turn'],
-                'turn_direction': turn['turn_direction'],
-                'target_turn_lane': turn['target_turn_lane'],
-                'condition': current_condition,
-            })
-        schedule_copy = [dict(segment) for segment in schedule]
-        schedule_hash = hashlib.sha256(json.dumps(
-            {'schedule': schedule_copy, 'scenario': scenario}, sort_keys=True
-        ).encode()).hexdigest()[:8]
-        header = {
-            'plan_id': plan_id or f"{uneven_mode}_schedule_{schedule_hash}_seed{seed:02d}",
-            'seed': seed, 'target_vehicle_count': len(vehicles),
-            'uneven_mode': uneven_mode, 'turn_probability': turnProbability,
-            'traffic_conditions': dict(trafficConditions),
-            'traffic_condition_interval': trafficConditionInterval,
-            'pinned_condition': None, 'arrival_schedule': schedule_copy,
-            'scenario': scenario,
-            'schema_version': SCHEDULE_SCHEMA_VERSION,
-        }
-        return {'header': header, 'condition_timeline': timeline, 'vehicles': vehicles}
-
-    if scenario is not None:
-        raise ValueError("scenario requires schedule")
-    if condition is not None and condition not in trafficConditions:
-        raise ValueError(
-            f"unknown traffic condition {condition!r}; "
-            f"expected one of {sorted(trafficConditions)}"
-        )
+def build_plan(seed, uneven_mode, schedule, plan_id=None, scenario=None):
+    """Generate all arrivals for each fixed-duration segment."""
+    if scenario is not None and (not isinstance(scenario, str) or not scenario):
+        raise ValueError("scenario must be a nonempty string")
+    direction_weights(uneven_mode)
+    timeline, arrivals, _ = _scheduled_arrivals(schedule, trafficConditions)
     rng = random.Random(seed)
-    pinned = condition
-
     vehicles = []
-    timeline = []
-
-    t = 0.0
-    condition = None
-    condition_started_at = None
-
-    for seq in range(count):
-        # Mirrors generator.py: the condition is picked *before* the vehicle
-        # draws, so the rng sequence lines up with the live path.
-        if condition is None or t - condition_started_at >= trafficConditionInterval:
-            # A pinned condition is chosen once and never drawn. That keeps
-            # the vehicle sequence identical across *pinned* regimes, which is
-            # what the scenario grid compares. It does NOT line the sequence
-            # up with an unpinned plan of the same seed: a mixed plan spends a
-            # draw here on its first vehicle and on every transition, and one
-            # skipped draw shifts everything after it. At seed 301, N=500,
-            # pinned and mixed differ in the vehicle at 492 of 500 positions.
-            # Small fixtures can hide this — seed 5 agrees for 40 vehicles and
-            # first differs at seq 60.
-            condition = pinned or pick_traffic_condition(condition, rng)
-            condition_started_at = t
-            timeline.append({
-                't_offset_sec': round(t, 6),
-                'condition': condition,
-            })
-
+    for seq, (offset, current_condition) in enumerate(arrivals):
         drawn = sample_vehicle(uneven_mode, rng)
         turn = sample_turn(drawn['direction'], drawn['lane'], rng)
-
         vehicles.append({
-            'seq': seq,
-            't_offset_sec': round(t, 6),
-            'direction': drawn['direction'],
-            'lane': drawn['lane'],
+            'seq': seq, 't_offset_sec': offset,
+            'direction': drawn['direction'], 'lane': drawn['lane'],
             'vehicle_type': drawn['vehicle_type'],
             'will_turn': turn['will_turn'],
             'turn_direction': turn['turn_direction'],
             'target_turn_lane': turn['target_turn_lane'],
-            # denormalised so an analyzer can slice by load without replaying
-            # the timeline
-            'condition': condition,
+            'condition': current_condition,
         })
-
-        t += 1 / trafficConditions[condition]
-
+    schedule_copy = [dict(segment) for segment in schedule]
+    schedule_hash = hashlib.sha256(json.dumps(
+        {'schedule': schedule_copy, 'scenario': scenario}, sort_keys=True
+    ).encode()).hexdigest()[:8]
     header = {
-        # The pin belongs in the default identity: two plans that differ only
-        # in demand regime are different plans and must not share a folder.
-        'plan_id': plan_id or default_plan_id(uneven_mode, count, seed, pinned),
-        'seed': seed,
-        'target_vehicle_count': count,
-        'uneven_mode': uneven_mode,
-        'turn_probability': turnProbability,
+        'plan_id': plan_id or f"{uneven_mode}_schedule_{schedule_hash}_seed{seed:02d}",
+        'seed': seed, 'target_vehicle_count': len(vehicles),
+        'uneven_mode': uneven_mode, 'turn_probability': turnProbability,
         'traffic_conditions': dict(trafficConditions),
-        'traffic_condition_interval': trafficConditionInterval,
-        # None means the plan switches conditions; a name means it holds that
-        # one throughout. Part of the content hash, so the two are distinct
-        # plans even at the same seed.
-        'pinned_condition': pinned,
+        'arrival_schedule': schedule_copy, 'scenario': scenario,
         'schema_version': SCHEMA_VERSION,
     }
-
-    return {
-        'header': header,
-        'condition_timeline': timeline,
-        'vehicles': vehicles,
-    }
-
-
-def default_plan_id(uneven_mode, count, seed, condition=None):
-    """Folder-safe identity. The condition is part of it: two plans that
-    differ only in demand regime must not collide."""
-    label = f"{uneven_mode}_{count}_seed{seed:02d}"
-    return label if condition is None else f"{uneven_mode}_{condition}_{count}_seed{seed:02d}"
+    return {'header': header, 'condition_timeline': timeline, 'vehicles': vehicles}
 
 
 def content_hash(plan):
@@ -348,7 +179,7 @@ def content_hash(plan):
 
     `created_at` and `git_rev` are provenance, not content, and are excluded
     so that regenerating a plan from the same seed produces the same hash.
-    This is the determinism guarantee: same seed + count + mode + config =>
+    This is the determinism guarantee: same seed + schedule + mode + config =>
     identical hash, and identical bytes apart from those two fields.
     """
     body = {
@@ -374,10 +205,10 @@ def load_plan(path):
         raise ValueError(f"Plan {path} must contain a header object.")
     header = plan['header']
     version = header.get('schema_version')
-    if version not in (SCHEMA_VERSION, SCHEDULE_SCHEMA_VERSION):
+    if version != SCHEMA_VERSION:
         raise ValueError(
             f"Plan {path} has schema_version {version!r}, "
-            f"this build understands {SCHEMA_VERSION} and {SCHEDULE_SCHEMA_VERSION}. Regenerate the plan."
+            f"this build understands only {SCHEMA_VERSION}. Regenerate the plan."
         )
 
     for key in ('header', 'condition_timeline', 'vehicles'):
@@ -393,9 +224,6 @@ def load_plan(path):
         direction_weights(header['uneven_mode'])
     except ValueError as error:
         raise ValueError(f"Plan {path}: {error}") from None
-    # Absent means unpinned: plans written before this field existed encode
-    # "switches conditions" by omission. Retrofitting the key would change
-    # their content hash and so break the archive it is meant to protect.
     rates = header.get('traffic_conditions')
     if not isinstance(rates, dict) or not rates or any(
         not isinstance(key, str) or type(rate) not in (int, float)
@@ -417,33 +245,16 @@ def load_plan(path):
         last_offset = offset
     if timeline[0]['t_offset_sec'] != 0:
         raise ValueError(f"Plan {path}: condition timeline must start at zero.")
-    pinned = header.get('pinned_condition')
-    if pinned is not None:
-        # Type before membership: an unhashable pin reached `in rates` and
-        # raised TypeError, which the CLI does not catch, instead of the
-        # ValueError every other malformed field produces.
-        if not isinstance(pinned, str):
-            raise ValueError(f"Plan {path}: invalid pinned_condition.")
-        if pinned not in rates:
-            raise ValueError(f"Plan {path}: unknown pinned_condition {pinned!r}.")
-        if any(event['condition'] != pinned for event in timeline):
-            raise ValueError(f"Plan {path}: timeline contradicts pinned_condition.")
-
-    if version == SCHEDULE_SCHEMA_VERSION:
-        if pinned is not None:
-            raise ValueError(f"Plan {path}: scheduled plan cannot be pinned.")
-        scenario = header.get('scenario')
-        if scenario is not None and (not isinstance(scenario, str) or not scenario):
-            raise ValueError(f"Plan {path}: invalid scenario.")
-        try:
-            expected_timeline, expected_arrivals, _ = _scheduled_arrivals(
-                header.get('arrival_schedule'), rates)
-        except ValueError as error:
-            raise ValueError(f"Plan {path}: {error}") from None
-        if timeline != expected_timeline:
-            raise ValueError(f"Plan {path}: timeline does not match arrival_schedule.")
-    elif 'arrival_schedule' in header or 'scenario' in header:
-        raise ValueError(f"Plan {path}: v1 plan cannot carry a schedule or scenario.")
+    scenario = header.get('scenario')
+    if scenario is not None and (not isinstance(scenario, str) or not scenario):
+        raise ValueError(f"Plan {path}: invalid scenario.")
+    try:
+        expected_timeline, expected_arrivals, _ = _scheduled_arrivals(
+            header.get('arrival_schedule'), rates)
+    except ValueError as error:
+        raise ValueError(f"Plan {path}: {error}") from None
+    if timeline != expected_timeline:
+        raise ValueError(f"Plan {path}: timeline does not match arrival_schedule.")
 
     n = header.get('target_vehicle_count')
     if type(n) is not int or n <= 0 or not isinstance(plan['vehicles'], list) or len(plan['vehicles']) != n:
@@ -486,11 +297,7 @@ def load_plan(path):
     if not isinstance(header.get('plan_id'), str) or not header['plan_id']:
         raise ValueError(f"Plan {path}: missing plan_id.")
 
-    # The replay uses each vehicle's own `condition`, not the timeline, so a
-    # vehicle whose label disagrees with the regime in force at its arrival is
-    # replayed under a demand it was not drawn for. Checking the label against
-    # the rate table alone accepted that: a high-pinned plan whose first
-    # vehicle said `low` passed, hash and all.
+    # Reject a rehashed plan whose vehicle label contradicts its schedule.
     for record in plan['vehicles']:
         active = active_condition(timeline, record['t_offset_sec'])
         if record['condition'] != active:
@@ -500,81 +307,10 @@ def load_plan(path):
                 f"force at {record['t_offset_sec']}s."
             )
 
-    if version == SCHEDULE_SCHEMA_VERSION:
-        observed = [(record['t_offset_sec'], record['condition'])
-                    for record in plan['vehicles']]
-        if observed != expected_arrivals:
-            raise ValueError(f"Plan {path}: arrivals do not match arrival_schedule.")
-        return plan
-
-    # Schema v1 plans are produced by build_plan: arrivals are a regular
-    # virtual-clock sequence, with the interval determined by the condition
-    # active for the preceding vehicle.  Checking only monotonicity lets a
-    # rehashed pinned plan such as [0, 100, 200] masquerade as generated data.
-    # The tolerance follows the six-place rounding done by build_plan.
-    for previous_record, record in zip(plan['vehicles'], plan['vehicles'][1:]):
-        expected_gap = 1 / rates[previous_record['condition']]
-        actual_gap = record['t_offset_sec'] - previous_record['t_offset_sec']
-        if not math.isclose(actual_gap, expected_gap, rel_tol=0,
-                            abs_tol=ARRIVAL_TOLERANCE_SEC):
-            raise ValueError(
-                f"Plan {path}: irregular arrival gap before seq {record['seq']} "
-                f"({actual_gap} != {expected_gap})."
-            )
-
-    # The builder emits an event at the first vehicle at or after each
-    # condition interval.  Pinned plans intentionally repeat the same event
-    # condition at later interval boundaries; mixed plans choose a different
-    # condition at each boundary.  Every event must therefore land on an
-    # actual arrival, and no earlier arrival may already have crossed its
-    # interval boundary.
-    event_indices = []
-    for event in timeline:
-        matches = [
-            index for index, record in enumerate(plan['vehicles'])
-            if math.isclose(record['t_offset_sec'], event['t_offset_sec'],
-                            rel_tol=0, abs_tol=ARRIVAL_TOLERANCE_SEC)
-        ]
-        if len(matches) != 1:
-            raise ValueError(
-                f"Plan {path}: condition timeline event does not match "
-                "exactly one generated arrival."
-            )
-        index = matches[0]
-        if plan['vehicles'][index]['condition'] != event['condition']:
-            raise ValueError(
-                f"Plan {path}: condition timeline does not match generated "
-                "arrivals."
-            )
-        event_indices.append(index)
-
-    for previous_event, event, previous_index, index in zip(
-            timeline, timeline[1:], event_indices, event_indices[1:]):
-        if index <= previous_index:
-            raise ValueError(f"Plan {path}: condition timeline is out of order.")
-        elapsed = event['t_offset_sec'] - previous_event['t_offset_sec']
-        if elapsed < header['traffic_condition_interval'] - ARRIVAL_TOLERANCE_SEC:
-            raise ValueError(
-                f"Plan {path}: condition timeline changes before its interval."
-            )
-        for record in plan['vehicles'][previous_index + 1:index]:
-            if (record['t_offset_sec'] - previous_event['t_offset_sec']
-                    >= header['traffic_condition_interval'] - ARRIVAL_TOLERANCE_SEC):
-                raise ValueError(
-                    f"Plan {path}: condition timeline skips an interval boundary."
-                )
-        if header.get('pinned_condition') is None and (
-                event['condition'] == previous_event['condition']):
-            raise ValueError(
-                f"Plan {path}: changing-demand timeline repeats a condition."
-            )
-    last_event = timeline[-1]['t_offset_sec']
-    if any(record['t_offset_sec'] - last_event
-           >= header['traffic_condition_interval'] - ARRIVAL_TOLERANCE_SEC
-           for record in plan['vehicles'][event_indices[-1] + 1:]):
-        raise ValueError(
-            f"Plan {path}: condition timeline skips a final interval boundary."
-        )
+    observed = [(record['t_offset_sec'], record['condition'])
+                for record in plan['vehicles']]
+    if observed != expected_arrivals:
+        raise ValueError(f"Plan {path}: arrivals do not match arrival_schedule.")
     return plan
 
 
@@ -613,12 +349,6 @@ def check_plan_against_config(plan):
             f"config={dict(trafficConditions)}"
         )
 
-    if header.get('traffic_condition_interval') != trafficConditionInterval:
-        problems.append(
-            f"traffic_condition_interval: "
-            f"plan={header.get('traffic_condition_interval')} "
-            f"config={trafficConditionInterval}"
-        )
 
     return problems
 

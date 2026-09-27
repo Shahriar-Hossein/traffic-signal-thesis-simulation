@@ -187,12 +187,8 @@ def summarize_timing(arm, plan):
     meta = arm.get('meta') if isinstance(arm.get('meta'), dict) else {}
     controller = meta.get('controller')
     phases = phase_records(arm)
-    # Overrun is the sleep loop slipping past a granted duration. A green the
-    # controller deliberately ended early, and one the run ended in the middle
-    # of, are neither of them overruns and are excluded rather than averaged
-    # into the same statistic.
-    timed = [record for record in phases
-             if record['status'] != CENSORED and record['termination'] != 'early_exit']
+    # Censored final greens were not granted their full selected duration.
+    timed = [record for record in phases if record['status'] != CENSORED]
     overrun = [record['actual'] - record['selected'] for record in timed]
     greens = [record['selected'] for record in phases if record['status'] != CENSORED]
     bounds = GREEN_BOUNDS.get(controller)
@@ -213,8 +209,6 @@ def summarize_timing(arm, plan):
         'phase_completeness': phase_completeness(arm),
         'phase_timing_errors': phase_timing_errors(
             arm, study=bool(plan and plan['header'].get('schema_version') == 2)),
-        'greens_ended_early': sum(1 for record in phases
-                                  if record['termination'] == 'early_exit'),
         # A green that runs longer than it was granted is the sleep loop
         # slipping, not a decision; it belongs in a timing report, not in the
         # controller's results.

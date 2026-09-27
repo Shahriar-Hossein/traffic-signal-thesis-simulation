@@ -114,28 +114,6 @@ turnDirections = {
 # Vehicles that don't turn will go straight even from turn lanes
 turnProbability = 0.5
 
-# How far past the stop line (pixels) before a turn begins
-# Structure: direction -> turn_type -> {lane: offset}
-# Each turning vehicle randomly picks one of 3 target lanes in the new direction
-turnTriggerOffset = {
-    'right': {
-        'left_turn':  {0: 40,  1: 60,  2: 80},
-        'right_turn': {0: 240, 1: 260, 2: 280},
-    },
-    'down': {
-        'left_turn':  {0: 40,  1: 60,  2: 80},
-        'right_turn': {0: 240, 1: 260, 2: 280},
-    },
-    'left': {
-        'left_turn':  {0: 60,  1: 80,  2: 90},
-        'right_turn': {0: 270, 1: 290, 2: 310},
-    },
-    'up': {
-        'left_turn':  {0: 40,  1: 60,  2: 80},
-        'right_turn': {0: 270, 1: 290, 2: 310},
-    },
-}
-
 # Number of frames for the turn animation arc
 # Structure: direction -> turn_type -> {lane: frames}
 turnFrames = {
@@ -157,13 +135,9 @@ turnFrames = {
     },
 }
 
-# Traffic Conditions (vehicle generation rate in vehicles per second)
-# The generator switches between these to simulate changing traffic load
+# Offered arrival rates used by scheduled study plans (vehicles per second)
 trafficConditions = {
     'high': 4,      # 4 vehicles per second
     'medium': 2,    # 2 vehicles per second
     'low': 0.5      # 1 vehicle every 2 seconds
 }
-
-# How long (seconds) a traffic condition stays active before switching
-trafficConditionInterval = 120  # 2 minutes

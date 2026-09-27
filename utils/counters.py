@@ -1,14 +1,6 @@
 from config import directionNumbers, speeds
 import state
 
-# Example weights (you can tune these)
-VEHICLE_WEIGHTS = {
-    "car": 1.0,
-    "bike": 0.5,
-    "truck": 2.0,
-    "bus": 2.5
-}
-
 # weighted vehicle count function
 def get_weighted_vehicle_counts():
     """

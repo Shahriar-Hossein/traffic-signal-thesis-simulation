@@ -14,8 +14,8 @@ from tests.test_paired_validity import ReplayValidityTests
 class StudyAnalysisTests(unittest.TestCase):
     def test_scheduled_identity_uses_scenario_and_arrival_schedule(self):
         plan = build_plan(
-            8, None, 'even', plan_id='scenario-a',
-            schedule=[{'condition': 'low', 'duration_sec': 10}],
+            8, 'even', [{'condition': 'low', 'duration_sec': 10}],
+            plan_id='scenario-a',
             scenario='low-load',
         )
         identity = scenario_identity(plan['header'])

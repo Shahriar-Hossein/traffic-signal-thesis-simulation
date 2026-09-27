@@ -1,6 +1,6 @@
 # Queue based traffic signal study
 
-This branch studies **when queue based ordering and green allocation help** in a simplified four approach Pygame intersection. It is a new study based on `feature/modify-data-collection`; old experiments and paper material remain in that branch's history.
+This branch studies **when queue based ordering and green allocation help** in a simplified four approach Pygame intersection. It is a new study based on `feature/modify-data-collection`; old experiments remain in that branch's history. The [submitted thesis report](docs/Thesis_Report_5-9-26_update.pdf) is retained here as historical context; its results are separate from this study.
 
 ## Scope
 
@@ -10,7 +10,7 @@ The five environments are defined in [scripts/make_plan.py](scripts/make_plan.py
 
 ## Run
 
-Python 3 and Pygame are required. Generate development plans, then run the three arms sequentially against each plan:
+Python 3 and Pygame are required. The simulator is plan-only on this branch; use `run_paired.py` for comparisons. Generate development plans, then run the three arms sequentially against each plan:
 
 ```bash
 python3 -B -m unittest discover -s tests

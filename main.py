@@ -33,7 +33,7 @@ from utils.draw import (
 
 # Seconds to keep rendering after the last vehicle has crossed, so in-flight
 # turns finish on screen.  Purely cosmetic — every vehicle is already logged.
-COUNT_MODE_DRAIN_SEC = 1.5
+RENDER_DRAIN_SEC = 1.5
 
 # Window over which the worst frame rate is measured.  Per-frame instantaneous
 # FPS is far too noisy to gate on; a one-second floor is what a viewer (and a
@@ -42,106 +42,33 @@ FPS_SAMPLE_WINDOW_SEC = 1.0
 
 
 def parse_args(argv=None):
-    """
-    Command-line overrides for the settings that normally live in state.py.
-
-    Every flag defaults to None and is only applied when actually given, so
-    `python3 main.py` with no arguments behaves exactly as it did before this
-    existed.  That is the regression guarantee, not a nicety.
-    """
-    parser = argparse.ArgumentParser(
-        description="Run the traffic-signal simulation."
-    )
-    parser.add_argument(
-        "--plan",
-        help="Replay a vehicle plan file instead of generating random traffic. "
-             "Implies --run-mode vehicles; the count comes from the plan.",
-    )
-    parser.add_argument(
-        "--controller",
-        choices=list(CONTROLLER_NAMES),
-        help="Signal controller to run (default: state.currentMode).",
-    )
-    parser.add_argument("--pair-id", help="Paired-run identity; sends logs to the paired output root.")
-    parser.add_argument("--arm", help="Arm label within the pair, e.g. 'fixed'.")
-    parser.add_argument(
-        "--paired-root",
-        help="Root for paired logs (default: repository data/study).",
-    )
-    parser.add_argument("--fixed-green", type=int, choices=(12, 24),
-                        help="Green seconds for the fixed controller (12 or 24).")
-    parser.add_argument(
-        "--run-mode", choices=["time", "vehicles"],
-        help="How the run ends (default: state.run_mode).",
-    )
-    parser.add_argument(
-        "--count", type=int,
-        help="Vehicle target for 'vehicles' mode (default: state.target_vehicle_count).",
-    )
-    parser.add_argument("--uneven-mode", help="Demand skew (default: state.uneven_mode).")
-    parser.add_argument(
-        "--duration", type=int,
-        help="Run length in seconds for 'time' mode (default: state.duration).",
-    )
-    parser.add_argument(
-        "--timeout", type=int,
-        help="Safety cap in seconds for 'vehicles' mode "
-             "(default: state.count_mode_timeout).",
-    )
+    parser = argparse.ArgumentParser(description="Replay one planned traffic run.")
+    parser.add_argument("--plan", required=True, help="Scheduled vehicle plan.")
+    parser.add_argument("--controller", choices=list(CONTROLLER_NAMES), required=True)
+    parser.add_argument("--pair-id", required=True)
+    parser.add_argument("--arm", required=True)
+    parser.add_argument("--paired-root", help="Root for paired plans and logs.")
+    parser.add_argument("--fixed-green", type=int, choices=(12, 24))
+    parser.add_argument("--timeout", type=int, help="Per-arm safety cap in seconds.")
     return parser.parse_args(argv)
 
 
 def apply_args(args):
-    """Fold the given CLI overrides into state, then load the plan if any."""
-    if args.controller is not None:
-        state.currentMode = args.controller
-    if args.run_mode is not None:
-        state.run_mode = args.run_mode
-    if args.count is not None:
-        state.target_vehicle_count = args.count
-    if args.uneven_mode is not None:
-        state.uneven_mode = args.uneven_mode
-    if args.duration is not None:
-        state.duration = args.duration
-    if args.timeout is not None:
-        state.count_mode_timeout = args.timeout
-    if args.pair_id is not None:
-        state.pair_id = args.pair_id
-    if args.arm is not None:
-        state.arm_label = args.arm
+    state.currentMode = args.controller
+    state.pair_id = args.pair_id
+    state.arm_label = args.arm
     if args.paired_root is not None:
         state.paired_root = os.path.abspath(args.paired_root)
+    if args.timeout is not None:
+        state.count_mode_timeout = args.timeout
 
-    if args.plan is not None:
-        load_plan_into_state(args.plan)
-
+    load_plan_into_state(args.plan)
+    if state.pair_id != state.vehicle_plan['header']['plan_id']:
+        raise ValueError("--pair-id must match the loaded plan's plan_id")
     if args.fixed_green is not None:
         if state.currentMode != 'fixed':
-            print("ERROR: --fixed-green requires --controller fixed.")
-            sys.exit(2)
+            raise ValueError("--fixed-green requires --controller fixed")
         runtime_config.defaultGreen = {index: args.fixed_green for index in range(4)}
-
-    if state.pair_id is not None:
-        if state.generation_source != 'plan':
-            # A paired run whose arms drew their own traffic is the unpaired
-            # comparison this whole design exists to replace — and it would
-            # look identical on disk.  Refuse it rather than produce data that
-            # is wrong in a way nobody can see afterwards.
-            print(
-                "ERROR: --pair-id was given without --plan. A paired run must "
-                "replay a plan, otherwise each arm faces different traffic and "
-                "the comparison is not paired at all."
-            )
-            sys.exit(2)
-
-        if state.pair_id != state.vehicle_plan['header']['plan_id']:
-            print("ERROR: --pair-id must match the loaded plan's plan_id.")
-            sys.exit(2)
-
-        if state.arm_label is None:
-            # The arm folder is what makes parts[-2] meaningful; default it to
-            # the controller rather than writing into an unnamed folder.
-            state.arm_label = state.currentMode
 
 
 def load_plan_into_state(path):
@@ -172,11 +99,8 @@ def load_plan_into_state(path):
         sys.exit(2)
 
     header = plan['header']
-    state.generation_source = 'plan'
     state.vehicle_plan_path = path
     state.vehicle_plan = plan
-    # The plan defines N; termination logic is otherwise untouched.
-    state.run_mode = 'vehicles'
     state.target_vehicle_count = header['target_vehicle_count']
     state.uneven_mode = header['uneven_mode']
 
@@ -185,7 +109,7 @@ def start_simulation_threads():
     """
     Starts initialization and vehicle generation in separate threads.
     """
-    init_logger(state.duration, state.uneven_mode)
+    init_logger()
     # Origin for every timestamp in this run; must precede the threads that
     # read it.
     runclock.start()
@@ -195,26 +119,17 @@ def start_simulation_threads():
     threading.Thread(
         target=generateVehicles,
         name="VehicleGeneratorThread",
-        kwargs={'uneven_mode': state.uneven_mode},
         daemon=True
     ).start()
 
 
 def should_stop(elapsed):
-    """
-    Decide whether the run is over, and why.
-
-    Returns a stop reason string, or None to keep running.
-    """
-    if state.run_mode == 'vehicles':
-        target = state.target_vehicle_count
-        if state.vehicles_generated >= target and state.vehicles_crossed >= target:
-            return 'target_reached'
-        if elapsed >= state.count_mode_timeout:
-            return 'timeout'
-        return None
-
-    return 'duration' if elapsed >= state.duration else None
+    target = state.target_vehicle_count
+    if state.vehicles_generated >= target and state.vehicles_crossed >= target:
+        return 'target_reached'
+    if elapsed >= state.count_mode_timeout:
+        return 'timeout'
+    return None
 
 
 def shutdown(reason, elapsed, started_at, fps_stats=None):
@@ -235,38 +150,26 @@ def shutdown(reason, elapsed, started_at, fps_stats=None):
     # that happened outside any green.
     censored = finalize_phase(round(elapsed, 4))
 
-    if state.run_mode == 'vehicles':
-        print(
-            f"Simulation ended ({reason}): "
-            f"{state.vehicles_crossed}/{state.target_vehicle_count} vehicles "
-            f"crossed in {elapsed:.1f}s"
-        )
-        write_run_meta(
-            target_vehicle_count=state.target_vehicle_count,
-            vehicles_generated=state.vehicles_generated,
-            vehicles_crossed=state.vehicles_crossed,
-            duration_sec=round(elapsed, 2),
-            # duration_sec still includes COUNT_MODE_DRAIN_SEC of rendering
-            # after the final crossing; this is the run's real end.
-            last_crossing_sec=(
-                round(state.last_crossing_sec, 4)
-                if state.last_crossing_sec is not None else None
-            ),
-            stop_reason=reason,
-            # Whether the log's last phase is a completed green or one the
-            # run ended in the middle of.  A duration report that cannot tell
-            # them apart is reporting a granted green that was never granted.
-            final_phase_censored=censored is not None,
-            started_at=started_at.strftime("%Y-%m-%d %H:%M:%S"),
-            ended_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            # Frame rate is only recorded for paired runs.  An ordinary count
-            # run's sidecar must keep exactly the keys it has always had —
-            # comparing a plain 'vehicles' run before and after this feature
-            # is the regression test, and extra keys would break it.
-            **(fps_stats if state.pair_id is not None else {}),
-        )
-    else:
-        print(f"Simulation ended ({reason}) after {elapsed:.1f}s")
+    print(
+        f"Simulation ended ({reason}): "
+        f"{state.vehicles_crossed}/{state.target_vehicle_count} vehicles "
+        f"crossed in {elapsed:.1f}s"
+    )
+    write_run_meta(
+        target_vehicle_count=state.target_vehicle_count,
+        vehicles_generated=state.vehicles_generated,
+        vehicles_crossed=state.vehicles_crossed,
+        duration_sec=round(elapsed, 2),
+        last_crossing_sec=(
+            round(state.last_crossing_sec, 4)
+            if state.last_crossing_sec is not None else None
+        ),
+        stop_reason=reason,
+        final_phase_censored=censored is not None,
+        started_at=started_at.strftime("%Y-%m-%d %H:%M:%S"),
+        ended_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        **(fps_stats or {}),
+    )
 
     pygame.quit()
     sys.exit()
@@ -361,18 +264,11 @@ def main(argv=None):
             f"| controller = {state.currentMode} | plan = {state.vehicle_plan_path}"
         )
 
-    if state.run_mode == 'vehicles':
-        print(
-            f"Run mode: vehicles | target = {state.target_vehicle_count} "
-            f"| controller = {state.currentMode} | load = {state.uneven_mode} "
-            f"| source = {state.generation_source} "
-            f"| timeout = {state.count_mode_timeout}s"
-        )
-    else:
-        print(
-            f"Run mode: time | duration = {state.duration}s "
-            f"| controller = {state.currentMode} | load = {state.uneven_mode}"
-        )
+    print(
+        f"Planned run: {state.target_vehicle_count} vehicles "
+        f"| controller = {state.currentMode} | load = {state.uneven_mode} "
+        f"| timeout = {state.count_mode_timeout}s"
+    )
 
     started_at = datetime.now()
     target_reached_at = None
@@ -387,7 +283,7 @@ def main(argv=None):
             # Let in-flight turns finish before closing the window
             if target_reached_at is None:
                 target_reached_at = elapsed_time
-            elif elapsed_time - target_reached_at >= COUNT_MODE_DRAIN_SEC:
+            elif elapsed_time - target_reached_at >= RENDER_DRAIN_SEC:
                 shutdown(stop_reason, elapsed_time, started_at,
                          fps.stats(elapsed_time))
         elif stop_reason is not None:
