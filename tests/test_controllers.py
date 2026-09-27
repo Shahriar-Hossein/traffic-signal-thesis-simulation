@@ -34,9 +34,8 @@ class DurationRuleTests(unittest.TestCase):
     """
     The rule is specified here, not compared against a copy of itself.
 
-    Both the proposed controller and its duration ablation call
-    `policy.priority_green`, so there is one implementation and these cases
-    are the specification of it.
+    The proposed controller calls `policy.priority_green`; these cases
+    specify the green rule.
     """
 
     def test_priority_rule_cases(self):
@@ -45,20 +44,13 @@ class DurationRuleTests(unittest.TestCase):
                                  (1000, 24)]:
             self.assertEqual(policy.priority_green(weight), expected, weight)
 
-    def test_fairness_rule_has_its_own_coefficient_and_ceiling(self):
-        self.assertEqual(policy.fairness_green(0), 6)
-        self.assertEqual(policy.fairness_green(1000), 18)
-        self.assertEqual(policy.fairness_green(20), 13)
-        # 18, not the proposed controller's 24.
-        self.assertEqual(policy.GREEN_BOUNDS['fairness_priority'], (6, 18))
-
     def test_truncation_happens_before_clamping(self):
         # A whole number of one-second timer ticks, then the bounds.
         self.assertEqual(policy.adaptive_green(9.99, 1.0, 6, 24), 9)
         self.assertEqual(policy.adaptive_green(9.99, 1.0, 10, 24), 10)
 
     def test_fixed_duration_controllers_declare_no_rule(self):
-        for name in ('fixed', 'adaptive_order_fixed_duration'):
+        for name in ('fixed',):
             self.assertIsNone(policy.DURATION_RULES[name])
             self.assertIsNone(policy.GREEN_BOUNDS[name])
             self.assertEqual(policy.green_for(name, 99, fixed_seconds=24), 24)

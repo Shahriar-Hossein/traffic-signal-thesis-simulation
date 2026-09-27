@@ -6,7 +6,7 @@ question: did the two arms actually run on comparable clocks? It compares
 release timing, phase timing and frame rate arm against arm, so a controller
 effect cannot be confused with one arm simply running faster.
 
-    python3 analyzers/analyze_timing.py data/paired/even_500_seed07
+    python3 analyzers/analyze_timing.py data/study/balanced_moderate_seed301
 
 Repeatability is measured by running the same controller as several arms;
 every arm is compared against the first.
@@ -22,17 +22,14 @@ from collections import Counter
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from analyzers.analyze_paired import load_arm, arm_sort_key, percentile  # noqa: E402
 from core.plan import load_plan  # noqa: E402
-from core.policy import GREEN_BOUNDS  # noqa: E402
+from core.policy import GREEN_BOUNDS, priority_green  # noqa: E402
 from analyzers.timing_contract import compare_fps, finite, fps_intervals
 
 # A phase whose green was cut short by shutdown. Its recorded duration is a
 # censoring time, not a granted duration.
 CENSORED = 'censored'
 
-# Acceptance thresholds. Provisional, and recorded as such in
-# docs/EXPERIMENT_PROTOCOL.md: they are the values collection is agreed to
-# run under, not measurements, and they were not chosen to make the current
-# fixtures pass.
+# Provisional acceptance thresholds for paired development runs.
 ONSET_DRIFT_TOLERANCE_MS = 1000.0
 RELEASE_GAP_TOLERANCE_MS = 500.0
 GREEN_OVERRUN_TOLERANCE_MS = 1000.0
@@ -121,7 +118,7 @@ def release_times(arm):
     return times
 
 
-def phase_timing_errors(arm):
+def phase_timing_errors(arm, study=False):
     duration = (arm.get('meta') or {}).get('duration_sec')
     if not finite(duration):
         return ['phase timing cannot be reconciled without a finite run duration']
@@ -140,6 +137,48 @@ def phase_timing_errors(arm):
             errors.append('a censored phase must be the final phase')
         if end is not None:
             previous_end = end
+    if study:
+        errors.extend(study_controller_errors(arm))
+    return errors
+
+
+def study_controller_errors(arm):
+    """Check logged study phases against the two controller rules."""
+    label = arm.get('arm')
+    if label not in ('fixed12', 'fixed24', 'priority'):
+        return []
+    meta = arm.get('meta') or {}
+    expected_controller = 'priority' if label == 'priority' else 'fixed'
+    if meta.get('controller') != expected_controller:
+        return [f'{label} uses the wrong controller']
+    errors = []
+    rounds = {}
+    for row in arm.get('phases') or []:
+        selected = numeric(row, 'green_selected_sec')
+        weight = numeric(row, 'decision_weight')
+        if label == 'priority':
+            expected = priority_green(weight) if weight is not None and weight >= 0 else None
+        else:
+            expected = int(label[-2:])
+        if selected != expected:
+            errors.append(f'{label} selected green disagrees with its rule')
+        try:
+            round_index = int(row['round_index'])
+            phase_index = int(row['phase_index'])
+        except (KeyError, TypeError, ValueError):
+            errors.append(f'{label} phase has invalid round or position')
+            continue
+        seen = rounds.setdefault(round_index, [])
+        if phase_index != len(seen) or row.get('direction') not in ('right', 'down', 'left', 'up'):
+            errors.append(f'{label} phase order or direction is invalid')
+        elif row['direction'] in seen:
+            errors.append(f'{label} repeats an approach within one round')
+        seen.append(row.get('direction'))
+    for index, seen in sorted(rounds.items()):
+        if index < max(rounds) and set(seen) != {'right', 'down', 'left', 'up'}:
+            errors.append(f'{label} round {index} did not serve four approaches')
+        if label != 'priority' and seen != ['right', 'down', 'left', 'up'][:len(seen)]:
+            errors.append(f'{label} departed from fixed order')
     return errors
 
 
@@ -172,7 +211,8 @@ def summarize_timing(arm, plan):
         'controller': controller,
         'phases': len(phases),
         'phase_completeness': phase_completeness(arm),
-        'phase_timing_errors': phase_timing_errors(arm),
+        'phase_timing_errors': phase_timing_errors(
+            arm, study=bool(plan and plan['header'].get('schema_version') == 2)),
         'greens_ended_early': sum(1 for record in phases
                                   if record['termination'] == 'early_exit'),
         # A green that runs longer than it was granted is the sleep loop
@@ -185,9 +225,7 @@ def summarize_timing(arm, plan):
         'green_selected_max': max(greens) if greens else None,
         # How often the duration rule sat on a bound: at a bound the
         # controller is no longer responding to demand. The bounds are this
-        # controller's own — the fairness variant's ceiling is 18, and
-        # reporting it against 24 would never show it at its ceiling. A
-        # controller with no duration rule has no bounds to sit on.
+        # controller's own. Fixed has no adaptive bounds to sit on.
         'green_bounds': list(bounds) if bounds else None,
         'green_at_lower_bound': (
             sum(1 for value in greens if value <= bounds[0]) if bounds else None),
@@ -217,19 +255,15 @@ def compare_timing(baseline, other, plan):
     """
     Arm-against-arm divergence.
 
-    What this can establish depends entirely on whether the two arms ran the
-    *same controller*. Two arms of one controller should serve the same phases
-    at the same moments, so divergence there is clock behaviour and is
-    reportable as such. Two different controllers diverge by design, and so do
-    two arms of controllers that share an order but not a duration rule — the
-    fixed-order/adaptive-duration ablation shares `fixed`'s order and grants
-    different greens, so its onsets drift from `fixed`'s by construction.
-    Reporting that as drift would read as a timing fault where there is none.
+    Repeatability applies only when both controller and configuration match.
+    Different settings can share the same phase order while their onsets
+    separate by design.
     """
     base_meta = baseline.get('meta') if isinstance(baseline.get('meta'), dict) else {}
     other_meta = other.get('meta') if isinstance(other.get('meta'), dict) else {}
     same_controller = (base_meta.get('controller') is not None
-                       and base_meta.get('controller') == other_meta.get('controller'))
+                       and base_meta.get('controller') == other_meta.get('controller')
+                       and base_meta.get('configuration_hash') == other_meta.get('configuration_hash'))
 
     base_releases, other_releases = release_times(baseline), release_times(other)
     shared = sorted(set(base_releases) & set(other_releases))
@@ -448,7 +482,7 @@ def print_report(report):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('plan_dir', help='a data/paired/{plan_id} folder')
+    parser.add_argument('plan_dir', help='a data/study/{plan_id} folder')
     parser.add_argument('--no-write', action='store_true', help='print without writing timing.json')
     parser.add_argument('--baseline')
     parser.add_argument('--fps-tolerance', type=float, default=0.05)

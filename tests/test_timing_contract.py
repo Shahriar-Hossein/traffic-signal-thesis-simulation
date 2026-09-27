@@ -8,7 +8,6 @@ from analyzers.timing_contract import fps_intervals, compare_fps
 from analyzers.analyze_paired import analyze_pair, analyze_batch
 from analyzers.analyze_timing import analyze_timing
 from tests import test_paired_validity as fixtures
-from scripts import export_results
 
 
 def telemetry(values=(60, 60), duration=10):
@@ -57,7 +56,7 @@ class EligibilityTests(unittest.TestCase):
         self.fixture.setUp()
         self.addCleanup(self.fixture.doCleanups)
 
-    def test_shifted_stalls_reject_pair_batch_and_export(self):
+    def test_shifted_stalls_reject_pair_and_batch(self):
         f = self.fixture
         for name, arm in f.arms.items():
             values = [30, 90, 30, 90] if name == 'fixed' else [90, 30, 90, 30]
@@ -72,12 +71,6 @@ class EligibilityTests(unittest.TestCase):
         batch = analyze_batch(str(f.root), write=False)
         self.assertEqual(batch['plans_valid'], 0)
         self.assertEqual(batch['invalid_by_scenario'], {'even_mixed_3': 1})
-        with tempfile.TemporaryDirectory() as destination:
-            with patch.object(export_results, 'RESULTS_ROOT', destination):
-                path = export_results.export([str(f.directory)], name='rejected',
-                                             allow_dirty=True, baseline='fixed')
-            exported = json.loads((Path(path) / 'fixture/comparison.json').read_text())
-            self.assertFalse(exported['publication_eligible'])
 
     def test_missing_phases_withhold_effects_despite_coherent_vehicle_rows(self):
         f = self.fixture

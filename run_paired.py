@@ -2,20 +2,18 @@
 """
 Run every arm of a paired replay against one plan, then compare them.
 
-    python3 run_paired.py --plan data/paired/even_500_seed07/plan.json
-    python3 run_paired.py --seed 7 --count 500 --arms fixed priority
-    python3 run_paired.py --plans data/paired --arms fixed priority
+    python3 run_paired.py --plan data/study/balanced_moderate_seed301/plan.json
+    python3 run_paired.py --plans data/study
 
 The arms run **sequentially, one process at a time** — never the parallel
-pattern in run_simulation.py.  Physics runs inside the renderer, so two pygame
+pattern of concurrent launches. Physics runs inside the renderer, so two pygame
 processes competing for CPU and GPU do not get the same frame rate, and the
 arm that renders slower has literally slower vehicles.  That confound is
 indistinguishable from a controller effect, which would defeat the entire
 point of pairing the traffic.
 
-Arms are a list, not a pair: `--arms fixed priority fairness_priority` works,
-and an arm may name its controller explicitly as `label=controller` when the
-same controller is wanted twice (e.g. a `fixed_a=fixed` sanity arm).
+The three arms are fixed12, fixed24, and priority. The fixed arms use the
+same controller with different green settings.
 """
 
 import argparse
@@ -30,27 +28,27 @@ sys.path.insert(0, ROOT)
 
 from analyzers.analyze_timing import analyze_timing, print_report  # noqa: E402
 from analyzers.analyze_paired import (  # noqa: E402
-    analyze_pair, analyze_batch, print_pair,
+    analyze_pair, analyze_batch, print_pair, print_contrasts,
     DEFAULT_FPS_TOLERANCE, DEFAULT_DRIFT_TOLERANCE_MS,
 )
-from config import trafficConditions as TRAFFIC_CONDITIONS  # noqa: E402
-from core.controllers import NAMES as CONTROLLER_NAMES  # noqa: E402
-from core.fixed_timing import load_fixed_timing, resolve_fixed_greens  # noqa: E402
-from core.plan import build_plan, write_plan, default_plan_id, load_plan  # noqa: E402
+from core.plan import load_plan  # noqa: E402
 
-PAIRED_ROOT = os.path.join(ROOT, "data", "paired")
+PAIRED_ROOT = os.path.join(ROOT, "data", "study")
+ARM_SETTINGS = {
+    'fixed12': ('fixed', 12),
+    'fixed24': ('fixed', 24),
+    'priority': ('priority', None),
+}
 
 
 def parse_arm(spec):
-    """'priority' -> ('priority', 'priority');  'a=fixed' -> ('a', 'fixed')."""
-    if "=" in spec:
-        label, controller = spec.split("=", 1)
-        return label, controller
-    return spec, spec
+    """Resolve one named setting without creating another controller."""
+    if spec not in ARM_SETTINGS:
+        raise ValueError(f"unknown arm {spec!r}; choose from {list(ARM_SETTINGS)}")
+    return spec, ARM_SETTINGS[spec][0]
 
 
-def run_arm(plan_file, plan_id, label, controller, timeout=None, paired_root=None,
-            fixed_timing_plan=None):
+def run_arm(plan_file, plan_id, label, controller, timeout=None, paired_root=None):
     """
     Run one arm as its own process and report whether it is usable.
 
@@ -69,8 +67,11 @@ def run_arm(plan_file, plan_id, label, controller, timeout=None, paired_root=Non
     ]
     if timeout is not None:
         cmd += ["--timeout", str(timeout)]
-    if fixed_timing_plan is not None:
-        cmd += ["--fixed-timing-plan", os.path.abspath(fixed_timing_plan)]
+    expected_controller, fixed_green = ARM_SETTINGS[label]
+    if controller != expected_controller:
+        raise ValueError(f"{label} must use {expected_controller}")
+    if fixed_green is not None:
+        cmd += ["--fixed-green", str(fixed_green)]
 
     print(f"\n▶ arm '{label}' (controller={controller})")
     print("  " + " ".join(cmd))
@@ -110,7 +111,7 @@ def read_arm_meta(plan_id, label, paired_root=None):
     return meta if isinstance(meta, dict) else None
 
 
-def preflight_pair(plan_file, arms, output_root=None, fixed_timing_plan=None):
+def preflight_pair(plan_file, arms, output_root=None):
     """Validate a pair destination without creating folders or running arms."""
     output_root = os.path.abspath(output_root or PAIRED_ROOT)
     plan = load_plan(plan_file)
@@ -122,18 +123,11 @@ def preflight_pair(plan_file, arms, output_root=None, fixed_timing_plan=None):
     for label, controller in arms:
         if os.path.basename(label) != label or label in ('', '.', '..'):
             raise ValueError('arm labels must be single folder names')
-        if controller not in CONTROLLER_NAMES:
-            raise ValueError(f'unknown controller: {controller}')
+        if label not in ARM_SETTINGS or ARM_SETTINGS[label][0] != controller:
+            raise ValueError(f'unknown arm/controller setting: {label}={controller}')
         folder = os.path.join(plan_dir, label)
         if os.path.exists(folder):
             raise ValueError(f'arm folder already exists: {folder}; use a fresh plan ID or arm label')
-    timing_table = None
-    if fixed_timing_plan is not None:
-        timing_table = load_fixed_timing(fixed_timing_plan)
-    if any(controller == 'fixed_tuned' for _, controller in arms):
-        if timing_table is None:
-            raise ValueError('fixed_tuned requires --fixed-timing-plan')
-        resolve_fixed_greens(timing_table, header)
     archived_plan = os.path.join(plan_dir, 'plan.json')
     if os.path.exists(archived_plan):
         if load_plan(archived_plan)['header']['content_hash'] != header['content_hash']:
@@ -184,12 +178,12 @@ def invalidate_failed_comparison(comparison, failed):
 
 def run_pair(plan_file, arms, timeout=None, fps_tolerance=DEFAULT_FPS_TOLERANCE,
              drift_tolerance_ms=DEFAULT_DRIFT_TOLERANCE_MS, output_root=None,
-             fixed_timing_plan=None, baseline=None):
+             baseline=None):
     """Run every arm against one plan, then analyze and write comparison.json."""
     baseline = baseline or arms[0][0]
     if baseline not in {label for label, _ in arms}:
         raise ValueError(f'baseline arm {baseline!r} is not in the requested arms')
-    setup = preflight_pair(plan_file, arms, output_root, fixed_timing_plan)
+    setup = preflight_pair(plan_file, arms, output_root)
     plan = setup['plan']
     header = plan['header']
     plan_id = setup['plan_id']
@@ -208,7 +202,6 @@ def run_pair(plan_file, arms, timeout=None, fps_tolerance=DEFAULT_FPS_TOLERANCE,
     for label, controller in arms:
         result = run_arm(
             plan_file, plan_id, label, controller, timeout, output_root,
-            fixed_timing_plan,
         )
         results.append(result)
         if not result["ok"]:
@@ -247,21 +240,14 @@ def main(argv=None):
     )
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--plan", help="Replay an existing plan file.")
-    source.add_argument("--seed", type=int, help="Generate a plan from this seed first.")
     source.add_argument("--plans", metavar="DIR",
                         help="Sweep every plan folder under DIR and aggregate.")
 
-    parser.add_argument("--arms", nargs="+", default=["fixed", "priority"],
-                        help="Arms to run, in order. 'label=controller' to name an arm.")
+    parser.add_argument("--arms", nargs="+", default=list(ARM_SETTINGS),
+                        choices=list(ARM_SETTINGS),
+                        help="Fixed 12 s, fixed 24 s, and priority settings.")
     parser.add_argument("--baseline",
                         help="Arm used as the baseline (default: first arm).")
-    parser.add_argument("--count", type=int, default=500,
-                        help="Vehicles per plan (only with --seed).")
-    parser.add_argument("--uneven-mode", default="even",
-                        help="Demand skew for the generated plan (only with --seed).")
-    parser.add_argument("--condition", choices=sorted(TRAFFIC_CONDITIONS),
-                        help="Hold one demand regime for the generated plan "
-                             "(only with --seed).")
     parser.add_argument("--timeout", type=int,
                         help="Per-arm safety cap in seconds (default: state.py value).")
     parser.add_argument("--fps-tolerance", type=float, default=DEFAULT_FPS_TOLERANCE)
@@ -269,12 +255,8 @@ def main(argv=None):
                         default=DEFAULT_DRIFT_TOLERANCE_MS)
     parser.add_argument(
         "--output-root",
-        help="Destination root for paired plans and logs (default: data/paired; "
+        help="Destination root for paired plans and logs (default: data/study; "
              "with --plans, defaults to DIR).",
-    )
-    parser.add_argument(
-        "--fixed-timing-plan",
-        help="Validated scenario timing table required by fixed_tuned.",
     )
     args = parser.parse_args(argv)
 
@@ -300,7 +282,7 @@ def main(argv=None):
         # simulation. Otherwise plan N can finish before plan N+1 discovers
         # that its arm folder already exists.
         preflight = [
-            preflight_pair(path, arms, output_root, args.fixed_timing_plan)
+            preflight_pair(path, arms, output_root)
             for path in plan_files
         ]
         plan_ids = [item['plan_id'] for item in preflight]
@@ -312,7 +294,7 @@ def main(argv=None):
             comparisons.append(run_pair(
                 plan_file, arms, args.timeout,
                 args.fps_tolerance, args.drift_tolerance_ms, output_root,
-                args.fixed_timing_plan, baseline=baseline,
+                baseline=baseline,
             ))
 
         aggregate = analyze_batch(
@@ -320,14 +302,11 @@ def main(argv=None):
             baseline=baseline, plan_ids=plan_ids,
         )
         print(f"\n{aggregate['plans_valid']}/{aggregate['plans_total']} plans valid")
-        for key, block in aggregate["per_contrast"].items():
-            p = block["wilcoxon_p_value"]
-            print(
-                f"  {key}: Δwait mean of plan means "
-                f"{block['delta_wait_mean_of_plan_means']} over "
-                f"{block['plans']} plans, "
-                f"p={'n/a' if p is None else f'{p:.2e}'}"
-            )
+        for scenario, contrasts in aggregate.get('per_scenario', {}).items():
+            if 'cohort_error' in contrasts:
+                print(f"  {scenario}: {contrasts['cohort_error']}")
+            else:
+                print_contrasts(scenario, contrasts)
         failed = (
             any(not item.get('publication_eligible', item.get('valid'))
                 for item in comparisons)
@@ -337,24 +316,12 @@ def main(argv=None):
         )
         return 1 if failed else 0
 
-    if args.seed is not None:
-        output_root = os.path.abspath(args.output_root or PAIRED_ROOT)
-        plan_id = default_plan_id(args.uneven_mode, args.count, args.seed, args.condition)
-        plan = build_plan(args.seed, args.count, args.uneven_mode, plan_id=plan_id,
-                          condition=args.condition)
-        plan_file = os.path.join(output_root, plan_id, 'plan.json')
-        if os.path.exists(plan_file):
-            parser.error(f'plan already exists: {plan_file}; use --plan or a fresh seed')
-        write_plan(plan, plan_file)
-        print(f"Wrote plan {plan_id} -> {plan_file}")
-    else:
-        plan_file = args.plan
-        output_root = os.path.abspath(args.output_root or PAIRED_ROOT)
+    plan_file = args.plan
+    output_root = os.path.abspath(args.output_root or PAIRED_ROOT)
 
     comparison = run_pair(plan_file, arms, args.timeout,
                           args.fps_tolerance, args.drift_tolerance_ms,
-                          output_root, args.fixed_timing_plan,
-                          baseline=baseline)
+                          output_root, baseline=baseline)
     return 0 if comparison.get(
         "publication_eligible", comparison.get("valid")
     ) else 1

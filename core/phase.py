@@ -1,25 +1,4 @@
-# core/phase.py
-"""
-One signal phase, executed the same way by every controller.
-
-Fixed, priority, fairness and the two ablations each used to carry their own
-copy of the transition: expose the green, count it down, run the yellow, write
-the record, reset the timers.  Four copies meant the same two defects existed
-in four places, and a fix to one was not a fix to the others.
-
-What the policies still own — and all they own — is the *decision*: which
-approach is served next, how long its green is, and whether it may end early.
-Everything below is mechanism.
-
-Two properties this file is responsible for:
-
-  * A phase is recorded from the moment it is decided (`begin_phase`), not
-    when it finishes.  A run that ends mid-phase still has that phase in its
-    log, marked censored.
-  * Movement permission and the phase record describe the same transition.
-    Green is withdrawn before the record is written, so the approach that has
-    just finished is not green again during a blocking disk write.
-"""
+"""Shared green, yellow and phase logging for fixed and priority control."""
 import time
 
 import state

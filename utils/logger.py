@@ -81,7 +81,7 @@ def init_logger(duration_sec, uneven_mode=None):
 
     time mode:     data/logs/{uneven_mode}/{duration}/{mode}_log_{duration}_{ts}.csv
     vehicles mode: data/logs_by_count/{uneven_mode}/{N}/{mode}_countlog_{N}_{ts}.csv
-    paired replay: data/paired/{pair_id}/{arm}/{arm}_pairlog_{N}_{ts}.csv
+    paired replay: data/study/{pair_id}/{arm}/{arm}_pairlog_{N}_{ts}.csv
     """
     global log_filename, signal_log_filename, phase_log_filename
     global run_basename, run_provenance
@@ -100,14 +100,14 @@ def init_logger(duration_sec, uneven_mode=None):
         # A third root, sibling to logs/ and logs_by_count/, for the same
         # reason count mode got its own: a paired run does not fit the shape
         # either existing analyzer expects, and no existing analyzer walks
-        # data/paired, so nothing it writes can contaminate a summary.
+        # the paired root, so nothing it writes can contaminate a summary.
         bucket = str(state.target_vehicle_count)
         arm = state.arm_label or mode_label
         run_basename = f"{arm}_pairlog_{bucket}_{timestamp}"
 
         paired_root = getattr(state, 'paired_root', None)
         if paired_root is None:
-            paired_root = os.path.join(BASE_DATA_DIR, "paired")
+            paired_root = os.path.join(BASE_DATA_DIR, "study")
         log_dir = os.path.join(paired_root, state.pair_id, arm)
         signal_dir = log_dir  # both arms' logs live together in the arm folder
     elif state.run_mode == 'vehicles':

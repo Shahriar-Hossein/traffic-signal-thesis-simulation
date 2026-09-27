@@ -73,11 +73,11 @@ class ProvenanceTests(unittest.TestCase):
                 return {'ok': True}
             with patch.object(run_paired, 'PAIRED_ROOT', str(destination)), patch.object(run_paired, 'run_arm', side_effect=launched) as launch:
                 with patch.object(run_paired, 'analyze_pair', return_value={}), patch.object(run_paired, 'print_pair'):
-                    run_paired.run_pair(str(external), [('a', 'fixed'), ('b', 'priority')])
+                    run_paired.run_pair(str(external), [('fixed12', 'fixed'), ('priority', 'priority')])
                     self.assertEqual(launch.call_count, 2)
-                (destination / 'fixture' / 'a').mkdir()
+                (destination / 'fixture' / 'fixed12').mkdir()
                 with self.assertRaisesRegex(ValueError, 'already exists'):
-                    run_paired.run_pair(str(external), [('a', 'fixed'), ('b', 'priority')])
+                    run_paired.run_pair(str(external), [('fixed12', 'fixed'), ('priority', 'priority')])
                 self.assertEqual(launch.call_count, 2)
 
 

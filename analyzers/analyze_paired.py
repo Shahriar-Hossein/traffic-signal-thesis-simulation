@@ -1,9 +1,5 @@
 """
-Analyze paired replay runs (data/paired/{plan_id}/).
-
-Deliberately separate from analyze_log.py and analyze_count_log.py, which own
-data/logs/** and data/logs_by_count/** respectively.  Nothing here reads or
-writes either of those roots, and neither of them walks data/paired.
+Analyze paired replay runs (data/study/{plan_id}/).
 
 Two things happen, in this order:
 
@@ -18,8 +14,8 @@ Two things happen, in this order:
      form a descriptive matched difference. Inference uses independent plans,
      because vehicles within an approach interact.
 
-    python3 analyzers/analyze_paired.py data/paired/even_500_seed07
-    python3 analyzers/analyze_paired.py --batch data/paired
+    python3 analyzers/analyze_paired.py data/study/balanced_moderate_seed301
+    python3 analyzers/analyze_paired.py --batch data/study
 """
 
 import argparse
@@ -40,11 +36,9 @@ from core.provenance import fingerprint, runtime_identity
 from collections import defaultdict
 
 BASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
-PAIRED_ROOT = os.path.join(BASE_DIR, "paired")
+PAIRED_ROOT = os.path.join(BASE_DIR, "study")
 
-# Starting tolerances for the validity gate.  These are guesses until §9.5 of
-# docs/PAIRED_REPLAY_PLAN.md has been measured on the target machine; tighten
-# or loosen them from what that actually shows.
+# Provisional timing tolerances for paired development runs.
 DEFAULT_FPS_TOLERANCE = 0.05        # relative spread in fps_mean across arms
 DEFAULT_DRIFT_TOLERANCE_MS = 250.0  # worst single release lateness, per arm
 
@@ -57,7 +51,9 @@ MIN_PAIRS_FOR_TEST = 10
 # demand regime, safeguards are reported per stratum, and cohorts are checked
 # before pooling.  3: replicate identity no longer depends on a display name,
 # and inference is reported per scenario rather than across heterogeneous cells.
-ANALYSIS_SCHEMA_VERSION = 3
+# 4: scheduled plans key strata by scenario and schedule; paired effects include
+# per-direction estimates and priority is contrasted with both fixed settings.
+ANALYSIS_SCHEMA_VERSION = 4
 
 # Allowances for cross-field checks.  Every one of these exists because two
 # recorded quantities are measured by different code at different moments; a
@@ -340,6 +336,8 @@ def check_validity(arms, plan, fps_tolerance, drift_tolerance_ms):
     fps_values = []
     worst_fps = []
     hashes = {'configuration_hash': set(), 'source_hash': set()}
+    configurations = {}
+    controllers = {}
     for arm in arms:
         name = arm['arm']
         if arm.get('error'):
@@ -362,6 +360,7 @@ def check_validity(arms, plan, fps_tolerance, drift_tolerance_ms):
                 reasons.append(f"{name}: {key} missing or mismatched")
         if meta.get('controller') not in CONTROLLER_NAMES:
             reasons.append(f"{name}: missing or unknown controller")
+        controllers[name] = meta.get('controller')
         for key in ('started_at', 'ended_at', 'plan_path'):
             if not isinstance(meta.get(key), str) or not meta[key]:
                 reasons.append(f"{name}: {key} missing or invalid")
@@ -403,6 +402,8 @@ def check_validity(arms, plan, fps_tolerance, drift_tolerance_ms):
                 matches = False
             if not matches:
                 reasons.append(f"{name}: {payload} missing or fingerprint mismatch")
+            elif payload == 'configuration':
+                configurations[name] = value
             else:
                 hashes[key].add(meta[key])
         if not arm.get('signal_changes'):
@@ -477,6 +478,12 @@ def check_validity(arms, plan, fps_tolerance, drift_tolerance_ms):
 
         reasons.extend(reconcile_summary(name, meta, crossed_times, lateness_sec,
                                          drift_tolerance_ms))
+    config_hashes = {arm['meta'].get('configuration_hash') for arm in arms
+                     if isinstance(arm.get('meta'), dict)
+                     and arm['meta'].get('configuration_hash')}
+    if len(config_hashes) > 1 and not fixed_green_config_variation(
+            configurations, controllers):
+        reasons.append("configuration_hash differs across arms")
     for key, values in hashes.items():
         if len(values) > 1:
             reasons.append(f"{key} differs across arms")
@@ -509,6 +516,14 @@ def scenario_identity(header):
     """
     if not isinstance(header, dict):
         return None
+    if header.get('schema_version') == 2 and header.get('scenario') is not None:
+        schedule = header.get('arrival_schedule')
+        return {
+            'scenario': header['scenario'],
+            'skew': header.get('uneven_mode'),
+            'schedule': fingerprint(schedule) if isinstance(schedule, list) else None,
+            'workload': header.get('target_vehicle_count'),
+        }
     return {
         'skew': header.get('uneven_mode'),
         'regime': header.get('pinned_condition') or MIXED_REGIME,
@@ -520,7 +535,50 @@ def scenario_label(identity):
     """The stratum key used for grouping and for reporting."""
     if not identity:
         return 'unknown'
+    if 'scenario' in identity:
+        schedule = identity.get('schedule')
+        suffix = schedule[:8] if schedule else 'no_schedule'
+        return f"{identity['scenario']}_{identity['skew']}_{suffix}_{identity['workload']}"
     return f"{identity['skew']}_{identity['regime']}_{identity['workload']}"
+
+
+def fixed_green_config_variation(configurations, controllers):
+    """Allow only the explicitly labelled fixed12/fixed24/priority contrast."""
+    if not set(configurations) <= {'fixed12', 'fixed24', 'priority'}:
+        return False
+    if not {'fixed12', 'fixed24'} <= set(configurations):
+        return False
+    if controllers.get('fixed12') != 'fixed' or controllers.get('fixed24') != 'fixed':
+        return False
+    if 'priority' in configurations and controllers.get('priority') != 'priority':
+        return False
+
+    green_values = {}
+    normalized = {}
+    green_keys = {}
+    for name, config in configurations.items():
+        green = config.get('defaultGreen')
+        if not isinstance(green, dict) or len(green) != 4:
+            return False
+        values = list(green.values())
+        if (any(type(value) is not int for value in values)
+                or len(set(values)) != 1 or values[0] not in (12, 24)):
+            return False
+        green_values[name] = values[0]
+        green_keys[name] = set(green)
+        normalized[name] = {key: value for key, value in config.items()
+                            if key != 'defaultGreen'}
+
+    if green_values['fixed12'] != 12 or green_values['fixed24'] != 24:
+        return False
+    if (normalized['fixed12'] != normalized['fixed24']
+            or green_keys['fixed12'] != green_keys['fixed24']):
+        return False
+    if 'priority' in configurations and (
+            green_values['priority'] != 24
+            or configurations['priority'] != configurations['fixed24']):
+        return False
+    return True
 
 
 def prescribed_traffic_hash(plan):
@@ -785,6 +843,21 @@ def compare_arms(baseline, other):
     wins = sum(1 for d in deltas if d < 0)
     ties = sum(1 for d in deltas if d == 0)
 
+    base_rows = {int(row['plan_seq']): row for row in baseline['rows']
+                 if row.get('plan_seq') not in (None, '')}
+    other_rows = {int(row['plan_seq']): row for row in other['rows']
+                  if row.get('plan_seq') not in (None, '')}
+    direction_deltas = defaultdict(list)
+    for seq in sorted(set(base_rows) & set(other_rows)):
+        direction = base_rows[seq].get('direction')
+        if direction != other_rows[seq].get('direction'):
+            continue
+        try:
+            delta = float(other_rows[seq]['wait_time_sec']) - float(base_rows[seq]['wait_time_sec'])
+        except (KeyError, TypeError, ValueError):
+            continue
+        direction_deltas[direction].append(delta)
+
     result = {
         "baseline": baseline["arm"],
         "arm": other["arm"],
@@ -794,6 +867,10 @@ def compare_arms(baseline, other):
         "rows_without_plan_seq": base_unkeyed + other_unkeyed,
         "delta_wait_mean": round(statistics.fmean(deltas), 3) if deltas else None,
         "delta_wait_median": round(statistics.median(deltas), 3) if deltas else None,
+        "delta_wait_mean_by_direction": {
+            direction: round(statistics.fmean(values), 3)
+            for direction, values in sorted(direction_deltas.items()) if values
+        },
         f"win_rate_{other['arm']}": round(wins / len(deltas), 4) if deltas else None,
         "tied": ties,
     }
@@ -817,11 +894,7 @@ def arm_sort_key(arm):
     Order arms by when they actually ran.
 
     The driver runs arms in the order the user listed them, so run order is
-    the user's order — and the first arm is the one they meant as the
-    baseline.  Sorting the folder names alphabetically instead would silently
-    make `fairness_priority` the baseline in `--arms fixed priority
-    fairness_priority`, and every delta would be reported against the wrong
-    reference.  Falls back to the arm name when a sidecar is missing.
+    the user's order. Falls back to the arm name when a sidecar is missing.
     """
     meta = arm.get("meta")
     started_at = meta.get("started_at") if isinstance(meta, dict) else None
@@ -893,7 +966,7 @@ def runtime_reasons(arms):
 def analyze_pair(plan_dir, fps_tolerance=DEFAULT_FPS_TOLERANCE,
                  drift_tolerance_ms=DEFAULT_DRIFT_TOLERANCE_MS, write=True,
                  baseline=None):
-    """Analyze one data/paired/{plan_id}/ folder and return its comparison dict."""
+    """Analyze one data/study/{plan_id}/ folder and return its comparison dict."""
     plan_dir = os.path.abspath(plan_dir)
     plan_id = os.path.basename(plan_dir.rstrip(os.sep))
 
@@ -966,14 +1039,22 @@ def analyze_pair(plan_dir, fps_tolerance=DEFAULT_FPS_TOLERANCE,
         a["arm"]: summarize_arm(a) for a in arms if not reasons and not a.get("error")
     }
 
-    # Every other arm is compared against the first, so K arms produce K-1
-    # matched comparisons rather than assuming there are exactly two.
+    # The three-arm fixed-duration comparison is anchored on priority against
+    # each fixed setting, so both effects have the same treatment direction.
     usable = [a for a in arms if not reasons and not a.get("error")]
-    baseline_arm = usable[0] if usable else None
+    by_name = {arm['arm']: arm for arm in usable}
+    if {'fixed12', 'fixed24', 'priority'} <= set(by_name):
+        baseline_arm = by_name.get(baseline, by_name['fixed12'])
+        comparison["paired"] = [
+            compare_arms(by_name['fixed12'], by_name['priority']),
+            compare_arms(by_name['fixed24'], by_name['priority']),
+        ]
+    else:
+        baseline_arm = usable[0] if usable else None
+        comparison["paired"] = [
+            compare_arms(baseline_arm, other) for other in usable[1:]
+        ] if baseline_arm else []
     comparison["baseline_arm"] = baseline_arm["arm"] if baseline_arm else None
-    comparison["paired"] = [
-        compare_arms(baseline_arm, other) for other in usable[1:]
-    ] if baseline_arm else []
 
     if write:
         write_comparison(plan_dir, comparison)
@@ -995,9 +1076,7 @@ def plan_dirs_under(root, only=None):
     """
     Plan folders under `root`, optionally narrowed by a glob.
 
-    data/paired holds every kind of run — repeatability arms, pilots and
-    contrasts alike — so aggregating the whole root pools studies that were
-    never meant to be pooled.
+    Select one study root. Never pool unrelated collections.
     """
     names = sorted(
         name for name in os.listdir(root)
@@ -1018,6 +1097,7 @@ def contrast_block(pairs, inference=True, inference_reason=None):
     """
     primary = defaultdict(list)
     safeguards = defaultdict(lambda: defaultdict(list))
+    directional = defaultdict(lambda: defaultdict(list))
 
     for pair in pairs:
         arms = pair.get("arms", {})
@@ -1028,6 +1108,8 @@ def contrast_block(pairs, inference=True, inference_reason=None):
 
             base = arms.get(block["baseline"], {})
             other = arms.get(block["arm"], {})
+            for direction, delta in block.get('delta_wait_mean_by_direction', {}).items():
+                directional[key][direction].append(delta)
             for label, field in (("wait_p95", "wait_p95"),
                                  ("worst_approach_wait", "worst_direction_wait_mean"),
                                  ("approach_service_gap", "direction_service_gap"),
@@ -1038,6 +1120,20 @@ def contrast_block(pairs, inference=True, inference_reason=None):
     summaries = {}
     for key, means in sorted(primary.items()):
         summaries[key] = contrast_summary(means, inference, inference_reason)
+        summaries[key]["delta_wait_mean_by_direction"] = {
+            direction: {
+                "plans": len(deltas),
+                "mean_of_plan_deltas": round(statistics.fmean(deltas), 3),
+                **(bootstrap_ci(deltas) if inference else {
+                    "ci_low": None,
+                    "ci_high": None,
+                    "ci_method": "withheld: descriptive summary across scenarios",
+                    "ci_confidence": None,
+                    "inference_withheld_reason": inference_reason,
+                }),
+            }
+            for direction, deltas in sorted(directional[key].items())
+        }
         summaries[key]["safeguards"] = {
             label: {
                 "plans": len(deltas),
@@ -1281,6 +1377,7 @@ def print_pair(comparison):
             f"thr {str(summary['throughput_per_min']):>7}/min  "
             f"fps {str(summary['fps_mean']):>6}"
         )
+        print(f"    direction delay: {summary['wait_mean_by_direction']}")
 
     for block in comparison.get("paired", []):
         win_key = f"win_rate_{block['arm']}"
@@ -1293,6 +1390,7 @@ def print_pair(comparison):
             f"win {block[win_key]} "
             f"p={'n/a' if p is None else f'{p:.2e}'}"
         )
+        print(f"    direction Δdelay: {block.get('delta_wait_mean_by_direction', {})}")
         if block["unmatched_in_baseline"] or block["unmatched_in_arm"]:
             print(
                 f"    ⚠️  unmatched plan_seq — {block['baseline']}: "
@@ -1309,6 +1407,12 @@ def print_contrasts(label, contrasts):
             f"over {block['plans']} plans, "
             f"{block['plans_favouring_arm']} favouring"
         )
+        for direction, effect in block.get('delta_wait_mean_by_direction', {}).items():
+            print(
+                f"      {direction} Δdelay: {effect['mean_of_plan_deltas']:+} "
+                f"95% CI [{effect['ci_low']}, {effect['ci_high']}] "
+                f"over {effect['plans']} plans"
+            )
         for name, guard in (block.get("safeguards") or {}).items():
             print(
                 f"      {name}: {guard['mean_of_plan_deltas']:+} "
@@ -1322,7 +1426,7 @@ def main(argv=None):
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("plan_dir", nargs="?", default=None,
-                        help="A data/paired/{plan_id}/ folder.")
+                        help="A data/study/{plan_id}/ folder.")
     parser.add_argument("--batch", metavar="DIR",
                         help="Analyze every plan folder under DIR and aggregate.")
     parser.add_argument("--only", metavar="GLOB",

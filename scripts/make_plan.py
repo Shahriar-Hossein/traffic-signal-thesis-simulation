@@ -1,93 +1,59 @@
 #!/usr/bin/env python3
-"""
-Write replay plans: the vehicle stream two controllers will each face.
-
-A plan is generated on paper — a pure function of (seed, count, uneven_mode,
-config), no pygame and no simulation — so producing fifty of them costs
-milliseconds.  What a real dry run would capture instead is the sleep drift of
-one machine on one day, which is not a property of the traffic and would be
-re-imposed with *different* drift on both replays anyway.  What matters is
-that both arms get the same intended schedule, and that each arm measures how
-well it honoured it (see the drift fields in the run's _meta.json).
-
-    python3 scripts/make_plan.py --seed 7 --count 500 --uneven-mode even
-    python3 scripts/make_plan.py --plans 10 --count 500 --uneven-mode even
-"""
-
+"""Write independent, duration-based plans for the small paired study."""
 import argparse
-import os
+from pathlib import Path
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from core.plan import build_plan, write_plan  # noqa: E402
 
-from config import trafficConditions  # noqa: E402
-from core.plan import build_plan, write_plan, default_plan_id  # noqa: E402
-
-BASE_DATA_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data"
-)
-
-
-def plan_path(plan_id, out=None):
-    """Plans live beside the arm folders that will replay them."""
-    if out is not None:
-        return out
-    return os.path.join(BASE_DATA_DIR, "paired", plan_id, "plan.json")
+SCENARIOS = {
+    'balanced_moderate': ('even', [('medium', 120)]),
+    'one_busy': ('right', [('medium', 120)]),
+    'two_busy': ('up_down', [('medium', 120)]),
+    'high_low_high': ('even', [('high', 45), ('low', 45), ('high', 45)]),
+    'sustained_high': ('even', [('high', 120)]),
+}
+DEVELOPMENT_SEEDS = (301, 302, 303, 304, 305)
 
 
-def make_one(seed, count, uneven_mode, out=None, plan_id=None, condition=None):
-    plan_id = plan_id or default_plan_id(uneven_mode, count, seed, condition)
-    plan = build_plan(seed, count, uneven_mode, plan_id=plan_id, condition=condition)
-    path = write_plan(plan, plan_path(plan_id, out))
-
-    last = plan['vehicles'][-1]['t_offset_sec']
-    conditions = " -> ".join(
-        f"{entry['condition']}@{entry['t_offset_sec']:.0f}s"
-        for entry in plan['condition_timeline']
-    )
-    print(
-        f"{plan_id}: {count} vehicles over {last:.0f}s of planned time "
-        f"(hash {plan['header']['content_hash']})\n"
-        f"  {conditions}\n"
-        f"  -> {path}"
-    )
-    return path
+def make_plans(root, scenarios=SCENARIOS, seeds=DEVELOPMENT_SEEDS):
+    """Refuse overwrites so a plan archive remains tied to its first hash."""
+    root = Path(root)
+    destinations = [root / f'{name}_seed{seed}' / 'plan.json'
+                    for name in scenarios for seed in seeds]
+    if len(set(destinations)) != len(destinations):
+        raise ValueError('scenario/seed selection contains duplicate plan IDs')
+    existing = [path for path in destinations if path.exists()]
+    if existing:
+        raise FileExistsError(f'plan already exists: {existing[0]}')
+    written = []
+    for name, (mode, periods) in scenarios.items():
+        schedule = [{'condition': condition, 'duration_sec': seconds}
+                    for condition, seconds in periods]
+        for seed in seeds:
+            plan_id = f'{name}_seed{seed}'
+            path = root / plan_id / 'plan.json'
+            plan = build_plan(seed, None, mode, plan_id=plan_id,
+                              schedule=schedule, scenario=name)
+            write_plan(plan, str(path))
+            written.append(path)
+            print(f'{plan_id}: {len(plan["vehicles"])} arrivals, '
+                  f'hash {plan["header"]["content_hash"]}')
+    return written
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--seed", type=int, default=0,
-                        help="Seed for a single plan, or the first seed of a batch.")
-    parser.add_argument("--count", type=int, default=500,
-                        help="Number of vehicles in the plan.")
-    parser.add_argument("--uneven-mode", default="even",
-                        help="Demand skew the plan is drawn under.")
-    parser.add_argument("--condition", choices=sorted(trafficConditions),
-                        help="Hold one demand regime for the whole plan "
-                             "instead of switching between them.")
-    parser.add_argument("--plans", type=int, default=1,
-                        help="Emit this many plans, using consecutive seeds from --seed.")
-    parser.add_argument("--plan-id",
-                        help="Override the plan id (single-plan runs only).")
-    parser.add_argument("--out",
-                        help="Write to this exact path instead of "
-                             "data/paired/{plan_id}/plan.json (single-plan runs only).")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--output-root', default='data/study')
+    parser.add_argument('--scenario', choices=SCENARIOS,
+                        help='One environment; default is all five.')
+    parser.add_argument('--seeds', nargs='+', type=int,
+                        default=DEVELOPMENT_SEEDS)
     args = parser.parse_args(argv)
-
-    if args.plans > 1 and (args.out or args.plan_id):
-        parser.error("--out and --plan-id only apply when writing a single plan.")
-
-    for offset in range(args.plans):
-        make_one(
-            seed=args.seed + offset,
-            count=args.count,
-            uneven_mode=args.uneven_mode,
-            out=args.out,
-            plan_id=args.plan_id,
-            condition=args.condition,
-        )
+    scenarios = {args.scenario: SCENARIOS[args.scenario]} if args.scenario else SCENARIOS
+    make_plans(args.output_root, scenarios, args.seeds)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

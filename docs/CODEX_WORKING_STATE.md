@@ -1,83 +1,11 @@
-# Current Codex checkpoint
+# Current checkpoint
 
-Updated 14 September 2026: validation-first reset; writing and presentation are
-on hard hold.
+Branch: `feature/modify-data-collection-simplified`, based exactly on `feature/modify-data-collection` at `ee4fcbc` before these uncommitted edits.
 
-**Start with [CODEX_HANDOFF.md](CODEX_HANDOFF.md).** It indexes changes/rationale,
-verified artifacts and exact next actions under `docs/codex_handoff/`.
+The working tree now keeps only the paired runner, fixed and priority controllers, their simulator dependencies, paired delay/clearance/timing analysis, required sprites, and focused tests. Old tracked results and paper tooling are removed from this branch's tree; the source branch retains their history. The 67 MB of ignored legacy `data/` was moved intact to `/home/shahriar/projects/traffic-signal-legacy-data-2026-09-27`. New plans and logs use ignored `data/study/`.
 
-- Immediate objective: establish, with small reproducible development studies,
-  that the simulator and priority policy behave as specified across relevant
-  demand situations. A conference paper is a possible later use of that
-  evidence, not the current deliverable.
-- Branch: `feature/modify-data-collection`; reviewed implementation, workflow,
-  paper and validation changes are split into reviewable commits.
+The new study compares fixed at 12 s and 24 s green with priority at 6–24 s, all with 5 s yellow. The submitted report used 12 s fixed and 4 s yellow; its outcomes are separate. Five environments use fixed-duration arrival schedules: balanced moderate, one busy, two busy, high–low–high, and sustained high. Five development seeds per environment are specified; no full study collection has begun.
 
-## Done
+Validation completed: `python3 -B -m unittest discover -s tests` passed **120 tests** (exit 0). One temporary 16-vehicle development probe ran all three arms sequentially. Each released and crossed all 16 vehicles; read-only analysis with schema 4 accepted measurement and timing, matched all 16 vehicles in both fixed contrasts, and reported delay for all four approaches. Versioned derived files are under `/tmp/traffic_signal_study_probe/probe_medium_seed777/`. The probe exposed and prompted a correction to the timing gate: fixed 12 s and fixed 24 s must be treated as distinct settings despite sharing a controller. This probe is a software validation check, not an independent study result.
 
-- [x] Defined the paper as a reproducible scheduling study in the simplified
-  simulator, without calibrated-road, capacity or VANET-performance claims.
-- [x] Implemented the six controller/comparator paths and sequential paired
-  execution.
-- [x] Repaired the major measurement, timing, provenance, plan-identity and
-  publication-eligibility contracts identified in the review.
-- [x] Separated development seeds from reserved evaluation seeds; no held-out
-  seed has been used for study outcomes.
-- [x] Implemented the development-only fixed-timing tuning workflow.
-- [x] Drafted final-evaluation, manuscript and figure workflows. They are
-  retained as future reference only and are not current work.
-- [x] Passed the integrated suite: 183 tests OK, with one clean-tree-only check
-  skipped.
-- [x] Completed an accepted N=20 four-arm development validation and confirmed
-  it by read-only reanalysis. Archive:
-  `results/development_validation_2026_09_11_v2/`.
-- [x] Preserved the first rejected validation attempt without rewriting its raw
-  evidence. Archive: `results/development_validation_2026_09_11/`.
-- [x] Drafted the manuscript methods, supervisor checklist and September
-  delivery plan.
-
-No long study is intentionally running now.
-
-## Current validation plan
-
-This is deliberately a learning and verification phase. Use development seeds,
-fresh result roots and sequential runs only. Preserve raw results, including
-failed runs; do not use reserved evaluation seeds.
-
-1. **Controller-rule checks.** Run small, deterministic probes that verify the
-   policy's observable rules: queue measurement, selected next approach,
-   green-duration bounds/calculation, rotation/service guarantee, and fixed
-   controller behavior. Inspect phase and queue telemetry, not just aggregate
-   delay.
-2. **Representative-environment checks.** At the actual 500-vehicle workload,
-   repeat a deliberately small set of development plans spanning balanced and
-   strongly skewed demand, low/medium/high offered load, and changing demand.
-   Confirm plan identity, arrivals, crossings, timing coverage, queue
-   observations and repeatability before interpreting controller differences.
-3. **Mechanism checks.** Compare `priority` with the simple fixed baseline in
-   the environments above. Add one ablation/comparator only when it answers a
-   concrete question about *why* priority helped, failed, or changed fairness;
-   do not automatically run all six arms or tune a best fixed controller.
-4. **Review gate.** Summarize what the policy demonstrably does, where its
-   effect is absent or adverse, what remains unvalidated, and whether the model
-   is stable enough to justify a later experimental protocol. Only then decide
-   whether a bounded comparative study is worthwhile and what it should test.
-
-## Hard hold — not current work
-
-- Paper/manuscript drafting, reference expansion, venue selection and PDF
-  rendering.
-- Figure, image or other presentation-asset generation, including synthetic
-  paper figures.
-- The held-out six-arm evaluation, the proposed 936-run grid, protocol freeze,
-  and fixed-timing tuning/selection.
-- Completing infrastructure whose only purpose is final collection or paper
-  presentation (`run_evaluation.py`, paper plotting, collection commands),
-  unless it becomes necessary for a specific validation check.
-
-## Next action
-
-Read [the validation-first next steps](codex_handoff/next_steps.md). Start with
-controller-rule probes, then run only the small representative N=500
-development validation set. Do not start tuning, held-out collection, writing
-or visual work.
+Next: inspect a representative longer development plan in each environment and confirm model/clock behavior before collecting all five seeds. Run plans sequentially via `python3 scripts/make_plan.py` and `python3 run_paired.py --plans data/study` only after that check. Preserve failed runs, report plan-level uncertainty by environment and per-direction delay, and show ties or losses. Do not claim calibrated road capacity or VANET performance.

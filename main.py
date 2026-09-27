@@ -1,5 +1,4 @@
 # main.py
-# test github
 import argparse
 import os
 import pygame
@@ -18,7 +17,6 @@ from config import (
 from core.initializer import initialize
 from core.generator import generateVehicles
 from core.plan import load_plan, check_plan_against_config
-from core.fixed_timing import load_fixed_timing, resolve_fixed_greens
 from core import runclock
 from core.controllers import NAMES as CONTROLLER_NAMES
 
@@ -30,8 +28,7 @@ from utils.draw import (
     draw_traffic_signals,
     draw_all_vehicles,
     draw_vehicle_count_texts,
-    draw_inline_counts,
-    draw_buildings
+    draw_inline_counts
 )
 
 # Seconds to keep rendering after the last vehicle has crossed, so in-flight
@@ -65,16 +62,14 @@ def parse_args(argv=None):
         choices=list(CONTROLLER_NAMES),
         help="Signal controller to run (default: state.currentMode).",
     )
-    parser.add_argument("--pair-id", help="Paired-run identity; sends logs to data/paired/.")
+    parser.add_argument("--pair-id", help="Paired-run identity; sends logs to the paired output root.")
     parser.add_argument("--arm", help="Arm label within the pair, e.g. 'fixed'.")
     parser.add_argument(
         "--paired-root",
-        help="Root for paired logs (default: repository data/paired).",
+        help="Root for paired logs (default: repository data/study).",
     )
-    parser.add_argument(
-        "--fixed-timing-plan",
-        help="Validated scenario timing table required by fixed_tuned.",
-    )
+    parser.add_argument("--fixed-green", type=int, choices=(12, 24),
+                        help="Green seconds for the fixed controller (12 or 24).")
     parser.add_argument(
         "--run-mode", choices=["time", "vehicles"],
         help="How the run ends (default: state.run_mode).",
@@ -120,30 +115,11 @@ def apply_args(args):
     if args.plan is not None:
         load_plan_into_state(args.plan)
 
-    if args.fixed_timing_plan is not None:
-        try:
-            table = load_fixed_timing(args.fixed_timing_plan)
-        except (OSError, ValueError) as error:
-            print(f"ERROR: {error}")
+    if args.fixed_green is not None:
+        if state.currentMode != 'fixed':
+            print("ERROR: --fixed-green requires --controller fixed.")
             sys.exit(2)
-        state.fixed_timing_plan = table
-        # Provenance snapshots config at logger startup. Store the validated
-        # data, not a machine-specific file name, so every arm fingerprints
-        # the actual comparator settings it received.
-        runtime_config.fixed_timing_plan = table
-
-    if state.currentMode == 'fixed_tuned':
-        if state.fixed_timing_plan is None:
-            print("ERROR: fixed_tuned requires --fixed-timing-plan.")
-            sys.exit(2)
-        try:
-            resolve_fixed_greens(
-                state.fixed_timing_plan,
-                state.vehicle_plan['header'] if state.vehicle_plan else None,
-            )
-        except ValueError as error:
-            print(f"ERROR: {error}")
-            sys.exit(2)
+        runtime_config.defaultGreen = {index: args.fixed_green for index in range(4)}
 
     if state.pair_id is not None:
         if state.generation_source != 'plan':
@@ -425,9 +401,8 @@ def main(argv=None):
 
         screen.blit(background,(0,0))   # display background in simulation
 
-        # draw_buildings(screen)
 
-        draw_traffic_signals(screen, font, signals, state.currentGreen, 
+        draw_traffic_signals(screen, font, signals, state.currentGreen,
             state.currentYellow, redSignal, yellowSignal, greenSignal,
             signalCoods, signalTimerCoods, black, white)
 
@@ -435,9 +410,9 @@ def main(argv=None):
 
         draw_vehicle_count_texts(screen, font, get_vehicle_counts(),
             directionNumbers, vehicleCountCoods, black, white)
-        
+
         draw_inline_counts(screen, font, get_vehicle_counts(), directionNumbers)
-        
+
         pygame.display.update()
         fps.tick()
         clock.tick(60)  # Cap to 60 FPS

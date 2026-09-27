@@ -1,49 +1,16 @@
-"""
-Green-duration rules and their bounds, in one place.
-
-Both the proposed controller and its duration ablation size a green from the
-same demand weight, and the fairness variant uses the same shape with its own
-coefficient and ceiling.  The rule used to be written out once per controller,
-so a test had to inspect the source of one to prove the other had not drifted.
-It lives here instead, and every controller calls it.
-
-Deliberately dependency-light: no pygame, no `state`, no config.  Analyzers
-import `GREEN_BOUNDS` to report a green against the ceiling its own controller
-actually had, and must not pull the simulator in to do it.
-"""
+"""Priority green rule and the fixed controller declaration."""
 
 # (per-vehicle seconds, minimum green, maximum green) per controller.
 # `None` means the controller does not size greens from demand at all.
 DURATION_RULES = {
     'priority': (0.75, 6, 24),
-    'fairness_priority': (0.67, 6, 18),
-    'fixed_order_adaptive_duration': (0.75, 6, 24),
     'fixed': None,
-    'fixed_tuned': None,
-    'adaptive_order_fixed_duration': None,
-    'actuated': None,
 }
 
-# Recorded duration bounds per controller, for reports that ask how often a
-# controller sat on a bound.  A fixed-duration arm has one value, not a range.
 GREEN_BOUNDS = {
     'priority': (6, 24),
-    'fairness_priority': (6, 18),
-    'fixed_order_adaptive_duration': (6, 24),
     'fixed': None,
-    'fixed_tuned': None,
-    'adaptive_order_fixed_duration': None,
-    # This controller selects a 24-second ceiling and may end it only through
-    # the detector rule below; these are its actual possible green bounds.
-    'actuated': (6, 24),
 }
-
-# Simple-actuated comparator settings.  They live beside the other controller
-# rules, without importing mutable simulator configuration, so the source
-# provenance fingerprint records the exact comparator definition.
-ACTUATED_MIN_GREEN = 6
-ACTUATED_MAX_GREEN = 24
-ACTUATED_GAP_OUT_SEC = 2
 
 
 def adaptive_green(weight, per_vehicle_sec, minimum, maximum):
@@ -72,8 +39,3 @@ def green_for(controller, weight, fixed_seconds):
 def priority_green(weight):
     """The proposed controller's rule."""
     return adaptive_green(weight, *DURATION_RULES['priority'])
-
-
-def fairness_green(weight):
-    """The fairness variant: a smaller coefficient and a lower ceiling."""
-    return adaptive_green(weight, *DURATION_RULES['fairness_priority'])

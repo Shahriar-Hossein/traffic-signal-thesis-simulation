@@ -10,7 +10,7 @@ from core.plan import build_plan, write_plan
 import run_paired
 
 
-ARMS = [('fixed', 'fixed'), ('priority', 'priority')]
+ARMS = [('fixed12', 'fixed'), ('fixed24', 'fixed'), ('priority', 'priority')]
 
 
 class DriverContractTests(unittest.TestCase):
@@ -20,24 +20,22 @@ class DriverContractTests(unittest.TestCase):
                               condition=condition), str(path))
         return path
 
-    def test_run_arm_passes_explicit_output_and_timing_paths(self):
+    def test_run_arm_passes_explicit_output_and_fixed_green(self):
         process = Mock()
         process.wait.return_value = 0
         with tempfile.TemporaryDirectory() as root, \
                 patch.object(run_paired.subprocess, 'Popen', return_value=process) as popen, \
                 patch.object(run_paired, 'read_arm_meta',
                              return_value={'stop_reason': 'target_reached'}):
-            timing = str(Path(root) / 'timing.json')
             result = run_paired.run_arm(
-                'plan.json', 'fixture', 'fixed', 'fixed', 90, root, timing,
+                'plan.json', 'fixture', 'fixed12', 'fixed', 90, root,
             )
 
         self.assertTrue(result['ok'])
         command = popen.call_args.args[0]
         self.assertEqual(command[command.index('--paired-root') + 1],
                          str(Path(root).resolve()))
-        self.assertEqual(command[command.index('--fixed-timing-plan') + 1],
-                         str(Path(timing).resolve()))
+        self.assertEqual(command[command.index('--fixed-green') + 1], '12')
         self.assertEqual(command[command.index('--timeout') + 1], '90')
 
     def test_malformed_arm_metadata_is_a_failure_not_a_crash(self):
@@ -62,7 +60,7 @@ class DriverContractTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'already exists'):
                     run_paired.main([
                         '--plans', source, '--output-root', output,
-                        '--arms', 'fixed', 'priority',
+                        '--arms', 'fixed12', 'fixed24', 'priority',
                     ])
             launch.assert_not_called()
 
@@ -120,14 +118,15 @@ class DriverContractTests(unittest.TestCase):
                 tempfile.TemporaryDirectory() as output:
             plan_file = self.make_plan(source)
             results = [
-                {'arm': 'fixed', 'ok': True, 'reason': None},
+                {'arm': 'fixed12', 'ok': True, 'reason': None},
+                {'arm': 'fixed24', 'ok': True, 'reason': None},
                 {'arm': 'priority', 'ok': False, 'reason': 'exit code 9'},
             ]
             bogus = {
                 'valid': True, 'publication_eligible': True,
                 'measurement_valid': True, 'invalid_reasons': [],
-                'arms': {'fixed': {'wait_mean': 1}},
-                'baseline_arm': 'fixed', 'paired': [{'delta_wait_mean': -3}],
+                'arms': {'fixed12': {'wait_mean': 1}},
+                'baseline_arm': 'fixed12', 'paired': [{'delta_wait_mean': -3}],
             }
             with patch.object(run_paired, 'run_arm', side_effect=results), \
                     patch.object(run_paired, 'analyze_pair', return_value=bogus), \
@@ -150,7 +149,7 @@ class DriverContractTests(unittest.TestCase):
                              json.loads(plan_file.read_text())['header']['content_hash'])
             self.assertEqual(status['failures'][0]['reason'], 'exit code 9')
             timing.assert_called_once_with(
-                str(Path(output) / 'fixture'), baseline='fixed',
+                str(Path(output) / 'fixture'), baseline='fixed12',
                 fps_tolerance=.07,
             )
 

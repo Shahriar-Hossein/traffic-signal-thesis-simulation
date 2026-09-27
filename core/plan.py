@@ -26,6 +26,7 @@ from config import (
 # Bumped whenever the plan file's shape changes.  A plan whose version this
 # code does not know is rejected loudly rather than half-read.
 SCHEMA_VERSION = 1
+SCHEDULE_SCHEMA_VERSION = 2
 
 # Same order as config.directionNumbers — the direction weight lists below are
 # positional against it, exactly as the old inline table in generator.py was.
@@ -152,7 +153,41 @@ def git_rev():
         return None
 
 
-def build_plan(seed, count, uneven_mode, plan_id=None, condition=None):
+def _scheduled_arrivals(schedule, rates):
+    """Return fixed boundaries and every arrival strictly before the end."""
+    if not isinstance(schedule, list) or not schedule:
+        raise ValueError("schedule must be a nonempty list of condition/duration segments")
+    timeline = []
+    arrivals = []
+    start = 0.0
+    for segment in schedule:
+        if not isinstance(segment, dict) or set(segment) != {'condition', 'duration_sec'}:
+            raise ValueError("invalid schedule segment")
+        condition, duration = segment['condition'], segment['duration_sec']
+        if not isinstance(condition, str) or condition not in rates:
+            raise ValueError("invalid schedule condition")
+        if (type(duration) not in (int, float) or not math.isfinite(duration)
+                or duration <= 0 or round(duration, ARRIVAL_OFFSET_DECIMALS) != duration):
+            raise ValueError("schedule duration_sec must be positive and representable to six decimals")
+        end = round(start + duration, ARRIVAL_OFFSET_DECIMALS)
+        if end <= start:
+            raise ValueError("schedule duration_sec is too small")
+        timeline.append({'t_offset_sec': start, 'condition': condition})
+        index = 0
+        while True:
+            offset = round(start + index / rates[condition], ARRIVAL_OFFSET_DECIMALS)
+            if offset >= end:
+                break
+            if arrivals and offset <= arrivals[-1][0]:
+                raise ValueError("schedule arrival resolution is insufficient")
+            arrivals.append((offset, condition))
+            index += 1
+        start = end
+    return timeline, arrivals, start
+
+
+def build_plan(seed, count, uneven_mode, plan_id=None, condition=None,
+               schedule=None, scenario=None):
     """
     Generate a full replay plan on a *virtual* clock.
 
@@ -174,9 +209,54 @@ def build_plan(seed, count, uneven_mode, plan_id=None, condition=None):
     regenerating every existing plan under a different sampling algorithm, so
     the guarantee is narrowed here rather than the archive rewritten.
 
+    With `schedule`, pass count=None and a list of
+    {'condition': name, 'duration_sec': seconds} segments. Arrivals fill each
+    full segment, beginning at its exact boundary. The count is derived from
+    the durations; `scenario` is an optional identifier stored in the header.
+    These plans use schema v2. Calls without a schedule retain v1 behavior.
+
     Uses a private `random.Random(seed)`; never the global module, so nothing
     else in the process can perturb the sequence.
     """
+    if schedule is not None:
+        if condition is not None or count is not None:
+            raise ValueError("schedule requires count=None and condition=None")
+        if scenario is not None and (not isinstance(scenario, str) or not scenario):
+            raise ValueError("scenario must be a nonempty string")
+        direction_weights(uneven_mode)
+        timeline, arrivals, _ = _scheduled_arrivals(schedule, trafficConditions)
+        rng = random.Random(seed)
+        vehicles = []
+        for seq, (offset, current_condition) in enumerate(arrivals):
+            drawn = sample_vehicle(uneven_mode, rng)
+            turn = sample_turn(drawn['direction'], drawn['lane'], rng)
+            vehicles.append({
+                'seq': seq, 't_offset_sec': offset,
+                'direction': drawn['direction'], 'lane': drawn['lane'],
+                'vehicle_type': drawn['vehicle_type'],
+                'will_turn': turn['will_turn'],
+                'turn_direction': turn['turn_direction'],
+                'target_turn_lane': turn['target_turn_lane'],
+                'condition': current_condition,
+            })
+        schedule_copy = [dict(segment) for segment in schedule]
+        schedule_hash = hashlib.sha256(json.dumps(
+            {'schedule': schedule_copy, 'scenario': scenario}, sort_keys=True
+        ).encode()).hexdigest()[:8]
+        header = {
+            'plan_id': plan_id or f"{uneven_mode}_schedule_{schedule_hash}_seed{seed:02d}",
+            'seed': seed, 'target_vehicle_count': len(vehicles),
+            'uneven_mode': uneven_mode, 'turn_probability': turnProbability,
+            'traffic_conditions': dict(trafficConditions),
+            'traffic_condition_interval': trafficConditionInterval,
+            'pinned_condition': None, 'arrival_schedule': schedule_copy,
+            'scenario': scenario,
+            'schema_version': SCHEDULE_SCHEMA_VERSION,
+        }
+        return {'header': header, 'condition_timeline': timeline, 'vehicles': vehicles}
+
+    if scenario is not None:
+        raise ValueError("scenario requires schedule")
     if condition is not None and condition not in trafficConditions:
         raise ValueError(
             f"unknown traffic condition {condition!r}; "
@@ -294,10 +374,10 @@ def load_plan(path):
         raise ValueError(f"Plan {path} must contain a header object.")
     header = plan['header']
     version = header.get('schema_version')
-    if version != SCHEMA_VERSION:
+    if version not in (SCHEMA_VERSION, SCHEDULE_SCHEMA_VERSION):
         raise ValueError(
             f"Plan {path} has schema_version {version!r}, "
-            f"this build understands {SCHEMA_VERSION}. Regenerate the plan."
+            f"this build understands {SCHEMA_VERSION} and {SCHEDULE_SCHEMA_VERSION}. Regenerate the plan."
         )
 
     for key in ('header', 'condition_timeline', 'vehicles'):
@@ -348,6 +428,22 @@ def load_plan(path):
             raise ValueError(f"Plan {path}: unknown pinned_condition {pinned!r}.")
         if any(event['condition'] != pinned for event in timeline):
             raise ValueError(f"Plan {path}: timeline contradicts pinned_condition.")
+
+    if version == SCHEDULE_SCHEMA_VERSION:
+        if pinned is not None:
+            raise ValueError(f"Plan {path}: scheduled plan cannot be pinned.")
+        scenario = header.get('scenario')
+        if scenario is not None and (not isinstance(scenario, str) or not scenario):
+            raise ValueError(f"Plan {path}: invalid scenario.")
+        try:
+            expected_timeline, expected_arrivals, _ = _scheduled_arrivals(
+                header.get('arrival_schedule'), rates)
+        except ValueError as error:
+            raise ValueError(f"Plan {path}: {error}") from None
+        if timeline != expected_timeline:
+            raise ValueError(f"Plan {path}: timeline does not match arrival_schedule.")
+    elif 'arrival_schedule' in header or 'scenario' in header:
+        raise ValueError(f"Plan {path}: v1 plan cannot carry a schedule or scenario.")
 
     n = header.get('target_vehicle_count')
     if type(n) is not int or n <= 0 or not isinstance(plan['vehicles'], list) or len(plan['vehicles']) != n:
@@ -403,6 +499,13 @@ def load_plan(path):
                 f"{record['condition']!r} but the timeline has {active!r} in "
                 f"force at {record['t_offset_sec']}s."
             )
+
+    if version == SCHEDULE_SCHEMA_VERSION:
+        observed = [(record['t_offset_sec'], record['condition'])
+                    for record in plan['vehicles']]
+        if observed != expected_arrivals:
+            raise ValueError(f"Plan {path}: arrivals do not match arrival_schedule.")
+        return plan
 
     # Schema v1 plans are produced by build_plan: arrivals are a regular
     # virtual-clock sequence, with the interval determined by the condition

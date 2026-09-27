@@ -38,7 +38,7 @@ def generateVehicles(uneven_mode=None):
 
     # NOTE: the traffic-condition sequence is unseeded, so two runs of the same
     # length (or the same vehicle quota) see different load sequences.  Paired
-    # replay runs are the fix for that; see docs/PAIRED_REPLAY_PLAN.md.
+    # study comparisons use replay plans for this reason.
     cnt = 0
     condition = None
     condition_started_at = 0  # forces a pick on the first iteration

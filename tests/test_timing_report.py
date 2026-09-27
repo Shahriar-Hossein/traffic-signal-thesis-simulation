@@ -109,36 +109,6 @@ class TimingReportTests(unittest.TestCase):
         self.assertIsNone(arm['green_bounds'])
         self.assertIsNone(arm['green_at_upper_bound'])
 
-    def test_a_green_at_the_fairness_ceiling_counts_against_that_ceiling(self):
-        # 18s is this controller's maximum; against a hard-coded 24 it would
-        # never be reported as sitting at its ceiling.
-        self.write_arm('a', controller='fairness_priority', granted=18)
-        arm = self.report()['arms'][0]
-        self.assertEqual(arm['green_bounds'], [6, 18])
-        self.assertEqual(arm['green_at_upper_bound'], 2)
-
-        self.directory = self.directory.parent / 'other'
-        write_plan(self.plan, str(self.directory / 'plan.json'))
-        self.write_arm('a', controller='priority', granted=18)
-        self.assertEqual(self.report()['arms'][0]['green_at_upper_bound'], 0)
-
-    def test_a_shared_order_with_different_durations_is_not_a_clock_fault(self):
-        """
-        The duration ablation serves `fixed`'s order and grants different
-        greens, so its onsets drift apart by design. Reporting that under the
-        same heading as repeatability drift reads as a timing fault.
-        """
-        self.write_arm('a', controller='fixed', granted=24)
-        self.write_arm('b', controller='fixed_order_adaptive_duration', granted=8,
-                       phases=[('right', 10.0, 8), ('down', 25.0, 8)])
-        contrast = self.report()['contrasts'][0]
-        self.assertFalse(contrast['same_controller'])
-        self.assertTrue(contrast['phase_order_matches_over_prefix'])
-        # Divergence, reported as divergence; drift, withheld.
-        self.assertIsNone(contrast['phase_onset_drift_max_ms'])
-        self.assertEqual(contrast['phase_onset_divergence_max_ms'], 15000.0)
-        self.assertEqual(self.report()['acceptance']['result'], 'accepted')
-
     def test_a_matching_prefix_of_unequal_sequences_is_said_to_be_a_prefix(self):
         self.write_arm('a')
         self.write_arm('b', phases=[('right', 10.0, 24), ('down', 40.0, 24),
@@ -159,9 +129,9 @@ class TimingReportTests(unittest.TestCase):
         self.assertIsNone(contrast['phase_onset_divergence_max_ms'])
 
     def test_an_early_exit_is_not_counted_as_overrun(self):
-        self.write_arm('a', controller='fairness_priority',
-                       phases=[('right', 10.0, 18, 'complete', 'early_exit'),
-                               ('down', 40.0, 18)])
+        self.write_arm('a', controller='priority',
+                       phases=[('right', 10.0, 24, 'complete', 'early_exit'),
+                               ('down', 40.0, 24)])
         arm = self.report()['arms'][0]
         self.assertEqual(arm['greens_ended_early'], 1)
         # Only the green that ran to its granted duration contributes.
