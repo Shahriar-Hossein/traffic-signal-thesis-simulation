@@ -12,4 +12,6 @@ On 2026-09-29, the four development priority phase logs passed a read-only check
 
 Collection plans were generated at `data/study_collection_20260929/`: seeds 401–420 in each of the five environments, 20 independent plans per environment (100 total). All 100 load and validate with distinct content hashes; plan counts are 240 vehicles for each moderate-demand environment, 383 for high–low–high, and 480 for sustained high. `python3 -B -m unittest discover -s tests` passed 113 tests (exit 0). Collection ran 2026-09-30 to 10-01 (5 plans in parallel, 2 pinned cores each, FPS tolerance 10%, drift 250 ms). 86 of 100 plans are valid; the 14 invalid are excluded and listed in `docs/STUDY_EXCLUSIONS.md`.
 
-Next: batch-analyze the 86 valid plans per environment (paired stopped delay, clearance time, per-approach delay, ties and losses). Report n per environment and the exclusions with every result; heavy environments have fewer plans. Do not claim precision before checking confidence-interval width against a stated meaningful effect.
+Batch analysis of the 86 valid plans is done (2026-10-01, read-only, FPS tolerance 10%): see `docs/BATCH_ANALYSIS.md`. Priority lowers mean delay and clearance in every environment; it loses on some approaches (two_busy left, high_low_high down/left) and has a worse p95 in high_low_high.
+
+Next: state a meaningful-effect threshold, then judge CI width against it. Report n per environment and the exclusions with every result.
