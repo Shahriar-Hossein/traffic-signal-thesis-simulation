@@ -1,0 +1,93 @@
+Reviewed collection analysis: FPS tolerance 10%; release drift tolerance 250 ms.
+Valid plans: 86/100
+Deltas are priority minus fixed, in seconds; analyze environments separately.
+  [balanced_moderate_even_921f16a1_240] fixed12_vs_priority: Δwait -4.18 95% CI [-4.638, -3.738] over 20 plans, 20 favouring
+      down Δdelay: -2.425 95% CI [-4.072, -0.901] over 20 plans
+      left Δdelay: -2.138 95% CI [-3.683, -0.69] over 20 plans
+      right Δdelay: -3.336 95% CI [-4.692, -1.933] over 20 plans
+      up Δdelay: -8.025 95% CI [-9.455, -6.662] over 20 plans
+      approach_service_gap: -1.202 95% CI [-2.804, 0.289], worse on 9/20 plans
+      clearance_sec: -9.704 95% CI [-13.219, -6.45], worse on 1/20 plans
+      wait_p95: -8.764 95% CI [-9.611, -7.889], worse on 0/20 plans
+      worst_approach_wait: -5.117 95% CI [-6.195, -4.123], worse on 0/20 plans
+  [balanced_moderate_even_921f16a1_240] fixed24_vs_priority: Δwait -17.201 95% CI [-18.203, -16.243] over 20 plans, 20 favouring
+      down Δdelay: -16.206 95% CI [-17.474, -15.046] over 20 plans
+      left Δdelay: -18.474 95% CI [-19.852, -17.038] over 20 plans
+      right Δdelay: -15.146 95% CI [-16.877, -13.331] over 20 plans
+      up Δdelay: -18.319 95% CI [-20.768, -15.921] over 20 plans
+      approach_service_gap: -0.678 95% CI [-2.457, 1.039], worse on 8/20 plans
+      clearance_sec: -36.669 95% CI [-42.117, -31.486], worse on 0/20 plans
+      wait_p95: -42.096 95% CI [-43.066, -41.078], worse on 0/20 plans
+      worst_approach_wait: -17.56 95% CI [-19.273, -15.79], worse on 0/20 plans
+  [high_low_high_even_b3ff0d17_383] fixed12_vs_priority: Δwait -0.702 95% CI [-1.223, -0.158] over 13 plans, 9 favouring
+      down Δdelay: +4.048 95% CI [1.523, 6.423] over 13 plans
+      left Δdelay: +4.788 95% CI [1.697, 7.985] over 13 plans
+      right Δdelay: -2.313 95% CI [-6.582, 1.923] over 13 plans
+      up Δdelay: -9.382 95% CI [-13.149, -5.559] over 13 plans
+      approach_service_gap: +3.006 95% CI [1.418, 4.56], worse on 11/13 plans
+      clearance_sec: -10.165 95% CI [-15.112, -4.672], worse on 1/13 plans
+      wait_p95: +6.436 95% CI [5.186, 7.628], worse on 13/13 plans
+      worst_approach_wait: -0.612 95% CI [-1.993, 0.818], worse on 4/13 plans
+  [high_low_high_even_b3ff0d17_383] fixed24_vs_priority: Δwait -13.145 95% CI [-14.022, -12.208] over 13 plans, 13 favouring
+      down Δdelay: -2.912 95% CI [-5.934, -0.087] over 13 plans
+      left Δdelay: -25.179 95% CI [-28.576, -21.833] over 13 plans
+      right Δdelay: +5.789 95% CI [1.264, 10.174] over 13 plans
+      up Δdelay: -30.236 95% CI [-33.639, -26.531] over 13 plans
+      approach_service_gap: -20.148 95% CI [-22.625, -17.714], worse on 0/13 plans
+      clearance_sec: -20.936 95% CI [-26.801, -15.138], worse on 0/13 plans
+      wait_p95: -26.021 95% CI [-27.003, -24.995], worse on 0/13 plans
+      worst_approach_wait: -22.281 95% CI [-23.53, -21.046], worse on 0/13 plans
+  [one_busy_right_921f16a1_240] fixed12_vs_priority: Δwait -46.853 95% CI [-47.968, -45.636] over 20 plans, 20 favouring
+      down Δdelay: +2.044 95% CI [-1.052, 5.197] over 20 plans
+      left Δdelay: +0.835 95% CI [-1.872, 3.588] over 20 plans
+      right Δdelay: -55.274 95% CI [-56.154, -54.361] over 20 plans
+      up Δdelay: -2.665 95% CI [-6.699, 1.009] over 20 plans
+      approach_service_gap: -46.534 95% CI [-49.453, -43.921], worse on 0/20 plans
+      clearance_sec: -128.191 95% CI [-138.648, -118.553], worse on 0/20 plans
+      wait_p95: -111.795 95% CI [-113.485, -110.134], worse on 0/20 plans
+      worst_approach_wait: -47.564 95% CI [-49.431, -45.765], worse on 0/20 plans
+  [one_busy_right_921f16a1_240] fixed24_vs_priority: Δwait -39.799 95% CI [-40.963, -38.646] over 20 plans, 20 favouring
+      down Δdelay: -11.312 95% CI [-16.305, -5.816] over 20 plans
+      left Δdelay: -10.934 95% CI [-15.39, -5.994] over 20 plans
+      right Δdelay: -44.763 95% CI [-45.836, -43.696] over 20 plans
+      up Δdelay: -14.377 95% CI [-19.812, -9.055] over 20 plans
+      approach_service_gap: -29.081 95% CI [-32.82, -25.412], worse on 0/20 plans
+      clearance_sec: -74.305 95% CI [-82.935, -65.706], worse on 0/20 plans
+      wait_p95: -86.249 95% CI [-87.944, -84.445], worse on 0/20 plans
+      worst_approach_wait: -37.053 95% CI [-38.928, -35.223], worse on 0/20 plans
+  [sustained_high_even_d16ae234_480] fixed12_vs_priority: Δwait -3.512 95% CI [-4.269, -2.819] over 15 plans, 15 favouring
+      down Δdelay: -1.022 95% CI [-4.416, 2.351] over 15 plans
+      left Δdelay: +0.976 95% CI [-2.975, 4.751] over 15 plans
+      right Δdelay: +3.147 95% CI [-1.104, 7.762] over 15 plans
+      up Δdelay: -14.852 95% CI [-19.506, -10.172] over 15 plans
+      approach_service_gap: -6.101 95% CI [-10.783, -1.253], worse on 5/15 plans
+      clearance_sec: -15.806 95% CI [-25.698, -6.299], worse on 4/15 plans
+      wait_p95: +1.498 95% CI [-1.641, 4.574], worse on 8/15 plans
+      worst_approach_wait: -8.098 95% CI [-10.927, -5.248], worse on 1/15 plans
+  [sustained_high_even_d16ae234_480] fixed24_vs_priority: Δwait -7.825 95% CI [-8.597, -7.106] over 15 plans, 15 favouring
+      down Δdelay: -3.502 95% CI [-6.655, -0.461] over 15 plans
+      left Δdelay: -3.921 95% CI [-7.244, -0.604] over 15 plans
+      right Δdelay: +1.79 95% CI [-1.332, 5.34] over 15 plans
+      up Δdelay: -23.649 95% CI [-28.189, -19.194] over 15 plans
+      approach_service_gap: -10.146 95% CI [-14.628, -5.393], worse on 2/15 plans
+      clearance_sec: -16.398 95% CI [-24.175, -8.192], worse on 3/15 plans
+      wait_p95: -5.783 95% CI [-6.846, -4.692], worse on 0/15 plans
+      worst_approach_wait: -15.991 95% CI [-18.876, -13.012], worse on 0/15 plans
+  [two_busy_up_down_921f16a1_240] fixed12_vs_priority: Δwait -7.723 95% CI [-8.775, -6.658] over 18 plans, 18 favouring
+      down Δdelay: -7.17 95% CI [-8.809, -5.58] over 18 plans
+      left Δdelay: +2.96 95% CI [1.679, 4.324] over 18 plans
+      right Δdelay: +1.074 95% CI [-1.206, 3.416] over 18 plans
+      up Δdelay: -15.864 95% CI [-18.179, -13.515] over 18 plans
+      approach_service_gap: -3.025 95% CI [-5.189, -0.732], worse on 6/18 plans
+      clearance_sec: -20.621 95% CI [-27.847, -13.487], worse on 3/18 plans
+      wait_p95: -10.001 95% CI [-11.362, -8.616], worse on 0/18 plans
+      worst_approach_wait: -7.901 95% CI [-9.926, -5.744], worse on 1/18 plans
+  [two_busy_up_down_921f16a1_240] fixed24_vs_priority: Δwait -20.109 95% CI [-21.268, -18.986] over 18 plans, 18 favouring
+      down Δdelay: -19.265 95% CI [-21.006, -17.44] over 18 plans
+      left Δdelay: -14.543 95% CI [-16.962, -12.41] over 18 plans
+      right Δdelay: -12.072 95% CI [-14.454, -9.382] over 18 plans
+      up Δdelay: -26.098 95% CI [-28.203, -23.863] over 18 plans
+      approach_service_gap: +0.055 95% CI [-2.027, 2.135], worse on 10/18 plans
+      clearance_sec: -48.933 95% CI [-52.291, -44.861], worse on 0/18 plans
+      wait_p95: -43.212 95% CI [-44.495, -41.914], worse on 0/18 plans
+      worst_approach_wait: -18.617 95% CI [-20.476, -16.741], worse on 0/18 plans

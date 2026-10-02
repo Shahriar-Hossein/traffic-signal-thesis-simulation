@@ -1,0 +1,1254 @@
+{
+  "root": "/home/shahriar/projects/traffic-signal/data/study_collection_20260929",
+  "selection": "*",
+  "analysis": {
+    "baseline": null,
+    "fps_tolerance": 0.1,
+    "drift_tolerance_ms": 250.0,
+    "schema_version": 5
+  },
+  "plans_total": 100,
+  "plans_valid": 86,
+  "independent_replicates_included": 86,
+  "reruns_excluded": 0,
+  "plans_invalid": [
+    {
+      "plan_id": "high_low_high_seed403",
+      "reasons": [
+        "timing: fixed12\u2192priority: interval FPS divergence 11.03% exceeds 10%"
+      ]
+    },
+    {
+      "plan_id": "high_low_high_seed404",
+      "reasons": [
+        "priority: release_drift_max_ms=337.87 exceeds 250.0",
+        "timing: fixed12\u2192priority: interval FPS divergence 10.42% exceeds 10%"
+      ]
+    },
+    {
+      "plan_id": "high_low_high_seed406",
+      "reasons": [
+        "priority: release_drift_max_ms=271.96 exceeds 250.0"
+      ]
+    },
+    {
+      "plan_id": "high_low_high_seed413",
+      "reasons": [
+        "timing: priority: priority selected green disagrees with its rule"
+      ]
+    },
+    {
+      "plan_id": "high_low_high_seed418",
+      "reasons": [
+        "fps_min spread 12.1% exceeds 10.0%",
+        "timing: fixed12\u2192fixed24: interval FPS divergence 18.35% exceeds 10%",
+        "timing: fixed12\u2192priority: interval FPS divergence 18.51% exceeds 10%"
+      ]
+    },
+    {
+      "plan_id": "high_low_high_seed419",
+      "reasons": [
+        "timing: fixed12\u2192priority: interval FPS divergence 10.48% exceeds 10%"
+      ]
+    },
+    {
+      "plan_id": "high_low_high_seed420",
+      "reasons": [
+        "timing: priority: priority selected green disagrees with its rule"
+      ]
+    },
+    {
+      "plan_id": "sustained_high_seed401",
+      "reasons": [
+        "fixed12: release_drift_max_ms=285.47 exceeds 250.0"
+      ]
+    },
+    {
+      "plan_id": "sustained_high_seed405",
+      "reasons": [
+        "fixed12: release_drift_max_ms=263.03 exceeds 250.0"
+      ]
+    },
+    {
+      "plan_id": "sustained_high_seed406",
+      "reasons": [
+        "fixed24: release_drift_max_ms=251.04 exceeds 250.0"
+      ]
+    },
+    {
+      "plan_id": "sustained_high_seed417",
+      "reasons": [
+        "timing: fixed12\u2192fixed24: interval FPS divergence 11.6% exceeds 10%"
+      ]
+    },
+    {
+      "plan_id": "sustained_high_seed419",
+      "reasons": [
+        "fixed12: release_drift_max_ms=269.58 exceeds 250.0",
+        "timing: fixed12\u2192fixed24: interval FPS divergence 10.03% exceeds 10%",
+        "timing: fixed12\u2192priority: interval FPS divergence 10.07% exceeds 10%"
+      ]
+    },
+    {
+      "plan_id": "two_busy_seed403",
+      "reasons": [
+        "timing: priority: priority selected green disagrees with its rule"
+      ]
+    },
+    {
+      "plan_id": "two_busy_seed419",
+      "reasons": [
+        "timing: fixed12\u2192priority: interval FPS divergence 11.81% exceeds 10%"
+      ]
+    }
+  ],
+  "duplicate_plans": [],
+  "invalid_by_scenario": {
+    "high_low_high_even_b3ff0d17_383": 7,
+    "sustained_high_even_d16ae234_480": 5,
+    "two_busy_up_down_921f16a1_240": 2
+  },
+  "inference_unit": "independent generation draw within scenario",
+  "reused_seeds_across_scenarios": [
+    401,
+    402,
+    403,
+    404,
+    405,
+    406,
+    407,
+    408,
+    409,
+    410,
+    411,
+    412,
+    413,
+    414,
+    415,
+    416,
+    417,
+    418,
+    419,
+    420
+  ],
+  "cohorts": {
+    "{\"configuration_hash\": [\"735d4761184c386efc336b93122d80f3632ddf5c9d649fbc9cbb5c9908e54afc\", \"eb6d554f6db42d08e2dd1c9713c7640dddbfdc00aad10944f2eb3d8bd72e374b\"], \"controllers\": {\"fixed12\": \"fixed\", \"fixed24\": \"fixed\", \"priority\": \"priority\"}, \"runtime_identity_hash\": [\"c79eb759706ed263a8746c2b2925f587ed73b42f2d9c07a3ca3f6a1ba714f06a\"], \"schema_version\": 2, \"source_hash\": [\"4494231c1a0708fc3ff20001659a5a4c10bcd60094d78b2f68c07af03a0629e7\"]}": [
+      "balanced_moderate_seed401",
+      "balanced_moderate_seed402",
+      "balanced_moderate_seed403",
+      "balanced_moderate_seed404",
+      "balanced_moderate_seed405",
+      "balanced_moderate_seed406",
+      "balanced_moderate_seed407",
+      "balanced_moderate_seed408",
+      "balanced_moderate_seed409",
+      "balanced_moderate_seed410",
+      "balanced_moderate_seed411",
+      "balanced_moderate_seed412",
+      "balanced_moderate_seed413",
+      "balanced_moderate_seed414",
+      "balanced_moderate_seed415",
+      "balanced_moderate_seed416",
+      "balanced_moderate_seed417",
+      "balanced_moderate_seed418",
+      "balanced_moderate_seed419",
+      "balanced_moderate_seed420",
+      "high_low_high_seed401",
+      "high_low_high_seed402",
+      "high_low_high_seed405",
+      "high_low_high_seed407",
+      "high_low_high_seed408",
+      "high_low_high_seed409",
+      "high_low_high_seed410",
+      "high_low_high_seed411",
+      "high_low_high_seed412",
+      "high_low_high_seed414",
+      "high_low_high_seed415",
+      "high_low_high_seed416",
+      "high_low_high_seed417",
+      "one_busy_seed401",
+      "one_busy_seed402",
+      "one_busy_seed403",
+      "one_busy_seed404",
+      "one_busy_seed405",
+      "one_busy_seed406",
+      "one_busy_seed407",
+      "one_busy_seed408",
+      "one_busy_seed409",
+      "one_busy_seed410",
+      "one_busy_seed411",
+      "one_busy_seed412",
+      "one_busy_seed413",
+      "one_busy_seed414",
+      "one_busy_seed415",
+      "one_busy_seed416",
+      "one_busy_seed417",
+      "one_busy_seed418",
+      "one_busy_seed419",
+      "one_busy_seed420",
+      "sustained_high_seed402",
+      "sustained_high_seed403",
+      "sustained_high_seed404",
+      "sustained_high_seed407",
+      "sustained_high_seed408",
+      "sustained_high_seed409",
+      "sustained_high_seed410",
+      "sustained_high_seed411",
+      "sustained_high_seed412",
+      "sustained_high_seed413",
+      "sustained_high_seed414",
+      "sustained_high_seed415",
+      "sustained_high_seed416",
+      "sustained_high_seed418",
+      "sustained_high_seed420",
+      "two_busy_seed401",
+      "two_busy_seed402",
+      "two_busy_seed404",
+      "two_busy_seed405",
+      "two_busy_seed406",
+      "two_busy_seed407",
+      "two_busy_seed408",
+      "two_busy_seed409",
+      "two_busy_seed410",
+      "two_busy_seed411",
+      "two_busy_seed412",
+      "two_busy_seed413",
+      "two_busy_seed414",
+      "two_busy_seed415",
+      "two_busy_seed416",
+      "two_busy_seed417",
+      "two_busy_seed418",
+      "two_busy_seed420"
+    ]
+  },
+  "cohort_errors": [],
+  "per_contrast": {
+    "fixed12_vs_priority": {
+      "plans": 86,
+      "delta_wait_mean_of_plan_means": -14.203,
+      "delta_wait_median_of_plan_means": -4.819,
+      "delta_wait_sd_of_plan_means": 18.303,
+      "plans_favouring_arm": 82,
+      "ci_low": null,
+      "ci_high": null,
+      "ci_method": "withheld: descriptive summary across scenarios",
+      "ci_confidence": null,
+      "inference_withheld_reason": "effects span heterogeneous scenario cells and are descriptive; generation seeds [401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 419, 420] are reused across cells; pooled confidence intervals/tests are withheld",
+      "delta_wait_mean_by_direction": {
+        "down": {
+          "plans": 86,
+          "mean_of_plan_deltas": -1.156,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "withheld: descriptive summary across scenarios",
+          "ci_confidence": null,
+          "inference_withheld_reason": "effects span heterogeneous scenario cells and are descriptive; generation seeds [401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 419, 420] are reused across cells; pooled confidence intervals/tests are withheld"
+        },
+        "left": {
+          "plans": 86,
+          "mean_of_plan_deltas": 1.211,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "withheld: descriptive summary across scenarios",
+          "ci_confidence": null,
+          "inference_withheld_reason": "effects span heterogeneous scenario cells and are descriptive; generation seeds [401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 419, 420] are reused across cells; pooled confidence intervals/tests are withheld"
+        },
+        "right": {
+          "plans": 86,
+          "mean_of_plan_deltas": -13.206,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "withheld: descriptive summary across scenarios",
+          "ci_confidence": null,
+          "inference_withheld_reason": "effects span heterogeneous scenario cells and are descriptive; generation seeds [401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 419, 420] are reused across cells; pooled confidence intervals/tests are withheld"
+        },
+        "up": {
+          "plans": 86,
+          "mean_of_plan_deltas": -9.815,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "withheld: descriptive summary across scenarios",
+          "ci_confidence": null,
+          "inference_withheld_reason": "effects span heterogeneous scenario cells and are descriptive; generation seeds [401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 419, 420] are reused across cells; pooled confidence intervals/tests are withheld"
+        }
+      },
+      "safeguards": {
+        "approach_service_gap": {
+          "plans": 86,
+          "mean_of_plan_deltas": -12.344,
+          "plans_worse_under_arm": 31,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "withheld: descriptive summary across scenarios",
+          "ci_confidence": null,
+          "inference_withheld_reason": "effects span heterogeneous scenario cells and are descriptive; generation seeds [401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 419, 420] are reused across cells; pooled confidence intervals/tests are withheld"
+        },
+        "clearance_sec": {
+          "plans": 86,
+          "mean_of_plan_deltas": -40.678,
+          "plans_worse_under_arm": 9,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "withheld: descriptive summary across scenarios",
+          "ci_confidence": null,
+          "inference_withheld_reason": "effects span heterogeneous scenario cells and are descriptive; generation seeds [401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 419, 420] are reused across cells; pooled confidence intervals/tests are withheld"
+        },
+        "wait_p95": {
+          "plans": 86,
+          "mean_of_plan_deltas": -28.896,
+          "plans_worse_under_arm": 21,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "withheld: descriptive summary across scenarios",
+          "ci_confidence": null,
+          "inference_withheld_reason": "effects span heterogeneous scenario cells and are descriptive; generation seeds [401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 419, 420] are reused across cells; pooled confidence intervals/tests are withheld"
+        },
+        "worst_approach_wait": {
+          "plans": 86,
+          "mean_of_plan_deltas": -15.41,
+          "plans_worse_under_arm": 6,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "withheld: descriptive summary across scenarios",
+          "ci_confidence": null,
+          "inference_withheld_reason": "effects span heterogeneous scenario cells and are descriptive; generation seeds [401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 419, 420] are reused across cells; pooled confidence intervals/tests are withheld"
+        }
+      }
+    },
+    "fixed24_vs_priority": {
+      "plans": 86,
+      "delta_wait_mean_of_plan_means": -20.817,
+      "delta_wait_median_of_plan_means": -17.896,
+      "delta_wait_sd_of_plan_means": 11.476,
+      "plans_favouring_arm": 86,
+      "ci_low": null,
+      "ci_high": null,
+      "ci_method": "withheld: descriptive summary across scenarios",
+      "ci_confidence": null,
+      "inference_withheld_reason": "effects span heterogeneous scenario cells and are descriptive; generation seeds [401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 419, 420] are reused across cells; pooled confidence intervals/tests are withheld",
+      "delta_wait_mean_by_direction": {
+        "down": {
+          "plans": 86,
+          "mean_of_plan_deltas": -11.483,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "withheld: descriptive summary across scenarios",
+          "ci_confidence": null,
+          "inference_withheld_reason": "effects span heterogeneous scenario cells and are descriptive; generation seeds [401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 419, 420] are reused across cells; pooled confidence intervals/tests are withheld"
+        },
+        "left": {
+          "plans": 86,
+          "mean_of_plan_deltas": -14.373,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "withheld: descriptive summary across scenarios",
+          "ci_confidence": null,
+          "inference_withheld_reason": "effects span heterogeneous scenario cells and are descriptive; generation seeds [401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 419, 420] are reused across cells; pooled confidence intervals/tests are withheld"
+        },
+        "right": {
+          "plans": 86,
+          "mean_of_plan_deltas": -15.272,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "withheld: descriptive summary across scenarios",
+          "ci_confidence": null,
+          "inference_withheld_reason": "effects span heterogeneous scenario cells and are descriptive; generation seeds [401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 419, 420] are reused across cells; pooled confidence intervals/tests are withheld"
+        },
+        "up": {
+          "plans": 86,
+          "mean_of_plan_deltas": -21.762,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "withheld: descriptive summary across scenarios",
+          "ci_confidence": null,
+          "inference_withheld_reason": "effects span heterogeneous scenario cells and are descriptive; generation seeds [401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 419, 420] are reused across cells; pooled confidence intervals/tests are withheld"
+        }
+      },
+      "safeguards": {
+        "approach_service_gap": {
+          "plans": 86,
+          "mean_of_plan_deltas": -11.725,
+          "plans_worse_under_arm": 20,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "withheld: descriptive summary across scenarios",
+          "ci_confidence": null,
+          "inference_withheld_reason": "effects span heterogeneous scenario cells and are descriptive; generation seeds [401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 419, 420] are reused across cells; pooled confidence intervals/tests are withheld"
+        },
+        "clearance_sec": {
+          "plans": 86,
+          "mean_of_plan_deltas": -42.075,
+          "plans_worse_under_arm": 3,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "withheld: descriptive summary across scenarios",
+          "ci_confidence": null,
+          "inference_withheld_reason": "effects span heterogeneous scenario cells and are descriptive; generation seeds [401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 419, 420] are reused across cells; pooled confidence intervals/tests are withheld"
+        },
+        "wait_p95": {
+          "plans": 86,
+          "mean_of_plan_deltas": -43.834,
+          "plans_worse_under_arm": 0,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "withheld: descriptive summary across scenarios",
+          "ci_confidence": null,
+          "inference_withheld_reason": "effects span heterogeneous scenario cells and are descriptive; generation seeds [401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 419, 420] are reused across cells; pooled confidence intervals/tests are withheld"
+        },
+        "worst_approach_wait": {
+          "plans": 86,
+          "mean_of_plan_deltas": -22.755,
+          "plans_worse_under_arm": 0,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "withheld: descriptive summary across scenarios",
+          "ci_confidence": null,
+          "inference_withheld_reason": "effects span heterogeneous scenario cells and are descriptive; generation seeds [401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 419, 420] are reused across cells; pooled confidence intervals/tests are withheld"
+        }
+      }
+    }
+  },
+  "per_scenario": {
+    "balanced_moderate_even_921f16a1_240": {
+      "fixed12_vs_priority": {
+        "plans": 20,
+        "delta_wait_mean_of_plan_means": -4.18,
+        "delta_wait_median_of_plan_means": -3.865,
+        "delta_wait_sd_of_plan_means": 1.04,
+        "plans_favouring_arm": 20,
+        "ci_low": -4.638,
+        "ci_high": -3.738,
+        "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+        "ci_confidence": 0.95,
+        "delta_wait_mean_by_direction": {
+          "down": {
+            "plans": 20,
+            "mean_of_plan_deltas": -2.425,
+            "ci_low": -4.072,
+            "ci_high": -0.901,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "left": {
+            "plans": 20,
+            "mean_of_plan_deltas": -2.138,
+            "ci_low": -3.683,
+            "ci_high": -0.69,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "right": {
+            "plans": 20,
+            "mean_of_plan_deltas": -3.336,
+            "ci_low": -4.692,
+            "ci_high": -1.933,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "up": {
+            "plans": 20,
+            "mean_of_plan_deltas": -8.025,
+            "ci_low": -9.455,
+            "ci_high": -6.662,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          }
+        },
+        "safeguards": {
+          "approach_service_gap": {
+            "plans": 20,
+            "mean_of_plan_deltas": -1.202,
+            "plans_worse_under_arm": 9,
+            "ci_low": -2.804,
+            "ci_high": 0.289,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "clearance_sec": {
+            "plans": 20,
+            "mean_of_plan_deltas": -9.704,
+            "plans_worse_under_arm": 1,
+            "ci_low": -13.219,
+            "ci_high": -6.45,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "wait_p95": {
+            "plans": 20,
+            "mean_of_plan_deltas": -8.764,
+            "plans_worse_under_arm": 0,
+            "ci_low": -9.611,
+            "ci_high": -7.889,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "worst_approach_wait": {
+            "plans": 20,
+            "mean_of_plan_deltas": -5.117,
+            "plans_worse_under_arm": 0,
+            "ci_low": -6.195,
+            "ci_high": -4.123,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          }
+        }
+      },
+      "fixed24_vs_priority": {
+        "plans": 20,
+        "delta_wait_mean_of_plan_means": -17.201,
+        "delta_wait_median_of_plan_means": -16.489,
+        "delta_wait_sd_of_plan_means": 2.319,
+        "plans_favouring_arm": 20,
+        "ci_low": -18.203,
+        "ci_high": -16.243,
+        "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+        "ci_confidence": 0.95,
+        "delta_wait_mean_by_direction": {
+          "down": {
+            "plans": 20,
+            "mean_of_plan_deltas": -16.206,
+            "ci_low": -17.474,
+            "ci_high": -15.046,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "left": {
+            "plans": 20,
+            "mean_of_plan_deltas": -18.474,
+            "ci_low": -19.852,
+            "ci_high": -17.038,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "right": {
+            "plans": 20,
+            "mean_of_plan_deltas": -15.146,
+            "ci_low": -16.877,
+            "ci_high": -13.331,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "up": {
+            "plans": 20,
+            "mean_of_plan_deltas": -18.319,
+            "ci_low": -20.768,
+            "ci_high": -15.921,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          }
+        },
+        "safeguards": {
+          "approach_service_gap": {
+            "plans": 20,
+            "mean_of_plan_deltas": -0.678,
+            "plans_worse_under_arm": 8,
+            "ci_low": -2.457,
+            "ci_high": 1.039,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "clearance_sec": {
+            "plans": 20,
+            "mean_of_plan_deltas": -36.669,
+            "plans_worse_under_arm": 0,
+            "ci_low": -42.117,
+            "ci_high": -31.486,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "wait_p95": {
+            "plans": 20,
+            "mean_of_plan_deltas": -42.096,
+            "plans_worse_under_arm": 0,
+            "ci_low": -43.066,
+            "ci_high": -41.078,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "worst_approach_wait": {
+            "plans": 20,
+            "mean_of_plan_deltas": -17.56,
+            "plans_worse_under_arm": 0,
+            "ci_low": -19.273,
+            "ci_high": -15.79,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          }
+        }
+      }
+    },
+    "high_low_high_even_b3ff0d17_383": {
+      "fixed12_vs_priority": {
+        "plans": 13,
+        "delta_wait_mean_of_plan_means": -0.702,
+        "delta_wait_median_of_plan_means": -0.954,
+        "delta_wait_sd_of_plan_means": 1.025,
+        "plans_favouring_arm": 9,
+        "ci_low": -1.223,
+        "ci_high": -0.158,
+        "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+        "ci_confidence": 0.95,
+        "delta_wait_mean_by_direction": {
+          "down": {
+            "plans": 13,
+            "mean_of_plan_deltas": 4.048,
+            "ci_low": 1.523,
+            "ci_high": 6.423,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "left": {
+            "plans": 13,
+            "mean_of_plan_deltas": 4.788,
+            "ci_low": 1.697,
+            "ci_high": 7.985,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "right": {
+            "plans": 13,
+            "mean_of_plan_deltas": -2.313,
+            "ci_low": -6.582,
+            "ci_high": 1.923,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "up": {
+            "plans": 13,
+            "mean_of_plan_deltas": -9.382,
+            "ci_low": -13.149,
+            "ci_high": -5.559,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          }
+        },
+        "safeguards": {
+          "approach_service_gap": {
+            "plans": 13,
+            "mean_of_plan_deltas": 3.006,
+            "plans_worse_under_arm": 11,
+            "ci_low": 1.418,
+            "ci_high": 4.56,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "clearance_sec": {
+            "plans": 13,
+            "mean_of_plan_deltas": -10.165,
+            "plans_worse_under_arm": 1,
+            "ci_low": -15.112,
+            "ci_high": -4.672,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "wait_p95": {
+            "plans": 13,
+            "mean_of_plan_deltas": 6.436,
+            "plans_worse_under_arm": 13,
+            "ci_low": 5.186,
+            "ci_high": 7.628,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "worst_approach_wait": {
+            "plans": 13,
+            "mean_of_plan_deltas": -0.612,
+            "plans_worse_under_arm": 4,
+            "ci_low": -1.993,
+            "ci_high": 0.818,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          }
+        }
+      },
+      "fixed24_vs_priority": {
+        "plans": 13,
+        "delta_wait_mean_of_plan_means": -13.145,
+        "delta_wait_median_of_plan_means": -13.386,
+        "delta_wait_sd_of_plan_means": 1.753,
+        "plans_favouring_arm": 13,
+        "ci_low": -14.022,
+        "ci_high": -12.208,
+        "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+        "ci_confidence": 0.95,
+        "delta_wait_mean_by_direction": {
+          "down": {
+            "plans": 13,
+            "mean_of_plan_deltas": -2.912,
+            "ci_low": -5.934,
+            "ci_high": -0.087,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "left": {
+            "plans": 13,
+            "mean_of_plan_deltas": -25.179,
+            "ci_low": -28.576,
+            "ci_high": -21.833,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "right": {
+            "plans": 13,
+            "mean_of_plan_deltas": 5.789,
+            "ci_low": 1.264,
+            "ci_high": 10.174,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "up": {
+            "plans": 13,
+            "mean_of_plan_deltas": -30.236,
+            "ci_low": -33.639,
+            "ci_high": -26.531,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          }
+        },
+        "safeguards": {
+          "approach_service_gap": {
+            "plans": 13,
+            "mean_of_plan_deltas": -20.148,
+            "plans_worse_under_arm": 0,
+            "ci_low": -22.625,
+            "ci_high": -17.714,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "clearance_sec": {
+            "plans": 13,
+            "mean_of_plan_deltas": -20.936,
+            "plans_worse_under_arm": 0,
+            "ci_low": -26.801,
+            "ci_high": -15.138,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "wait_p95": {
+            "plans": 13,
+            "mean_of_plan_deltas": -26.021,
+            "plans_worse_under_arm": 0,
+            "ci_low": -27.003,
+            "ci_high": -24.995,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "worst_approach_wait": {
+            "plans": 13,
+            "mean_of_plan_deltas": -22.281,
+            "plans_worse_under_arm": 0,
+            "ci_low": -23.53,
+            "ci_high": -21.046,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          }
+        }
+      }
+    },
+    "one_busy_right_921f16a1_240": {
+      "fixed12_vs_priority": {
+        "plans": 20,
+        "delta_wait_mean_of_plan_means": -46.853,
+        "delta_wait_median_of_plan_means": -47.34,
+        "delta_wait_sd_of_plan_means": 2.761,
+        "plans_favouring_arm": 20,
+        "ci_low": -47.968,
+        "ci_high": -45.636,
+        "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+        "ci_confidence": 0.95,
+        "delta_wait_mean_by_direction": {
+          "down": {
+            "plans": 20,
+            "mean_of_plan_deltas": 2.044,
+            "ci_low": -1.052,
+            "ci_high": 5.197,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "left": {
+            "plans": 20,
+            "mean_of_plan_deltas": 0.835,
+            "ci_low": -1.872,
+            "ci_high": 3.588,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "right": {
+            "plans": 20,
+            "mean_of_plan_deltas": -55.274,
+            "ci_low": -56.154,
+            "ci_high": -54.361,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "up": {
+            "plans": 20,
+            "mean_of_plan_deltas": -2.665,
+            "ci_low": -6.699,
+            "ci_high": 1.009,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          }
+        },
+        "safeguards": {
+          "approach_service_gap": {
+            "plans": 20,
+            "mean_of_plan_deltas": -46.534,
+            "plans_worse_under_arm": 0,
+            "ci_low": -49.453,
+            "ci_high": -43.921,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "clearance_sec": {
+            "plans": 20,
+            "mean_of_plan_deltas": -128.191,
+            "plans_worse_under_arm": 0,
+            "ci_low": -138.648,
+            "ci_high": -118.553,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "wait_p95": {
+            "plans": 20,
+            "mean_of_plan_deltas": -111.795,
+            "plans_worse_under_arm": 0,
+            "ci_low": -113.485,
+            "ci_high": -110.134,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "worst_approach_wait": {
+            "plans": 20,
+            "mean_of_plan_deltas": -47.564,
+            "plans_worse_under_arm": 0,
+            "ci_low": -49.431,
+            "ci_high": -45.765,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          }
+        }
+      },
+      "fixed24_vs_priority": {
+        "plans": 20,
+        "delta_wait_mean_of_plan_means": -39.799,
+        "delta_wait_median_of_plan_means": -39.981,
+        "delta_wait_sd_of_plan_means": 2.759,
+        "plans_favouring_arm": 20,
+        "ci_low": -40.963,
+        "ci_high": -38.646,
+        "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+        "ci_confidence": 0.95,
+        "delta_wait_mean_by_direction": {
+          "down": {
+            "plans": 20,
+            "mean_of_plan_deltas": -11.312,
+            "ci_low": -16.305,
+            "ci_high": -5.816,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "left": {
+            "plans": 20,
+            "mean_of_plan_deltas": -10.934,
+            "ci_low": -15.39,
+            "ci_high": -5.994,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "right": {
+            "plans": 20,
+            "mean_of_plan_deltas": -44.763,
+            "ci_low": -45.836,
+            "ci_high": -43.696,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "up": {
+            "plans": 20,
+            "mean_of_plan_deltas": -14.377,
+            "ci_low": -19.812,
+            "ci_high": -9.055,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          }
+        },
+        "safeguards": {
+          "approach_service_gap": {
+            "plans": 20,
+            "mean_of_plan_deltas": -29.081,
+            "plans_worse_under_arm": 0,
+            "ci_low": -32.82,
+            "ci_high": -25.412,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "clearance_sec": {
+            "plans": 20,
+            "mean_of_plan_deltas": -74.305,
+            "plans_worse_under_arm": 0,
+            "ci_low": -82.935,
+            "ci_high": -65.706,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "wait_p95": {
+            "plans": 20,
+            "mean_of_plan_deltas": -86.249,
+            "plans_worse_under_arm": 0,
+            "ci_low": -87.944,
+            "ci_high": -84.445,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "worst_approach_wait": {
+            "plans": 20,
+            "mean_of_plan_deltas": -37.053,
+            "plans_worse_under_arm": 0,
+            "ci_low": -38.928,
+            "ci_high": -35.223,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          }
+        }
+      }
+    },
+    "sustained_high_even_d16ae234_480": {
+      "fixed12_vs_priority": {
+        "plans": 15,
+        "delta_wait_mean_of_plan_means": -3.512,
+        "delta_wait_median_of_plan_means": -3.187,
+        "delta_wait_sd_of_plan_means": 1.493,
+        "plans_favouring_arm": 15,
+        "ci_low": -4.269,
+        "ci_high": -2.819,
+        "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+        "ci_confidence": 0.95,
+        "delta_wait_mean_by_direction": {
+          "down": {
+            "plans": 15,
+            "mean_of_plan_deltas": -1.022,
+            "ci_low": -4.416,
+            "ci_high": 2.351,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "left": {
+            "plans": 15,
+            "mean_of_plan_deltas": 0.976,
+            "ci_low": -2.975,
+            "ci_high": 4.751,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "right": {
+            "plans": 15,
+            "mean_of_plan_deltas": 3.147,
+            "ci_low": -1.104,
+            "ci_high": 7.762,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "up": {
+            "plans": 15,
+            "mean_of_plan_deltas": -14.852,
+            "ci_low": -19.506,
+            "ci_high": -10.172,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          }
+        },
+        "safeguards": {
+          "approach_service_gap": {
+            "plans": 15,
+            "mean_of_plan_deltas": -6.101,
+            "plans_worse_under_arm": 5,
+            "ci_low": -10.783,
+            "ci_high": -1.253,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "clearance_sec": {
+            "plans": 15,
+            "mean_of_plan_deltas": -15.806,
+            "plans_worse_under_arm": 4,
+            "ci_low": -25.698,
+            "ci_high": -6.299,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "wait_p95": {
+            "plans": 15,
+            "mean_of_plan_deltas": 1.498,
+            "plans_worse_under_arm": 8,
+            "ci_low": -1.641,
+            "ci_high": 4.574,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "worst_approach_wait": {
+            "plans": 15,
+            "mean_of_plan_deltas": -8.098,
+            "plans_worse_under_arm": 1,
+            "ci_low": -10.927,
+            "ci_high": -5.248,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          }
+        }
+      },
+      "fixed24_vs_priority": {
+        "plans": 15,
+        "delta_wait_mean_of_plan_means": -7.825,
+        "delta_wait_median_of_plan_means": -7.83,
+        "delta_wait_sd_of_plan_means": 1.501,
+        "plans_favouring_arm": 15,
+        "ci_low": -8.597,
+        "ci_high": -7.106,
+        "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+        "ci_confidence": 0.95,
+        "delta_wait_mean_by_direction": {
+          "down": {
+            "plans": 15,
+            "mean_of_plan_deltas": -3.502,
+            "ci_low": -6.655,
+            "ci_high": -0.461,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "left": {
+            "plans": 15,
+            "mean_of_plan_deltas": -3.921,
+            "ci_low": -7.244,
+            "ci_high": -0.604,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "right": {
+            "plans": 15,
+            "mean_of_plan_deltas": 1.79,
+            "ci_low": -1.332,
+            "ci_high": 5.34,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "up": {
+            "plans": 15,
+            "mean_of_plan_deltas": -23.649,
+            "ci_low": -28.189,
+            "ci_high": -19.194,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          }
+        },
+        "safeguards": {
+          "approach_service_gap": {
+            "plans": 15,
+            "mean_of_plan_deltas": -10.146,
+            "plans_worse_under_arm": 2,
+            "ci_low": -14.628,
+            "ci_high": -5.393,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "clearance_sec": {
+            "plans": 15,
+            "mean_of_plan_deltas": -16.398,
+            "plans_worse_under_arm": 3,
+            "ci_low": -24.175,
+            "ci_high": -8.192,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "wait_p95": {
+            "plans": 15,
+            "mean_of_plan_deltas": -5.783,
+            "plans_worse_under_arm": 0,
+            "ci_low": -6.846,
+            "ci_high": -4.692,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "worst_approach_wait": {
+            "plans": 15,
+            "mean_of_plan_deltas": -15.991,
+            "plans_worse_under_arm": 0,
+            "ci_low": -18.876,
+            "ci_high": -13.012,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          }
+        }
+      }
+    },
+    "two_busy_up_down_921f16a1_240": {
+      "fixed12_vs_priority": {
+        "plans": 18,
+        "delta_wait_mean_of_plan_means": -7.723,
+        "delta_wait_median_of_plan_means": -8.11,
+        "delta_wait_sd_of_plan_means": 2.359,
+        "plans_favouring_arm": 18,
+        "ci_low": -8.775,
+        "ci_high": -6.658,
+        "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+        "ci_confidence": 0.95,
+        "delta_wait_mean_by_direction": {
+          "down": {
+            "plans": 18,
+            "mean_of_plan_deltas": -7.17,
+            "ci_low": -8.809,
+            "ci_high": -5.58,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "left": {
+            "plans": 18,
+            "mean_of_plan_deltas": 2.96,
+            "ci_low": 1.679,
+            "ci_high": 4.324,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "right": {
+            "plans": 18,
+            "mean_of_plan_deltas": 1.074,
+            "ci_low": -1.206,
+            "ci_high": 3.416,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "up": {
+            "plans": 18,
+            "mean_of_plan_deltas": -15.864,
+            "ci_low": -18.179,
+            "ci_high": -13.515,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          }
+        },
+        "safeguards": {
+          "approach_service_gap": {
+            "plans": 18,
+            "mean_of_plan_deltas": -3.025,
+            "plans_worse_under_arm": 6,
+            "ci_low": -5.189,
+            "ci_high": -0.732,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "clearance_sec": {
+            "plans": 18,
+            "mean_of_plan_deltas": -20.621,
+            "plans_worse_under_arm": 3,
+            "ci_low": -27.847,
+            "ci_high": -13.487,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "wait_p95": {
+            "plans": 18,
+            "mean_of_plan_deltas": -10.001,
+            "plans_worse_under_arm": 0,
+            "ci_low": -11.362,
+            "ci_high": -8.616,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "worst_approach_wait": {
+            "plans": 18,
+            "mean_of_plan_deltas": -7.901,
+            "plans_worse_under_arm": 1,
+            "ci_low": -9.926,
+            "ci_high": -5.744,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          }
+        }
+      },
+      "fixed24_vs_priority": {
+        "plans": 18,
+        "delta_wait_mean_of_plan_means": -20.109,
+        "delta_wait_median_of_plan_means": -20.584,
+        "delta_wait_sd_of_plan_means": 2.496,
+        "plans_favouring_arm": 18,
+        "ci_low": -21.268,
+        "ci_high": -18.986,
+        "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+        "ci_confidence": 0.95,
+        "delta_wait_mean_by_direction": {
+          "down": {
+            "plans": 18,
+            "mean_of_plan_deltas": -19.265,
+            "ci_low": -21.006,
+            "ci_high": -17.44,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "left": {
+            "plans": 18,
+            "mean_of_plan_deltas": -14.543,
+            "ci_low": -16.962,
+            "ci_high": -12.41,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "right": {
+            "plans": 18,
+            "mean_of_plan_deltas": -12.072,
+            "ci_low": -14.454,
+            "ci_high": -9.382,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "up": {
+            "plans": 18,
+            "mean_of_plan_deltas": -26.098,
+            "ci_low": -28.203,
+            "ci_high": -23.863,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          }
+        },
+        "safeguards": {
+          "approach_service_gap": {
+            "plans": 18,
+            "mean_of_plan_deltas": 0.055,
+            "plans_worse_under_arm": 10,
+            "ci_low": -2.027,
+            "ci_high": 2.135,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "clearance_sec": {
+            "plans": 18,
+            "mean_of_plan_deltas": -48.933,
+            "plans_worse_under_arm": 0,
+            "ci_low": -52.291,
+            "ci_high": -44.861,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "wait_p95": {
+            "plans": 18,
+            "mean_of_plan_deltas": -43.212,
+            "plans_worse_under_arm": 0,
+            "ci_low": -44.495,
+            "ci_high": -41.914,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          },
+          "worst_approach_wait": {
+            "plans": 18,
+            "mean_of_plan_deltas": -18.617,
+            "plans_worse_under_arm": 0,
+            "ci_low": -20.476,
+            "ci_high": -16.741,
+            "ci_method": "percentile bootstrap, 10000 resamples, seed 20260910",
+            "ci_confidence": 0.95
+          }
+        }
+      }
+    }
+  },
+  "per_cohort": {}
+}

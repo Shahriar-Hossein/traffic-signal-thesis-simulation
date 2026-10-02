@@ -14,4 +14,6 @@ Collection plans were generated at `data/study_collection_20260929/`: seeds 401â
 
 Batch analysis of the 86 valid plans is done (2026-10-01, read-only, FPS tolerance 10%): see `docs/BATCH_ANALYSIS.md`. Priority lowers mean delay and clearance in every environment; it loses on some approaches (two_busy left, high_low_high down/left) and has a worse p95 in high_low_high.
 
-Next: state a meaningful-effect threshold, then judge CI width against it. Report n per environment and the exclusions with every result.
+On 2026-10-02, the reviewed 10% FPS / 250 ms drift analysis was exported to `results/study_collection_20260929_20261002/`: `batch_comparison.json`, readable `summary.txt`, and `analysis_manifest.json` with included-plan IDs. The export reproduces 86/100 valid plans and leaves the source collection and historical comparisons untouched. Use this batch export for report writing; `data/study/comparison.json` is not the collection summary.
+
+Next: draft Methods/Results using the export and `docs/PUBLICATION_READINESS_REVIEW.md` corrections. Resolve timing validity and credible baseline comparisons before submission; state a meaningful-effect threshold with its post-hoc status and report n per environment and exclusions.
