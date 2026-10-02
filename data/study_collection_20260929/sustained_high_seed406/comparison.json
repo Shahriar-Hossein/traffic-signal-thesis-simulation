@@ -1,0 +1,67 @@
+{
+  "plan_id": "sustained_high_seed406",
+  "scenario": "sustained_high_even_d16ae234_480",
+  "scenario_fields": {
+    "scenario": "sustained_high",
+    "skew": "even",
+    "schedule": "d16ae2348eff45039d8ee14a432378598a0483510a395ee22cf3a4e36e9cf8ec",
+    "workload": 480
+  },
+  "plan_hash": "525725803f07d97b",
+  "generation_seed": 406,
+  "prescribed_traffic_hash": "9c06168537cdb5d4852f981ef4d62e03e566a7c6578b83e5f81c84c31cda8cbe",
+  "replicate_identity": {
+    "scenario": {
+      "scenario": "sustained_high",
+      "skew": "even",
+      "schedule": "d16ae2348eff45039d8ee14a432378598a0483510a395ee22cf3a4e36e9cf8ec",
+      "workload": 480
+    },
+    "generation_seed": 406,
+    "prescribed_traffic_hash": "9c06168537cdb5d4852f981ef4d62e03e566a7c6578b83e5f81c84c31cda8cbe"
+  },
+  "cohort": {
+    "controllers": {
+      "fixed12": "fixed",
+      "fixed24": "fixed",
+      "priority": "priority"
+    },
+    "configuration_hash": [
+      "735d4761184c386efc336b93122d80f3632ddf5c9d649fbc9cbb5c9908e54afc",
+      "eb6d554f6db42d08e2dd1c9713c7640dddbfdc00aad10944f2eb3d8bd72e374b"
+    ],
+    "source_hash": [
+      "4494231c1a0708fc3ff20001659a5a4c10bcd60094d78b2f68c07af03a0629e7"
+    ],
+    "runtime_identity_hash": [
+      "c79eb759706ed263a8746c2b2925f587ed73b42f2d9c07a3ca3f6a1ba714f06a"
+    ],
+    "schema_version": 2
+  },
+  "planned_vehicle_count": 480,
+  "arm_names": [
+    "fixed12",
+    "fixed24",
+    "priority"
+  ],
+  "measurement_valid": false,
+  "timing_acceptance": {
+    "result": "accepted",
+    "reasons": [],
+    "insufficient_evidence": []
+  },
+  "publication_eligible": false,
+  "valid": false,
+  "invalid_reasons": [
+    "fixed24: release_drift_max_ms=251.04 exceeds 250.0"
+  ],
+  "analysis": {
+    "schema_version": 5,
+    "baseline": "fixed12",
+    "fps_tolerance": 0.1,
+    "drift_tolerance_ms": 250.0
+  },
+  "arms": {},
+  "paired": [],
+  "baseline_arm": null
+}

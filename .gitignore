@@ -9,4 +9,3 @@ env/
 .idea/
 .pytest_cache/
 .coverage*
-data/

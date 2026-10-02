@@ -1,0 +1,180 @@
+{
+  "plan_id": "balanced_moderate_seed417",
+  "scenario": "balanced_moderate_even_921f16a1_240",
+  "scenario_fields": {
+    "scenario": "balanced_moderate",
+    "skew": "even",
+    "schedule": "921f16a1180f2d51eec97514dff6986f9201a3f5fb26ef98bf3e1c6884dfc907",
+    "workload": 240
+  },
+  "plan_hash": "4d68f3157e3bf1fd",
+  "generation_seed": 417,
+  "prescribed_traffic_hash": "3a03a54d6a6e9101176d2d77702f3a0255c2134def90fd256550c54970aeeae7",
+  "replicate_identity": {
+    "scenario": {
+      "scenario": "balanced_moderate",
+      "skew": "even",
+      "schedule": "921f16a1180f2d51eec97514dff6986f9201a3f5fb26ef98bf3e1c6884dfc907",
+      "workload": 240
+    },
+    "generation_seed": 417,
+    "prescribed_traffic_hash": "3a03a54d6a6e9101176d2d77702f3a0255c2134def90fd256550c54970aeeae7"
+  },
+  "cohort": {
+    "controllers": {
+      "fixed12": "fixed",
+      "fixed24": "fixed",
+      "priority": "priority"
+    },
+    "configuration_hash": [
+      "735d4761184c386efc336b93122d80f3632ddf5c9d649fbc9cbb5c9908e54afc",
+      "eb6d554f6db42d08e2dd1c9713c7640dddbfdc00aad10944f2eb3d8bd72e374b"
+    ],
+    "source_hash": [
+      "4494231c1a0708fc3ff20001659a5a4c10bcd60094d78b2f68c07af03a0629e7"
+    ],
+    "runtime_identity_hash": [
+      "c79eb759706ed263a8746c2b2925f587ed73b42f2d9c07a3ca3f6a1ba714f06a"
+    ],
+    "schema_version": 2
+  },
+  "planned_vehicle_count": 240,
+  "arm_names": [
+    "fixed12",
+    "fixed24",
+    "priority"
+  ],
+  "measurement_valid": true,
+  "timing_acceptance": {
+    "result": "accepted",
+    "reasons": [],
+    "insufficient_evidence": []
+  },
+  "publication_eligible": true,
+  "valid": true,
+  "invalid_reasons": [],
+  "analysis": {
+    "schema_version": 5,
+    "baseline": "fixed12",
+    "fps_tolerance": 0.05,
+    "drift_tolerance_ms": 250.0
+  },
+  "arms": {
+    "fixed12": {
+      "controller": "fixed",
+      "duration_sec": 182.49,
+      "vehicles_logged": 240,
+      "wait_mean": 24.8,
+      "wait_median": 25.81,
+      "wait_p95": 52.71,
+      "worst_direction": "up",
+      "worst_direction_wait_mean": 27.32,
+      "direction_service_gap": 5.1,
+      "last_crossing_sec": 180.9712,
+      "wait_mean_by_direction": {
+        "down": 25.35,
+        "left": 22.22,
+        "right": 24.23,
+        "up": 27.32
+      },
+      "signal_changes": 11,
+      "fps_mean": 62.17,
+      "fps_min": 61.78,
+      "fps_windows_recorded": 181,
+      "release_drift_mean_ms": 0.13,
+      "release_drift_max_ms": 1.7,
+      "stop_reason": "target_reached"
+    },
+    "fixed24": {
+      "controller": "fixed",
+      "duration_sec": 192.52,
+      "vehicles_logged": 240,
+      "wait_mean": 36.56,
+      "wait_median": 35.85,
+      "wait_p95": 85.96,
+      "worst_direction": "left",
+      "worst_direction_wait_mean": 41.61,
+      "direction_service_gap": 10.13,
+      "last_crossing_sec": 191.0003,
+      "wait_mean_by_direction": {
+        "down": 39.47,
+        "left": 41.61,
+        "right": 34.68,
+        "up": 31.48
+      },
+      "signal_changes": 7,
+      "fps_mean": 62.22,
+      "fps_min": 61.92,
+      "fps_windows_recorded": 191,
+      "release_drift_mean_ms": 0.13,
+      "release_drift_max_ms": 2.19,
+      "stop_reason": "target_reached"
+    },
+    "priority": {
+      "controller": "priority",
+      "duration_sec": 160.66,
+      "vehicles_logged": 240,
+      "wait_mean": 21.11,
+      "wait_median": 18.12,
+      "wait_p95": 49.35,
+      "worst_direction": "down",
+      "worst_direction_wait_mean": 26.04,
+      "direction_service_gap": 9.34,
+      "last_crossing_sec": 159.1337,
+      "wait_mean_by_direction": {
+        "down": 26.04,
+        "left": 16.7,
+        "right": 24.28,
+        "up": 18.41
+      },
+      "signal_changes": 12,
+      "fps_mean": 62.18,
+      "fps_min": 61.76,
+      "fps_windows_recorded": 159,
+      "release_drift_mean_ms": 0.13,
+      "release_drift_max_ms": 1.91,
+      "stop_reason": "target_reached"
+    }
+  },
+  "paired": [
+    {
+      "baseline": "fixed12",
+      "arm": "priority",
+      "n_matched": 240,
+      "unmatched_in_baseline": 0,
+      "unmatched_in_arm": 0,
+      "rows_without_plan_seq": 0,
+      "delta_wait_mean": -3.695,
+      "delta_wait_median": 0.905,
+      "delta_wait_mean_by_direction": {
+        "down": 0.691,
+        "left": -5.519,
+        "right": 0.052,
+        "up": -8.91
+      },
+      "win_rate_priority": 0.4625,
+      "tied": 6,
+      "inference_unit": "plan"
+    },
+    {
+      "baseline": "fixed24",
+      "arm": "priority",
+      "n_matched": 240,
+      "unmatched_in_baseline": 0,
+      "unmatched_in_arm": 0,
+      "rows_without_plan_seq": 0,
+      "delta_wait_mean": -15.452,
+      "delta_wait_median": -7.585,
+      "delta_wait_mean_by_direction": {
+        "down": -13.429,
+        "left": -24.908,
+        "right": -10.4,
+        "up": -13.068
+      },
+      "win_rate_priority": 0.5958,
+      "tied": 5,
+      "inference_unit": "plan"
+    }
+  ],
+  "baseline_arm": "fixed12"
+}

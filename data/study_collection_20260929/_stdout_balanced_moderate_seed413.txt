@@ -1,0 +1,78 @@
+<frozen importlib._bootstrap>:488: RuntimeWarning: Your system is avx2 capable but pygame was not built with support for it. The performance of some of your blits could be adversely affected. Consider enabling compile time detection with environment variables like PYGAME_DETECT_AVX2=1 if you are compiling without cross compilation.
+pygame 2.5.2 (SDL 2.30.0, Python 3.12.3)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+[DEBUG] state.currentMode = 'fixed'
+Replaying plan balanced_moderate_seed413: 240 vehicles
+Traffic condition: medium (2 vehicles/sec)
+Initial all-red phase for 10 seconds to accumulate vehicles.
+Paired replay: pair = balanced_moderate_seed413 | arm = fixed12 | controller = fixed | plan = /home/shahriar/projects/traffic-signal/data/study_collection_20260929/balanced_moderate_seed413/plan.json
+Planned run: 240 vehicles | controller = fixed | load = even | timeout = 1800s
+Released all 240 planned vehicles. Generator stopping.
+Simulation ended (target_reached): 240/240 vehicles crossed in 182.5s
+<frozen importlib._bootstrap>:488: RuntimeWarning: Your system is avx2 capable but pygame was not built with support for it. The performance of some of your blits could be adversely affected. Consider enabling compile time detection with environment variables like PYGAME_DETECT_AVX2=1 if you are compiling without cross compilation.
+pygame 2.5.2 (SDL 2.30.0, Python 3.12.3)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+[DEBUG] state.currentMode = 'fixed'
+Replaying plan balanced_moderate_seed413: 240 vehicles
+Traffic condition: medium (2 vehicles/sec)
+Initial all-red phase for 10 seconds to accumulate vehicles.
+Paired replay: pair = balanced_moderate_seed413 | arm = fixed24 | controller = fixed | plan = /home/shahriar/projects/traffic-signal/data/study_collection_20260929/balanced_moderate_seed413/plan.json
+Planned run: 240 vehicles | controller = fixed | load = even | timeout = 1800s
+Released all 240 planned vehicles. Generator stopping.
+Simulation ended (target_reached): 240/240 vehicles crossed in 216.2s
+<frozen importlib._bootstrap>:488: RuntimeWarning: Your system is avx2 capable but pygame was not built with support for it. The performance of some of your blits could be adversely affected. Consider enabling compile time detection with environment variables like PYGAME_DETECT_AVX2=1 if you are compiling without cross compilation.
+pygame 2.5.2 (SDL 2.30.0, Python 3.12.3)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+[DEBUG] state.currentMode = 'priority'
+Replaying plan balanced_moderate_seed413: 240 vehicles
+Traffic condition: medium (2 vehicles/sec)
+Initial all-red phase for 10 seconds to accumulate vehicles.
+Paired replay: pair = balanced_moderate_seed413 | arm = priority | controller = priority | plan = /home/shahriar/projects/traffic-signal/data/study_collection_20260929/balanced_moderate_seed413/plan.json
+Planned run: 240 vehicles | controller = priority | load = even | timeout = 1800s
+evaluated signal order: ['down', 'right', 'up', 'left']
+Re-evaluated signal order: ['right', 'left', 'up']
+Re-evaluated signal order: ['up', 'left']
+Re-evaluated signal order: ['left']
+evaluated signal order: ['down', 'up', 'right', 'left']
+Re-evaluated signal order: ['up', 'right', 'left']
+Re-evaluated signal order: ['right', 'left']
+Re-evaluated signal order: ['left']
+evaluated signal order: ['down', 'up', 'right', 'left']
+Released all 240 planned vehicles. Generator stopping.
+Re-evaluated signal order: ['up', 'right', 'left']
+Re-evaluated signal order: ['right', 'left']
+Re-evaluated signal order: ['left']
+evaluated signal order: ['up', 'right', 'down', 'left']
+Simulation ended (target_reached): 240/240 vehicles crossed in 165.7s
+
+══ pair balanced_moderate_seed413: 240 vehicles, 3 arm(s), run one at a time ══
+
+▶ arm 'fixed12' (controller=fixed)
+  /usr/bin/python3 /home/shahriar/projects/traffic-signal/main.py --plan /home/shahriar/projects/traffic-signal/data/study_collection_20260929/balanced_moderate_seed413/plan.json --controller fixed --pair-id balanced_moderate_seed413 --arm fixed12 --paired-root /home/shahriar/projects/traffic-signal/data/study_collection_20260929 --fixed-green 12
+
+▶ arm 'fixed24' (controller=fixed)
+  /usr/bin/python3 /home/shahriar/projects/traffic-signal/main.py --plan /home/shahriar/projects/traffic-signal/data/study_collection_20260929/balanced_moderate_seed413/plan.json --controller fixed --pair-id balanced_moderate_seed413 --arm fixed24 --paired-root /home/shahriar/projects/traffic-signal/data/study_collection_20260929 --fixed-green 24
+
+▶ arm 'priority' (controller=priority)
+  /usr/bin/python3 /home/shahriar/projects/traffic-signal/main.py --plan /home/shahriar/projects/traffic-signal/data/study_collection_20260929/balanced_moderate_seed413/plan.json --controller priority --pair-id balanced_moderate_seed413 --arm priority --paired-root /home/shahriar/projects/traffic-signal/data/study_collection_20260929
+
+=== balanced_moderate_seed413 ===
+✅ valid pair
+  fixed12              240 veh  clear 180.9715s  wait mean   25.72  p95   55.42  worst    up   27.59  fps   62.2
+    direction delay: {'down': 24.28, 'left': 24.55, 'right': 26.3, 'up': 27.59}
+  fixed24              240 veh  clear 214.6295s  wait mean   41.52  p95   86.98  worst    up   46.81  fps  62.19
+    direction delay: {'down': 36.1, 'left': 44.54, 'right': 38.12, 'up': 46.81}
+  priority             240 veh  clear 164.1447s  wait mean   21.68  p95   45.69  worst  left   24.16  fps  62.18
+    direction delay: {'down': 20.11, 'left': 24.16, 'right': 23.3, 'up': 19.38}
+  paired fixed12 -> priority: n=240 Δwait mean -4.036 median -0.98 win 0.5125
+    direction Δdelay: {'down': -4.176, 'left': -0.386, 'right': -3.002, 'up': -8.208}
+  paired fixed24 -> priority: n=240 Δwait mean -19.838 median -27.79 win 0.6583
+    direction Δdelay: {'down': -15.993, 'left': -20.376, 'right': -14.823, 'up': -27.43}
+
+=== timing: balanced_moderate_seed413 ===
+  ✅ accepted
+  fixed12        fixed    phases   11 [final phase censored]  green mean   12.0 (fixed duration)  overrun max      2.9ms  release late max      1.8ms  fps   62.2/ 62.04
+  fixed24        fixed    phases    8 [final phase censored]  green mean   24.0 (fixed duration)  overrun max      6.5ms  release late max      2.2ms  fps  62.19/ 62.05
+  priority       priority phases   13 [final phase censored]  green mean   7.83 (low 5, high 0 of 6/24)  overrun max      5.0ms  release late max      1.7ms  fps  62.18/ 62.03
+  fixed12 -> fixed24: release gap max 2.1ms  different schedules: divergence 84012.7ms  order matches over prefix True (equal length False)  fps window gap p95 0.66% [comparable True]  clearance Δ 33.658s
+  fixed12 -> priority: release gap max 1.7ms  different schedules: divergence n/a  order matches over prefix False (equal length False)  fps window gap p95 0.61% [comparable True]  clearance Δ -16.827s

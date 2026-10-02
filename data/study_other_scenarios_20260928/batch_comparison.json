@@ -1,0 +1,366 @@
+{
+  "root": "/home/shahriar/projects/traffic-signal/data/study_other_scenarios_20260928",
+  "selection": [
+    "balanced_moderate_seed301"
+  ],
+  "analysis": {
+    "baseline": "fixed12",
+    "fps_tolerance": 0.05,
+    "drift_tolerance_ms": 250.0,
+    "schema_version": 5
+  },
+  "plans_total": 1,
+  "plans_valid": 1,
+  "independent_replicates_included": 1,
+  "reruns_excluded": 0,
+  "plans_invalid": [],
+  "duplicate_plans": [],
+  "invalid_by_scenario": {},
+  "inference_unit": "independent generation draw within scenario",
+  "reused_seeds_across_scenarios": [],
+  "cohorts": {
+    "{\"configuration_hash\": [\"735d4761184c386efc336b93122d80f3632ddf5c9d649fbc9cbb5c9908e54afc\", \"eb6d554f6db42d08e2dd1c9713c7640dddbfdc00aad10944f2eb3d8bd72e374b\"], \"controllers\": {\"fixed12\": \"fixed\", \"fixed24\": \"fixed\", \"priority\": \"priority\"}, \"runtime_identity_hash\": [\"c79eb759706ed263a8746c2b2925f587ed73b42f2d9c07a3ca3f6a1ba714f06a\"], \"schema_version\": 2, \"source_hash\": [\"4494231c1a0708fc3ff20001659a5a4c10bcd60094d78b2f68c07af03a0629e7\"]}": [
+      "balanced_moderate_seed301"
+    ]
+  },
+  "cohort_errors": [],
+  "per_contrast": {
+    "fixed12_vs_priority": {
+      "plans": 1,
+      "delta_wait_mean_of_plan_means": -6.226,
+      "delta_wait_median_of_plan_means": -6.226,
+      "delta_wait_sd_of_plan_means": null,
+      "plans_favouring_arm": 1,
+      "ci_low": null,
+      "ci_high": null,
+      "ci_method": "insufficient plans",
+      "ci_confidence": 0.95,
+      "delta_wait_mean_by_direction": {
+        "down": {
+          "plans": 1,
+          "mean_of_plan_deltas": -0.536,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "insufficient plans",
+          "ci_confidence": 0.95
+        },
+        "left": {
+          "plans": 1,
+          "mean_of_plan_deltas": -4.197,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "insufficient plans",
+          "ci_confidence": 0.95
+        },
+        "right": {
+          "plans": 1,
+          "mean_of_plan_deltas": -1.969,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "insufficient plans",
+          "ci_confidence": 0.95
+        },
+        "up": {
+          "plans": 1,
+          "mean_of_plan_deltas": -15.041,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "insufficient plans",
+          "ci_confidence": 0.95
+        }
+      },
+      "safeguards": {
+        "approach_service_gap": {
+          "plans": 1,
+          "mean_of_plan_deltas": -6.85,
+          "plans_worse_under_arm": 0,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "insufficient plans",
+          "ci_confidence": 0.95
+        },
+        "clearance_sec": {
+          "plans": 1,
+          "mean_of_plan_deltas": -17.812,
+          "plans_worse_under_arm": 0,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "insufficient plans",
+          "ci_confidence": 0.95
+        },
+        "wait_p95": {
+          "plans": 1,
+          "mean_of_plan_deltas": -12.57,
+          "plans_worse_under_arm": 0,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "insufficient plans",
+          "ci_confidence": 0.95
+        },
+        "worst_approach_wait": {
+          "plans": 1,
+          "mean_of_plan_deltas": -9.73,
+          "plans_worse_under_arm": 0,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "insufficient plans",
+          "ci_confidence": 0.95
+        }
+      }
+    },
+    "fixed24_vs_priority": {
+      "plans": 1,
+      "delta_wait_mean_of_plan_means": -18.795,
+      "delta_wait_median_of_plan_means": -18.795,
+      "delta_wait_sd_of_plan_means": null,
+      "plans_favouring_arm": 1,
+      "ci_low": null,
+      "ci_high": null,
+      "ci_method": "insufficient plans",
+      "ci_confidence": 0.95,
+      "delta_wait_mean_by_direction": {
+        "down": {
+          "plans": 1,
+          "mean_of_plan_deltas": -11.181,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "insufficient plans",
+          "ci_confidence": 0.95
+        },
+        "left": {
+          "plans": 1,
+          "mean_of_plan_deltas": -25.04,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "insufficient plans",
+          "ci_confidence": 0.95
+        },
+        "right": {
+          "plans": 1,
+          "mean_of_plan_deltas": -13.093,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "insufficient plans",
+          "ci_confidence": 0.95
+        },
+        "up": {
+          "plans": 1,
+          "mean_of_plan_deltas": -22.616,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "insufficient plans",
+          "ci_confidence": 0.95
+        }
+      },
+      "safeguards": {
+        "approach_service_gap": {
+          "plans": 1,
+          "mean_of_plan_deltas": -5.57,
+          "plans_worse_under_arm": 0,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "insufficient plans",
+          "ci_confidence": 0.95
+        },
+        "clearance_sec": {
+          "plans": 1,
+          "mean_of_plan_deltas": -49.996,
+          "plans_worse_under_arm": 0,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "insufficient plans",
+          "ci_confidence": 0.95
+        },
+        "wait_p95": {
+          "plans": 1,
+          "mean_of_plan_deltas": -46.62,
+          "plans_worse_under_arm": 0,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "insufficient plans",
+          "ci_confidence": 0.95
+        },
+        "worst_approach_wait": {
+          "plans": 1,
+          "mean_of_plan_deltas": -19.57,
+          "plans_worse_under_arm": 0,
+          "ci_low": null,
+          "ci_high": null,
+          "ci_method": "insufficient plans",
+          "ci_confidence": 0.95
+        }
+      }
+    }
+  },
+  "per_scenario": {
+    "balanced_moderate_even_921f16a1_240": {
+      "fixed12_vs_priority": {
+        "plans": 1,
+        "delta_wait_mean_of_plan_means": -6.226,
+        "delta_wait_median_of_plan_means": -6.226,
+        "delta_wait_sd_of_plan_means": null,
+        "plans_favouring_arm": 1,
+        "ci_low": null,
+        "ci_high": null,
+        "ci_method": "insufficient plans",
+        "ci_confidence": 0.95,
+        "delta_wait_mean_by_direction": {
+          "down": {
+            "plans": 1,
+            "mean_of_plan_deltas": -0.536,
+            "ci_low": null,
+            "ci_high": null,
+            "ci_method": "insufficient plans",
+            "ci_confidence": 0.95
+          },
+          "left": {
+            "plans": 1,
+            "mean_of_plan_deltas": -4.197,
+            "ci_low": null,
+            "ci_high": null,
+            "ci_method": "insufficient plans",
+            "ci_confidence": 0.95
+          },
+          "right": {
+            "plans": 1,
+            "mean_of_plan_deltas": -1.969,
+            "ci_low": null,
+            "ci_high": null,
+            "ci_method": "insufficient plans",
+            "ci_confidence": 0.95
+          },
+          "up": {
+            "plans": 1,
+            "mean_of_plan_deltas": -15.041,
+            "ci_low": null,
+            "ci_high": null,
+            "ci_method": "insufficient plans",
+            "ci_confidence": 0.95
+          }
+        },
+        "safeguards": {
+          "approach_service_gap": {
+            "plans": 1,
+            "mean_of_plan_deltas": -6.85,
+            "plans_worse_under_arm": 0,
+            "ci_low": null,
+            "ci_high": null,
+            "ci_method": "insufficient plans",
+            "ci_confidence": 0.95
+          },
+          "clearance_sec": {
+            "plans": 1,
+            "mean_of_plan_deltas": -17.812,
+            "plans_worse_under_arm": 0,
+            "ci_low": null,
+            "ci_high": null,
+            "ci_method": "insufficient plans",
+            "ci_confidence": 0.95
+          },
+          "wait_p95": {
+            "plans": 1,
+            "mean_of_plan_deltas": -12.57,
+            "plans_worse_under_arm": 0,
+            "ci_low": null,
+            "ci_high": null,
+            "ci_method": "insufficient plans",
+            "ci_confidence": 0.95
+          },
+          "worst_approach_wait": {
+            "plans": 1,
+            "mean_of_plan_deltas": -9.73,
+            "plans_worse_under_arm": 0,
+            "ci_low": null,
+            "ci_high": null,
+            "ci_method": "insufficient plans",
+            "ci_confidence": 0.95
+          }
+        }
+      },
+      "fixed24_vs_priority": {
+        "plans": 1,
+        "delta_wait_mean_of_plan_means": -18.795,
+        "delta_wait_median_of_plan_means": -18.795,
+        "delta_wait_sd_of_plan_means": null,
+        "plans_favouring_arm": 1,
+        "ci_low": null,
+        "ci_high": null,
+        "ci_method": "insufficient plans",
+        "ci_confidence": 0.95,
+        "delta_wait_mean_by_direction": {
+          "down": {
+            "plans": 1,
+            "mean_of_plan_deltas": -11.181,
+            "ci_low": null,
+            "ci_high": null,
+            "ci_method": "insufficient plans",
+            "ci_confidence": 0.95
+          },
+          "left": {
+            "plans": 1,
+            "mean_of_plan_deltas": -25.04,
+            "ci_low": null,
+            "ci_high": null,
+            "ci_method": "insufficient plans",
+            "ci_confidence": 0.95
+          },
+          "right": {
+            "plans": 1,
+            "mean_of_plan_deltas": -13.093,
+            "ci_low": null,
+            "ci_high": null,
+            "ci_method": "insufficient plans",
+            "ci_confidence": 0.95
+          },
+          "up": {
+            "plans": 1,
+            "mean_of_plan_deltas": -22.616,
+            "ci_low": null,
+            "ci_high": null,
+            "ci_method": "insufficient plans",
+            "ci_confidence": 0.95
+          }
+        },
+        "safeguards": {
+          "approach_service_gap": {
+            "plans": 1,
+            "mean_of_plan_deltas": -5.57,
+            "plans_worse_under_arm": 0,
+            "ci_low": null,
+            "ci_high": null,
+            "ci_method": "insufficient plans",
+            "ci_confidence": 0.95
+          },
+          "clearance_sec": {
+            "plans": 1,
+            "mean_of_plan_deltas": -49.996,
+            "plans_worse_under_arm": 0,
+            "ci_low": null,
+            "ci_high": null,
+            "ci_method": "insufficient plans",
+            "ci_confidence": 0.95
+          },
+          "wait_p95": {
+            "plans": 1,
+            "mean_of_plan_deltas": -46.62,
+            "plans_worse_under_arm": 0,
+            "ci_low": null,
+            "ci_high": null,
+            "ci_method": "insufficient plans",
+            "ci_confidence": 0.95
+          },
+          "worst_approach_wait": {
+            "plans": 1,
+            "mean_of_plan_deltas": -19.57,
+            "plans_worse_under_arm": 0,
+            "ci_low": null,
+            "ci_high": null,
+            "ci_method": "insufficient plans",
+            "ci_confidence": 0.95
+          }
+        }
+      }
+    }
+  },
+  "per_cohort": {}
+}

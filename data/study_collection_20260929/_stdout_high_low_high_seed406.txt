@@ -1,0 +1,74 @@
+<frozen importlib._bootstrap>:488: RuntimeWarning: Your system is avx2 capable but pygame was not built with support for it. The performance of some of your blits could be adversely affected. Consider enabling compile time detection with environment variables like PYGAME_DETECT_AVX2=1 if you are compiling without cross compilation.
+pygame 2.5.2 (SDL 2.30.0, Python 3.12.3)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+[DEBUG] state.currentMode = 'fixed'
+Replaying plan high_low_high_seed406: 383 vehicles
+Traffic condition: high (4 vehicles/sec)
+Initial all-red phase for 10 seconds to accumulate vehicles.
+Paired replay: pair = high_low_high_seed406 | arm = fixed12 | controller = fixed | plan = /home/shahriar/projects/traffic-signal/data/study_collection_20260929/high_low_high_seed406/plan.json
+Planned run: 383 vehicles | controller = fixed | load = even | timeout = 1800s
+Traffic condition: low (0.5 vehicles/sec)
+Traffic condition: high (4 vehicles/sec)
+Released all 383 planned vehicles. Generator stopping.
+Simulation ended (target_reached): 383/383 vehicles crossed in 218.4s
+<frozen importlib._bootstrap>:488: RuntimeWarning: Your system is avx2 capable but pygame was not built with support for it. The performance of some of your blits could be adversely affected. Consider enabling compile time detection with environment variables like PYGAME_DETECT_AVX2=1 if you are compiling without cross compilation.
+pygame 2.5.2 (SDL 2.30.0, Python 3.12.3)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+[DEBUG] state.currentMode = 'fixed'
+Replaying plan high_low_high_seed406: 383 vehicles
+Traffic condition: high (4 vehicles/sec)
+Initial all-red phase for 10 seconds to accumulate vehicles.
+Paired replay: pair = high_low_high_seed406 | arm = fixed24 | controller = fixed | plan = /home/shahriar/projects/traffic-signal/data/study_collection_20260929/high_low_high_seed406/plan.json
+Planned run: 383 vehicles | controller = fixed | load = even | timeout = 1800s
+Traffic condition: low (0.5 vehicles/sec)
+Traffic condition: high (4 vehicles/sec)
+Released all 383 planned vehicles. Generator stopping.
+Simulation ended (target_reached): 383/383 vehicles crossed in 222.7s
+<frozen importlib._bootstrap>:488: RuntimeWarning: Your system is avx2 capable but pygame was not built with support for it. The performance of some of your blits could be adversely affected. Consider enabling compile time detection with environment variables like PYGAME_DETECT_AVX2=1 if you are compiling without cross compilation.
+pygame 2.5.2 (SDL 2.30.0, Python 3.12.3)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+[DEBUG] state.currentMode = 'priority'
+Replaying plan high_low_high_seed406: 383 vehicles
+Traffic condition: high (4 vehicles/sec)
+Initial all-red phase for 10 seconds to accumulate vehicles.
+Paired replay: pair = high_low_high_seed406 | arm = priority | controller = priority | plan = /home/shahriar/projects/traffic-signal/data/study_collection_20260929/high_low_high_seed406/plan.json
+Planned run: 383 vehicles | controller = priority | load = even | timeout = 1800s
+evaluated signal order: ['left', 'right', 'up', 'down']
+Re-evaluated signal order: ['right', 'down', 'up']
+Re-evaluated signal order: ['up', 'down']
+Traffic condition: low (0.5 vehicles/sec)
+Re-evaluated signal order: ['down']
+evaluated signal order: ['left', 'right', 'up', 'down']
+Traffic condition: high (4 vehicles/sec)
+Re-evaluated signal order: ['right', 'up', 'down']
+Re-evaluated signal order: ['up', 'down']
+Re-evaluated signal order: ['down']
+Released all 383 planned vehicles. Generator stopping.
+evaluated signal order: ['left', 'right', 'up', 'down']
+Re-evaluated signal order: ['right', 'up', 'down']
+Re-evaluated signal order: ['up', 'down']
+Re-evaluated signal order: ['down']
+Simulation ended (target_reached): 383/383 vehicles crossed in 205.6s
+
+══ pair high_low_high_seed406: 383 vehicles, 3 arm(s), run one at a time ══
+
+▶ arm 'fixed12' (controller=fixed)
+  /usr/bin/python3 /home/shahriar/projects/traffic-signal/main.py --plan /home/shahriar/projects/traffic-signal/data/study_collection_20260929/high_low_high_seed406/plan.json --controller fixed --pair-id high_low_high_seed406 --arm fixed12 --paired-root /home/shahriar/projects/traffic-signal/data/study_collection_20260929 --fixed-green 12
+
+▶ arm 'fixed24' (controller=fixed)
+  /usr/bin/python3 /home/shahriar/projects/traffic-signal/main.py --plan /home/shahriar/projects/traffic-signal/data/study_collection_20260929/high_low_high_seed406/plan.json --controller fixed --pair-id high_low_high_seed406 --arm fixed24 --paired-root /home/shahriar/projects/traffic-signal/data/study_collection_20260929 --fixed-green 24
+
+▶ arm 'priority' (controller=priority)
+  /usr/bin/python3 /home/shahriar/projects/traffic-signal/main.py --plan /home/shahriar/projects/traffic-signal/data/study_collection_20260929/high_low_high_seed406/plan.json --controller priority --pair-id high_low_high_seed406 --arm priority --paired-root /home/shahriar/projects/traffic-signal/data/study_collection_20260929
+
+=== high_low_high_seed406 ===
+⛔ INVALID — reported, not averaged in:
+   - priority: release_drift_max_ms=271.96 exceeds 250.0
+
+=== timing: high_low_high_seed406 ===
+  ✅ accepted
+  fixed12        fixed    phases   13 [final phase censored]  green mean   12.0 (fixed duration)  overrun max      7.0ms  release late max    232.3ms  fps  61.93/ 61.75
+  fixed24        fixed    phases    8 [final phase censored]  green mean   24.0 (fixed duration)  overrun max     13.2ms  release late max     69.8ms  fps  62.03/ 61.82
+  priority       priority phases   12 [final phase censored]  green mean  12.55 (low 1, high 0 of 6/24)  overrun max      5.5ms  release late max    272.0ms  fps  61.97/ 61.84
+  fixed12 -> fixed24: release gap max 162.5ms  different schedules: divergence 84046.6ms  order matches over prefix True (equal length False)  fps window gap p95 0.91% [comparable True]  clearance Δ 4.266s
+  fixed12 -> priority: release gap max 39.7ms  different schedules: divergence n/a  order matches over prefix False (equal length False)  fps window gap p95 1.05% [comparable True]  clearance Δ -12.877s
